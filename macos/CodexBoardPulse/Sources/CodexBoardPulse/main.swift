@@ -1051,7 +1051,7 @@ struct SlimAccountCardView: View {
                         .frame(width: 18, height: 18)
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.small)
+                .controlSize(.regular)
 
                 if let tag = compactAccountTag(for: account) {
                     Text(tag)
