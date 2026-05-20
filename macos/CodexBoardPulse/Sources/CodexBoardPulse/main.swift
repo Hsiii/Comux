@@ -582,37 +582,36 @@ final class PulseCoordinator: ObservableObject {
         existing: CachePayload,
         incoming: [AccountSnapshot]
     ) -> CachePayload {
-        let incomingByID = Dictionary(uniqueKeysWithValues: incoming.map { ($0.accountId, $0) })
-        var mergedAccounts: [AccountSnapshot] = []
-
-        for account in existing.accounts {
-            guard let replacement = incomingByID[account.accountId] else {
-                mergedAccounts.append(account)
-                continue
+        var existingByIdentity = Dictionary(
+            uniqueKeysWithValues: existing.accounts.map {
+                (canonicalAccountIdentity(for: $0), $0)
             }
+        )
 
-            mergedAccounts.append(
-                AccountSnapshot(
-                    accountId: replacement.accountId,
-                    label: replacement.label,
-                    email: replacement.email,
-                    workspaceLabel: replacement.workspaceLabel,
-                    plan: replacement.plan,
-                    color: replacement.color,
-                    source: replacement.source,
-                    lastSyncedAt: replacement.lastSyncedAt,
-                    weeklyWindow: replacement.weeklyWindow,
-                    rollingWindow: replacement.rollingWindow,
-                    pace: replacement.pace,
-                    history: self.mergedHistory(existing: account.history, next: replacement.history.first)
+        for snapshot in incoming {
+            let identity = canonicalAccountIdentity(for: snapshot)
+            let prior = existingByIdentity[identity]
+
+            existingByIdentity[identity] = AccountSnapshot(
+                accountId: snapshot.accountId,
+                label: snapshot.label,
+                email: snapshot.email,
+                workspaceLabel: snapshot.workspaceLabel,
+                plan: snapshot.plan,
+                color: snapshot.color,
+                source: snapshot.source,
+                lastSyncedAt: snapshot.lastSyncedAt,
+                weeklyWindow: snapshot.weeklyWindow,
+                rollingWindow: snapshot.rollingWindow,
+                pace: snapshot.pace,
+                history: self.mergedHistory(
+                    existing: prior?.history ?? [],
+                    next: snapshot.history.first
                 )
             )
         }
 
-        for snapshot in incoming where !mergedAccounts.contains(where: { $0.accountId == snapshot.accountId }) {
-            mergedAccounts.append(snapshot)
-        }
-
+        var mergedAccounts = Array(existingByIdentity.values)
         mergedAccounts.sort { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
 
         return CachePayload(
@@ -710,6 +709,13 @@ private func displayWindowLabel(for window: UsageWindow) -> String {
     }
 
     return window.label
+}
+
+private func canonicalAccountIdentity(for account: AccountSnapshot) -> String {
+    [
+        account.email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+        account.plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    ].joined(separator: "::")
 }
 
 private func tierLabel(for plan: String) -> String {
@@ -1046,9 +1052,11 @@ struct SlimAccountCardView: View {
                     onEdit()
                 } label: {
                     Image(systemName: "pencil")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 18, height: 18)
                 }
                 .buttonStyle(.bordered)
-                .controlSize(.mini)
+                .controlSize(.small)
 
                 if let tag = compactAccountTag(for: account) {
                     Text(tag)
