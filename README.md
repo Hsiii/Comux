@@ -6,7 +6,7 @@ usage-fetch approach from CodexBar, then pushes normalized snapshots to
 Supabase so the dashboard can be fetched from anywhere:
 
 - the current system account is discovered automatically from `~/.codex/auth.json`
-- the native Swift app can upsert snapshots to Supabase
+- the native Swift app can push snapshots to a Supabase Edge Function
 - extra accounts are synced independently
 - the browser UI can read from Supabase with no localhost dependency
 
@@ -27,8 +27,8 @@ Supabase so the dashboard can be fetched from anywhere:
 2. The same app can run extra-account loops using per-account ChatGPT cookies.
 3. Each result is normalized into the shared account snapshot schema.
 4. The Swift app stores snapshots in `~/.codexboard/cache.json`.
-5. If `~/.codexboard/supabase.json` exists, the same snapshots are upserted to
-   Supabase through the REST API.
+5. If `~/.codexboard/supabase.json` exists, the same snapshots are posted to a
+   Supabase Edge Function.
 6. The Vite app reads from Supabase when `VITE_SUPABASE_URL` and
    `VITE_SUPABASE_PUBLISHABLE_KEY` are set, and falls back to the local cache
    API otherwise.
@@ -79,11 +79,15 @@ Then create `~/.codexboard/supabase.json` from
 
 ```json
 {
-    "projectURL": "https://your-project-ref.supabase.co",
-    "writeAccessToken": "your-service-role-or-user-jwt",
-    "tableName": "codex_account_snapshots"
+    "functionURL": "https://your-project-ref.supabase.co/functions/v1/ingest-codex-snapshot",
+    "tokenID": "desktop-default",
+    "token": "replace-with-your-ingest-token"
 }
 ```
+
+The function validates the token server-side, then upserts into
+`public.codex_account_snapshots` with the project service role kept inside the
+function runtime.
 
 To point the web dashboard at Supabase:
 
@@ -98,7 +102,7 @@ VITE_SUPABASE_SNAPSHOTS_TABLE=codex_account_snapshots
 - The native Swift app is the source of truth for collection.
 - The current system account is pulled automatically from local Codex auth.
 - Extra-account cookies stay in the native config, not in the browser UI.
-- Supabase write credentials should stay in `~/.codexboard/supabase.json`, not
-  in the repo or frontend env.
+- The native app should only keep the ingest token in
+  `~/.codexboard/supabase.json`, not a Supabase service key.
 - The bundled sample data is synthetic and only exists to make the app usable
   before live sync is wired up.

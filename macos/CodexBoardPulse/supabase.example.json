@@ -1,5 +1,5 @@
 {
-    "projectURL": "https://your-project-ref.supabase.co",
-    "writeAccessToken": "your-service-role-or-user-jwt",
-    "tableName": "codex_account_snapshots"
+    "functionURL": "https://your-project-ref.supabase.co/functions/v1/ingest-codex-snapshot",
+    "tokenID": "desktop-default",
+    "token": "replace-with-your-ingest-token"
 }

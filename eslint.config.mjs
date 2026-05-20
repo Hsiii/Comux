@@ -4,7 +4,12 @@ export default [
     ...completeConfigBase,
 
     {
-        ignores: ['dist/**', 'node_modules/**', 'server.mjs'],
+        ignores: [
+            'dist/**',
+            'node_modules/**',
+            'server.mjs',
+            'supabase/functions/**',
+        ],
     },
 
     {

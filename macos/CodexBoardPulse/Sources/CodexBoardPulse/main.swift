@@ -78,13 +78,13 @@ struct PulseConfig: Codable {
 }
 
 struct SupabaseConfig: Codable {
-    let projectURL: String
-    let writeAccessToken: String
-    let tableName: String?
+    let functionURL: String
+    let tokenID: String
+    let token: String
+}
 
-    var resolvedTableName: String {
-        self.tableName ?? "codex_account_snapshots"
-    }
+struct SupabaseFunctionPayload: Codable {
+    let accounts: [AccountSnapshot]
 }
 
 struct SystemAuthIdentity {
@@ -641,71 +641,33 @@ final class PulseCoordinator: ObservableObject {
             return
         }
 
-        let rows = cache.accounts.map { account in
-            SupabaseAccountRow(
-                accountID: account.accountId,
-                color: account.color,
-                email: account.email,
-                history: account.history,
-                label: account.label,
-                lastSyncedAt: account.lastSyncedAt,
-                pace: account.pace,
-                plan: account.plan,
-                rollingWindow: account.rollingWindow,
-                source: account.source,
-                weeklyWindow: account.weeklyWindow,
-                workspaceLabel: account.workspaceLabel
-            )
-        }
-
-        guard !rows.isEmpty else {
+        guard !cache.accounts.isEmpty else {
             return
         }
 
-        let url = URL(string: "\(config.projectURL)/rest/v1/\(config.resolvedTableName)?on_conflict=account_id")!
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(config.writeAccessToken, forHTTPHeaderField: "apikey")
-        request.setValue("Bearer \(config.writeAccessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("resolution=merge-duplicates,return=minimal", forHTTPHeaderField: "Prefer")
-        request.httpBody = try self.encoder.encode(rows)
-
-        let (_, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse, 200 ..< 300 ~= httpResponse.statusCode else {
+        guard let url = URL(string: config.functionURL) else {
             throw PulseError.invalidUsageResponse
         }
-    }
-}
 
-struct SupabaseAccountRow: Codable {
-    let accountID: String
-    let color: String
-    let email: String
-    let history: [HistorySnapshot]
-    let label: String
-    let lastSyncedAt: String
-    let pace: PaceSnapshot
-    let plan: String
-    let rollingWindow: UsageWindow
-    let source: String
-    let weeklyWindow: UsageWindow
-    let workspaceLabel: String
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(config.tokenID, forHTTPHeaderField: "x-codexboard-token-id")
+        request.setValue(config.token, forHTTPHeaderField: "x-codexboard-token")
+        request.httpBody = try self.encoder.encode(
+            SupabaseFunctionPayload(accounts: cache.accounts)
+        )
 
-    enum CodingKeys: String, CodingKey {
-        case accountID = "account_id"
-        case color
-        case email
-        case history
-        case label
-        case lastSyncedAt = "last_synced_at"
-        case pace
-        case plan
-        case rollingWindow = "rolling_window"
-        case source
-        case weeklyWindow = "weekly_window"
-        case workspaceLabel = "workspace_label"
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              200 ..< 300 ~= httpResponse.statusCode
+        else {
+            if let message = String(data: data, encoding: .utf8), !message.isEmpty {
+                print("Supabase ingest failed: \(message)")
+            }
+            throw PulseError.invalidUsageResponse
+        }
     }
 }
 
