@@ -876,59 +876,64 @@ struct WindowCardView: View {
 struct AccountEditorView: View {
     let account: AccountSnapshot
     let initialNickname: String
+    let onCancel: () -> Void
     let onSave: (String) -> Void
 
-    @Environment(\.dismiss) private var dismiss
+    @FocusState private var nicknameFieldFocused: Bool
     @State private var draftNickname: String
 
     init(
         account: AccountSnapshot,
         initialNickname: String,
+        onCancel: @escaping () -> Void,
         onSave: @escaping (String) -> Void
     ) {
         self.account = account
         self.initialNickname = initialNickname
+        self.onCancel = onCancel
         self.onSave = onSave
         self._draftNickname = State(initialValue: initialNickname)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Edit nickname")
-                .font(.title3.weight(.semibold))
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Email")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(account.email)
-                    .font(.body)
-            }
-
             VStack(alignment: .leading, spacing: 6) {
                 Text("Nickname")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 TextField("Nickname", text: self.$draftNickname)
+                    .focused(self.$nicknameFieldFocused)
                     .textFieldStyle(.roundedBorder)
             }
+
+            Text(account.email)
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             HStack {
                 Spacer()
 
                 Button("Cancel") {
-                    dismiss()
+                    onCancel()
                 }
 
                 Button("Save") {
                     onSave(self.draftNickname)
-                    dismiss()
                 }
                 .buttonStyle(.borderedProminent)
             }
         }
-        .padding(20)
-        .frame(width: 320)
+        .padding(16)
+        .frame(width: 300)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .strokeBorder(Color.white.opacity(0.12))
+        }
+        .onAppear {
+            self.nicknameFieldFocused = true
+        }
     }
 }
 
@@ -1112,22 +1117,35 @@ struct PulseMenuView: View {
     @State private var editingAccount: AccountSnapshot?
 
     var body: some View {
-        SlimDashboardPanelView(
-            coordinator: coordinator,
-            nicknameStore: nicknameStore,
-            editingAccount: self.$editingAccount
-        )
+        ZStack {
+            SlimDashboardPanelView(
+                coordinator: coordinator,
+                nicknameStore: nicknameStore,
+                editingAccount: self.$editingAccount
+            )
+
+            if let account = self.editingAccount {
+                Color.black.opacity(0.24)
+                    .ignoresSafeArea()
+
+                AccountEditorView(
+                    account: account,
+                    initialNickname: nicknameStore.nickname(for: account),
+                    onCancel: {
+                        self.editingAccount = nil
+                    },
+                    onSave: { nickname in
+                        nicknameStore.saveNickname(nickname, for: account)
+                        self.editingAccount = nil
+                    }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                .zIndex(1)
+            }
+        }
         .frame(width: 440, height: 620)
         .background(.clear)
-        .sheet(item: self.$editingAccount) { account in
-            AccountEditorView(
-                account: account,
-                initialNickname: nicknameStore.nickname(for: account),
-                onSave: { nickname in
-                    nicknameStore.saveNickname(nickname, for: account)
-                }
-            )
-        }
+        .animation(.easeOut(duration: 0.16), value: self.editingAccount != nil)
     }
 }
 
