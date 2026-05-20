@@ -913,18 +913,16 @@ struct AccountEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Nickname")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                TextField("Nickname", text: self.$draftNickname)
-                    .focused(self.$nicknameFieldFocused)
-                    .textFieldStyle(.roundedBorder)
-            }
+            Text("Edit Nickname")
+                .font(.title3.weight(.semibold))
 
             Text(account.email)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            TextField(account.label, text: self.$draftNickname)
+                .focused(self.$nicknameFieldFocused)
+                .textFieldStyle(.roundedBorder)
 
             HStack {
                 Spacer()
