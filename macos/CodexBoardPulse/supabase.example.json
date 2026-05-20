@@ -1,0 +1,5 @@
+{
+    "projectURL": "https://your-project-ref.supabase.co",
+    "writeAccessToken": "your-service-role-or-user-jwt",
+    "tableName": "codex_account_snapshots"
+}
