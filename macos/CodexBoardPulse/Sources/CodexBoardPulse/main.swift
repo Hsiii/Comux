@@ -271,7 +271,7 @@ final class PulseCoordinator: ObservableObject {
             accountID: rawUsage["account_id"] as? String ?? identity.accountId ?? identity.subject ?? UUID().uuidString,
             label: identity.name ?? rawUsage["email"] as? String ?? identity.email ?? "Current system account",
             email: rawUsage["email"] as? String ?? identity.email ?? "Unknown account",
-            workspaceLabel: "Ambient ~/.codex session",
+            workspaceLabel: "",
             plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
             color: "#8cf5b0",
             source: "live system auth",
@@ -742,6 +742,11 @@ private func compactAccountTag(for account: AccountSnapshot) -> String? {
     }
 
     let workspace = account.workspaceLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+
+    if workspace == "Ambient ~/.codex session" {
+        return tier == "Team" ? nil : tier
+    }
+
     return workspace.isEmpty ? tier : workspace
 }
 
