@@ -653,6 +653,20 @@ private func remainingPercentage(for window: UsageWindow) -> Int {
     Int(round(clampPercentage(100 - window.usedPercentage)))
 }
 
+private func displayWindowLabel(for window: UsageWindow) -> String {
+    let label = window.label.lowercased()
+
+    if label.contains("week") {
+        return "Weekly"
+    }
+
+    if label.contains("5-hour") || label.contains("5h") {
+        return "5h"
+    }
+
+    return window.label
+}
+
 private func tierLabel(for plan: String) -> String {
     let normalized = plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 
@@ -757,7 +771,7 @@ struct WindowCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 8 : 10) {
             HStack {
-                Text(window.label)
+                Text(displayWindowLabel(for: window))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -952,8 +966,10 @@ struct SlimAccountCardView: View {
                     .font(.headline.weight(.semibold))
                     .lineLimit(1)
 
-                Button("Edit") {
+                Button {
                     onEdit()
+                } label: {
+                    Image(systemName: "pencil")
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.mini)
@@ -990,15 +1006,8 @@ struct SlimDashboardPanelView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.11, blue: 0.16),
-                    Color(red: 0.04, green: 0.06, blue: 0.09),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            Color.clear
+                .ignoresSafeArea()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
@@ -1116,6 +1125,7 @@ struct PulseMenuView: View {
             editingAccount: self.$editingAccount
         )
         .frame(width: 440, height: 620)
+        .background(.clear)
         .sheet(item: self.$editingAccount) { account in
             AccountEditorView(
                 account: account,
