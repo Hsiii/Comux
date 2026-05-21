@@ -31,7 +31,7 @@ struct WindowCardView: View {
                         .mask(alignment: .leading) {
                             RoundedRectangle(cornerRadius: 999)
                                 .frame(
-                                    width: geometry.size.width * CGFloat(Double(remainingPercentage(for: window)) / 100)
+                                    width: geometry.size.width * CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
                                 )
                         }
                     if showsExpectedOverlay {
@@ -72,7 +72,7 @@ struct WindowCardView: View {
     }
 
     private var showsExpectedOverlay: Bool {
-        expectedRemainingPercentage(for: window) < Double(remainingPercentage(for: window))
+        expectedRemainingPercentage(for: window) < Double(displayRemainingPercentage(for: window))
     }
 
     private var expectedBarColor: Color {

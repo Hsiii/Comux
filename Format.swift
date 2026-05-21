@@ -45,8 +45,24 @@ func remainingPercentage(for window: UsageWindow) -> Int {
     Int(round(clampPercentage(100 - window.usedPercentage)))
 }
 
+func hasJustReset(_ window: UsageWindow, now: Date = Date()) -> Bool {
+    guard let resetDate = ISO8601DateFormatter().date(from: window.resetsAt) else {
+        return false
+    }
+
+    return resetDate <= now
+}
+
+func displayRemainingPercentage(for window: UsageWindow) -> Int {
+    hasJustReset(window) ? 100 : remainingPercentage(for: window)
+}
+
 func windowStatusText(for window: UsageWindow) -> String {
-    let remaining = remainingPercentage(for: window)
+    if hasJustReset(window) {
+        return "Fresh"
+    }
+
+    let remaining = displayRemainingPercentage(for: window)
     let percentageText = "\(remaining)%"
 
     guard remaining < 100 else {
@@ -54,10 +70,6 @@ func windowStatusText(for window: UsageWindow) -> String {
     }
 
     let countdown = formatCountdown(window.resetsAt)
-
-    if countdown == "just reset" {
-        return "\(percentageText) • just reset"
-    }
 
     return "\(percentageText) • resets in \(countdown)"
 }
