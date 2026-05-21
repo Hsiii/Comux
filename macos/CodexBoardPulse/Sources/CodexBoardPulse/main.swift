@@ -100,6 +100,15 @@ struct WindowPair {
     let rollingWindow: UsageWindow
 }
 
+struct WorkspaceIdentity: Decodable {
+    let items: [WorkspaceItem]
+}
+
+struct WorkspaceItem: Decodable {
+    let id: String
+    let name: String?
+}
+
 enum PulseError: Error, LocalizedError {
     case invalidAuthFile
     case invalidSessionToken
@@ -266,13 +275,19 @@ final class PulseCoordinator: ObservableObject {
             usageEndpoint: "https://chatgpt.com/backend-api/wham/usage",
             accountHeader: nil
         )
+        let workspaceAccountID = (rawUsage["account_id"] as? String) ?? identity.accountId
+        let workspaceLabel = try await self.fetchWorkspaceLabel(
+            accessToken: identity.accessToken,
+            cookieHeader: nil,
+            workspaceAccountID: workspaceAccountID
+        ) ?? self.defaultWorkspaceLabel(for: identity)
 
         return try self.normalizeUsage(
             rawUsage,
             accountID: rawUsage["account_id"] as? String ?? identity.accountId ?? identity.subject ?? UUID().uuidString,
             label: identity.name ?? rawUsage["email"] as? String ?? identity.email ?? "Current system account",
             email: rawUsage["email"] as? String ?? identity.email ?? "Unknown account",
-            workspaceLabel: self.defaultWorkspaceLabel(for: identity),
+            workspaceLabel: workspaceLabel,
             plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
             color: "#8cf5b0",
             source: "live system auth",
@@ -288,13 +303,21 @@ final class PulseCoordinator: ObservableObject {
             usageEndpoint: account.usageEndpoint ?? "https://chatgpt.com/backend-api/wham/usage",
             accountHeader: account.accountHeader
         )
+        let workspaceAccountID = account.accountHeader?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            ? account.accountHeader?.trimmingCharacters(in: .whitespacesAndNewlines)
+            : (rawUsage["account_id"] as? String)
+        let workspaceLabel = try await self.fetchWorkspaceLabel(
+            accessToken: accessToken,
+            cookieHeader: account.chatGPTCookie,
+            workspaceAccountID: workspaceAccountID
+        ) ?? account.workspaceLabel
 
         return try self.normalizeUsage(
             rawUsage,
             accountID: account.id,
             label: account.label,
             email: account.email,
-            workspaceLabel: account.workspaceLabel,
+            workspaceLabel: workspaceLabel,
             plan: account.plan,
             color: account.color,
             source: account.source ?? "native cookie sync",
@@ -395,6 +418,48 @@ final class PulseCoordinator: ObservableObject {
         }
 
         return payload
+    }
+
+    private func fetchWorkspaceLabel(
+        accessToken: String,
+        cookieHeader: String?,
+        workspaceAccountID: String?
+    ) async throws -> String? {
+        var request = URLRequest(url: URL(string: "https://chatgpt.com/backend-api/accounts")!)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 20
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("codex-cli", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        if let cookieHeader, !cookieHeader.isEmpty {
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        }
+
+        if let workspaceAccountID = self.normalizeWorkspaceAccountID(workspaceAccountID) {
+            request.setValue(workspaceAccountID, forHTTPHeaderField: "ChatGPT-Account-Id")
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200..<300).contains(httpResponse.statusCode)
+        else {
+            return nil
+        }
+
+        let payload = try JSONDecoder().decode(WorkspaceIdentity.self, from: data)
+        let normalizedWorkspaceAccountID = self.normalizeWorkspaceAccountID(workspaceAccountID)
+
+        let matchingWorkspace = payload.items.first { item in
+            self.normalizeWorkspaceAccountID(item.id) == normalizedWorkspaceAccountID
+        } ?? payload.items.first
+
+        guard let matchingWorkspace else {
+            return nil
+        }
+
+        let trimmedName = matchingWorkspace.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmedName.isEmpty ? "Personal" : trimmedName
     }
 
     private func normalizeUsage(
@@ -554,6 +619,16 @@ final class PulseCoordinator: ObservableObject {
         }
 
         return ""
+    }
+
+    private func normalizeWorkspaceAccountID(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty
+        else {
+            return nil
+        }
+
+        return trimmed.lowercased()
     }
 
     private func buildWindow(label: String, rawWindow: [String: Any]?) -> UsageWindow {
