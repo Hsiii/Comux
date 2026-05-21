@@ -13,16 +13,7 @@ struct SlimDashboardPanelView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    NextResetSectionView(
-                        accounts: coordinator.cache.accounts,
-                        nicknameStore: nicknameStore
-                    )
-
-                    Text("ACCOUNTS")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.secondary)
-
-                    ForEach(coordinator.cache.accounts) { account in
+                    ForEach(sortedAccounts) { account in
                         SlimAccountCardView(
                             account: account,
                             displayName: nicknameStore.displayName(for: account)
@@ -52,6 +43,12 @@ struct SlimDashboardPanelView: View {
         .preferredColorScheme(.dark)
         .task {
             await coordinator.syncNow()
+        }
+    }
+
+    private var sortedAccounts: [AccountSnapshot] {
+        sortedAccountsByResetTime(coordinator.cache.accounts) { account in
+            nicknameStore.displayName(for: account)
         }
     }
 }

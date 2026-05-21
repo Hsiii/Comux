@@ -165,6 +165,50 @@ func nextResetWindow(for account: AccountSnapshot) -> UsageWindow {
     return rollingReset <= weeklyReset ? account.rollingWindow : account.weeklyWindow
 }
 
+func isFreshResetWindow(_ window: UsageWindow, now: Date = Date()) -> Bool {
+    guard window.available,
+          window.usedMinutes == 0,
+          remainingPercentage(for: window) == 100,
+          let resetDate = ISO8601DateFormatter().date(from: window.resetsAt)
+    else {
+        return false
+    }
+
+    return resetDate <= now
+}
+
+func sortedAccountsByResetTime(
+    _ accounts: [AccountSnapshot],
+    displayName: (AccountSnapshot) -> String
+) -> [AccountSnapshot] {
+    let now = Date()
+
+    return accounts.sorted { left, right in
+        let leftWindow = nextResetWindow(for: left)
+        let rightWindow = nextResetWindow(for: right)
+        let leftFresh = isFreshResetWindow(leftWindow, now: now)
+        let rightFresh = isFreshResetWindow(rightWindow, now: now)
+
+        if leftFresh != rightFresh {
+            return leftFresh
+        }
+
+        let leftDate = ISO8601DateFormatter().date(from: leftWindow.resetsAt)
+        let rightDate = ISO8601DateFormatter().date(from: rightWindow.resetsAt)
+
+        switch (leftDate, rightDate) {
+        case let (leftDate?, rightDate?) where leftDate != rightDate:
+            return leftDate < rightDate
+        case (_?, nil):
+            return true
+        case (nil, _?):
+            return false
+        default:
+            return displayName(left).localizedCaseInsensitiveCompare(displayName(right)) == .orderedAscending
+        }
+    }
+}
+
 extension Color {
     init(hex: String) {
         let cleaned = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)

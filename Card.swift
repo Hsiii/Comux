@@ -120,35 +120,6 @@ struct AccountCardView: View {
     }
 }
 
-struct NextResetSectionView: View {
-    let accounts: [AccountSnapshot]
-    let nicknameStore: NicknameStore
-
-    var body: some View {
-        if let nextResetAccount = accounts
-            .map({ account in (account: account, window: nextResetWindow(for: account)) })
-            .filter({ !$0.window.resetsAt.isEmpty })
-            .sorted(by: { $0.window.resetsAt < $1.window.resetsAt })
-            .first {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("NEXT RESET")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
-                HStack {
-                    Text(nicknameStore.displayName(for: nextResetAccount.account))
-                        .font(.title.weight(.bold))
-                    Spacer()
-                    Text(formatCountdown(nextResetAccount.window.resetsAt))
-                        .font(.title3.weight(.semibold))
-                }
-            }
-            .padding(20)
-            .background(Color.white.opacity(0.04))
-            .clipShape(RoundedRectangle(cornerRadius: 24))
-        }
-    }
-}
-
 struct SlimAccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
