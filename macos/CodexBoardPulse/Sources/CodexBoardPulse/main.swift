@@ -875,11 +875,12 @@ struct WindowCardView: View {
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 999)
                         .fill(Color.white.opacity(0.08))
-                    RoundedRectangle(cornerRadius: 999)
-                        .fill(Color.white.opacity(0.12))
-                        .frame(
-                            width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
-                        )
+                    if !showsExpectedOverlay {
+                        expectedFill
+                            .frame(
+                                width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
+                            )
+                    }
                     barFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
@@ -888,6 +889,12 @@ struct WindowCardView: View {
                                     width: geometry.size.width * CGFloat(Double(remainingPercentage(for: window)) / 100)
                                 )
                         }
+                    if showsExpectedOverlay {
+                        expectedFill
+                            .frame(
+                                width: geometry.size.width * CGFloat(expectedRemainingPercentage(for: window) / 100)
+                            )
+                    }
                 }
             }
             .frame(height: compact ? 8 : 14)
@@ -918,6 +925,15 @@ struct WindowCardView: View {
                 )
             }
         }
+    }
+
+    private var showsExpectedOverlay: Bool {
+        expectedRemainingPercentage(for: window) < Double(remainingPercentage(for: window))
+    }
+
+    private var expectedFill: some View {
+        RoundedRectangle(cornerRadius: 999)
+            .fill(Color.white.opacity(showsExpectedOverlay ? 0.78 : 0.12))
     }
 }
 
