@@ -1,6 +1,45 @@
 import AppKit
 import SwiftUI
 
+private struct ScrollIndicatorHider: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            hideScrollIndicators(from: view)
+        }
+        return view
+    }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async {
+            hideScrollIndicators(from: view)
+        }
+    }
+
+    private func hideScrollIndicators(from view: NSView) {
+        var currentView: NSView? = view
+
+        while let view = currentView {
+            if let scrollView = view as? NSScrollView {
+                scrollView.hasVerticalScroller = false
+                scrollView.hasHorizontalScroller = false
+                scrollView.autohidesScrollers = true
+                return
+            }
+
+            currentView = view.superview
+        }
+    }
+}
+
+extension View {
+    func hidesAppKitScrollIndicators() -> some View {
+        self
+            .scrollIndicators(.hidden)
+            .background(ScrollIndicatorHider())
+    }
+}
+
 struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
@@ -39,7 +78,7 @@ struct SlimDashboardPanelView: View {
                 }
                 .padding(16)
             }
-            .scrollIndicators(.hidden)
+            .hidesAppKitScrollIndicators()
         }
         .preferredColorScheme(.dark)
         .task {
