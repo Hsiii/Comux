@@ -7,7 +7,6 @@ BUILD_DIR="$ROOT_DIR/.build/apple"
 APP_DIR="$BUILD_DIR/CodexMux.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
-RESOURCES_DIR="$CONTENTS_DIR/Resources"
 BIN_DIR="$(swift build --package-path "$ROOT_DIR" --show-bin-path)"
 EXECUTABLE_PATH="$BIN_DIR/CodexMux"
 RESOURCE_BUNDLE_PATH="$BIN_DIR/CodexMux_CodexMux.bundle"
@@ -17,10 +16,10 @@ mkdir -p "$BUILD_DIR"
 swift build --product CodexMux --package-path "$ROOT_DIR"
 
 rm -rf "$APP_DIR"
-mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
+mkdir -p "$MACOS_DIR"
 
 cp "$EXECUTABLE_PATH" "$MACOS_DIR/CodexMux"
-cp -R "$RESOURCE_BUNDLE_PATH" "$RESOURCES_DIR/CodexMux_CodexMux.bundle"
+cp -R "$RESOURCE_BUNDLE_PATH" "$APP_DIR/CodexMux_CodexMux.bundle"
 
 cat > "$PLIST_PATH" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
