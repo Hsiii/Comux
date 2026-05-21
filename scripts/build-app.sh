@@ -12,7 +12,6 @@ ICONSET_DIR="$ROOT_DIR/.build/CodexMux.iconset"
 ICON_SOURCE_PATH="$ROOT_DIR/assets/logo.png"
 APP_ICON_PATH="$ROOT_DIR/assets/CodexMux.icns"
 GENERATED_ICON_PATH="$ROOT_DIR/.build/CodexMux.icns"
-SYNC_TRACKED_BUNDLE="${CODEXMUX_SYNC_TRACKED_BUNDLE:-1}"
 
 if ! command -v sips >/dev/null 2>&1; then
     echo "error: sips is required to render icon assets from $ICON_SOURCE_PATH" >&2
@@ -66,10 +65,7 @@ if [[ -f "$APP_ICON_PATH" ]]; then
   codesign --force --sign - "$APP_DIR"
 fi
 rm -rf "$ROOT_DIR/CodexMux.xcodeproj"
-
-if [[ "$SYNC_TRACKED_BUNDLE" == "1" ]]; then
-    rm -rf "$TRACKED_BUNDLE_DIR/CodexMux.app"
-    cp -R "$APP_DIR" "$TRACKED_BUNDLE_DIR/CodexMux.app"
-fi
+rm -rf "$TRACKED_BUNDLE_DIR/CodexMux.app"
+cp -R "$APP_DIR" "$TRACKED_BUNDLE_DIR/CodexMux.app"
 
 echo "$APP_DIR"
