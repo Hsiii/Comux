@@ -85,9 +85,13 @@ struct WindowCardView: View {
         expectedRemainingPercentage(for: window) < Double(remainingPercentage(for: window))
     }
 
+    private var expectedBarColor: Color {
+        Color.white.opacity(0.24)
+    }
+
     private var expectedFill: some View {
         RoundedRectangle(cornerRadius: 999)
-            .fill(Color.white.opacity(showsExpectedOverlay ? 0.78 : 0.12))
+            .fill(expectedBarColor)
     }
 }
 
