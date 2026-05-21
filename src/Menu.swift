@@ -106,14 +106,14 @@ struct SlimDashboardPanelView: View {
             }
 
             HStack(spacing: 8) {
-                Spacer()
-
-                Button("Edit") {
+                Button("Manage Accounts") {
                     isManagingAccounts = true
                 }
                 .buttonStyle(.plain)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
+
+                Spacer()
 
                 Button("Quit") {
                     TerminationController.shared.requestQuit()
