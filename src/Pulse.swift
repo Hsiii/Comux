@@ -17,7 +17,7 @@ final class PulseCoordinator: ObservableObject {
     private let cacheStore = CacheStore()
     private let accountConfigStore = AccountConfigStore()
     private var hasStarted = false
-    private var syncTimer: Timer?
+    nonisolated(unsafe) private var syncTimer: Timer?
 
     var accountCount: Int {
         self.cache.accounts.count
