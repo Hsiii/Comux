@@ -57,21 +57,18 @@ func displayRemainingPercentage(for window: UsageWindow) -> Int {
     hasJustReset(window) ? 100 : remainingPercentage(for: window)
 }
 
-func windowStatusText(for window: UsageWindow) -> String {
+func percentageText(for window: UsageWindow) -> String {
+    "\(displayRemainingPercentage(for: window))%"
+}
+
+func resetPaceText(for window: UsageWindow) -> String {
     if hasJustReset(window) {
         return "Fresh"
     }
 
-    let remaining = displayRemainingPercentage(for: window)
-    let percentageText = "\(remaining)%"
-
-    guard remaining < 100 else {
-        return percentageText
-    }
-
-    let countdown = formatCountdown(window.resetsAt)
-
-    return "\(percentageText) • resets in \(countdown)"
+    let delta = displayRemainingPercentage(for: window) - Int(round(expectedRemainingPercentage(for: window)))
+    let deltaText = delta > 0 ? "+\(delta)%" : "\(delta)%"
+    return "\(deltaText) • Resets in \(formatCountdown(window.resetsAt))"
 }
 
 func displayWindowLabel(for window: UsageWindow) -> String {

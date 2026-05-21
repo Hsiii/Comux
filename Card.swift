@@ -12,8 +12,9 @@ struct WindowCardView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(window.available ? windowStatusText(for: window) : "n/a")
+                Text(window.available ? resetPaceText(for: window) : "n/a")
                     .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
             }
 
             GeometryReader { geometry in
@@ -102,6 +103,9 @@ struct AccountCardView: View {
                 }
 
                 Spacer()
+
+                Text(percentageText(for: account.weeklyWindow))
+                    .font(.title3.weight(.semibold))
             }
 
             WindowCardView(
@@ -139,6 +143,9 @@ struct SlimAccountCardView: View {
                 }
 
                 Spacer()
+
+                Text(percentageText(for: account.weeklyWindow))
+                    .font(.headline.weight(.semibold))
             }
 
             WindowCardView(
