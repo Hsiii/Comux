@@ -57,7 +57,6 @@ struct SlimDashboardPanelView: View {
     @Binding var isManagingAccounts: Bool
     @State private var measuredContentHeight: CGFloat = 88
 
-    private let maxPanelHeight: CGFloat = 620
     private let minPanelHeight: CGFloat = 88
 
     var body: some View {
@@ -90,6 +89,11 @@ struct SlimDashboardPanelView: View {
         sortedAccountsByResetTime(coordinator.cache.accounts) { account in
             nicknameStore.displayName(for: account)
         }
+    }
+
+    private var maxPanelHeight: CGFloat {
+        let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
+        return max(620, min(visibleScreenHeight - 120, 820))
     }
 
     private var panelContent: some View {
