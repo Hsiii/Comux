@@ -223,8 +223,6 @@ struct AccountCardView: View {
 
             if account.rollingWindow.available {
                 HStack(spacing: 8) {
-                    Spacer()
-
                     SessionUsageRingView(window: account.rollingWindow)
 
                     Text(sessionResetText(for: account.rollingWindow))
@@ -288,8 +286,6 @@ struct SlimAccountCardView: View {
 
             if account.rollingWindow.available {
                 HStack(spacing: 8) {
-                    Spacer()
-
                     SessionUsageRingView(window: account.rollingWindow)
 
                     Text(sessionResetText(for: account.rollingWindow))
