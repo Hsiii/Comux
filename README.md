@@ -25,6 +25,27 @@ Or build as an app:
 open .build/apple/CodexMux.app
 ```
 
+Package a Homebrew release artifact and generate a cask:
+
+```bash
+./scripts/package-homebrew.sh --version 1.0.0 --repo YOUR_GITHUB_OWNER/CodexBoard
+```
+
+This writes:
+
+- `.build/dist/CodexMux-1.0.0.zip`
+- `.build/dist/codexmux.rb`
+
+The generated cask expects a GitHub release asset published at:
+
+```text
+https://github.com/YOUR_GITHUB_OWNER/CodexBoard/releases/download/v1.0.0/CodexMux-1.0.0.zip
+```
+
+To offer `brew install --cask YOUR_TAP/codexmux`, publish that archive in a
+tagged GitHub release and copy the generated cask into your tap repository
+under `Casks/codexmux.rb`.
+
 ## How it Works
 
 - **Sync:** Fetches usage from Codex API and caches it locally at `~/.codexmux/cache.json`.
