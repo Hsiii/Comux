@@ -31,6 +31,7 @@ struct AccountSnapshot: Codable, Identifiable {
     let plan: String
     let color: String
     let source: String
+    let isCurrentSystemAccount: Bool?
     let lastSyncedAt: String
     let weeklyWindow: UsageWindow
     let rollingWindow: UsageWindow

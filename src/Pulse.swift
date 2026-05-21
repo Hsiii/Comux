@@ -106,6 +106,7 @@ final class PulseCoordinator: ObservableObject {
             plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
             color: "#8cf5b0",
             source: "live system auth",
+            isCurrentSystemAccount: true,
             note: "Native Swift sync from local Codex auth."
         )
     }
@@ -136,6 +137,7 @@ final class PulseCoordinator: ObservableObject {
             plan: account.plan,
             color: account.color,
             source: account.source ?? "native cookie sync",
+            isCurrentSystemAccount: false,
             note: "Native Swift sync from account cookie."
         )
     }
@@ -292,6 +294,7 @@ final class PulseCoordinator: ObservableObject {
         plan: String,
         color: String,
         source: String,
+        isCurrentSystemAccount: Bool,
         note: String
     ) throws -> AccountSnapshot {
         let windows = self.resolveWindows(rateLimit: payload["rate_limit"] as? [String: Any])
@@ -318,6 +321,7 @@ final class PulseCoordinator: ObservableObject {
             plan: plan,
             color: color,
             source: source,
+            isCurrentSystemAccount: isCurrentSystemAccount,
             lastSyncedAt: now,
             weeklyWindow: windows.weeklyWindow,
             rollingWindow: windows.rollingWindow,
@@ -567,6 +571,7 @@ final class PulseCoordinator: ObservableObject {
                 plan: snapshot.plan,
                 color: snapshot.color,
                 source: snapshot.source,
+                isCurrentSystemAccount: snapshot.isCurrentSystemAccount,
                 lastSyncedAt: snapshot.lastSyncedAt,
                 weeklyWindow: snapshot.weeklyWindow,
                 rollingWindow: snapshot.rollingWindow,

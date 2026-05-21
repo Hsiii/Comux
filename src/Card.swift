@@ -431,7 +431,7 @@ struct AccountCardView: View {
             WeeklyUsageSurfaceView(
                 window: account.weeklyWindow,
                 isLocked: isRollingWindowLocked(account.rollingWindow),
-                isActive: account.rollingWindow.available,
+                isActive: account.isCurrentSystemAccount == true,
                 topCornerRadius: 24,
                 bottomCornerRadius: 24,
                 contentPadding: 20
@@ -486,7 +486,7 @@ struct SlimAccountCardView: View {
             WeeklyUsageSurfaceView(
                 window: account.weeklyWindow,
                 isLocked: isRollingWindowLocked(account.rollingWindow),
-                isActive: account.rollingWindow.available,
+                isActive: account.isCurrentSystemAccount == true,
                 topCornerRadius: 20,
                 bottomCornerRadius: 20,
                 contentPadding: 14
