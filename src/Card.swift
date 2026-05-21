@@ -261,14 +261,17 @@ struct HeaderIdentityClusterView: View {
 struct WeeklyUsageSurfaceView<Content: View>: View {
     let window: UsageWindow
     let isLocked: Bool
+    let isActive: Bool
     let topCornerRadius: CGFloat
     let bottomCornerRadius: CGFloat
     let contentPadding: CGFloat
     @ViewBuilder let content: Content
+    @State private var shimmerTravel: CGFloat = 1.15
 
     init(
         window: UsageWindow,
         isLocked: Bool,
+        isActive: Bool,
         topCornerRadius: CGFloat,
         bottomCornerRadius: CGFloat,
         contentPadding: CGFloat,
@@ -276,6 +279,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
     ) {
         self.window = window
         self.isLocked = isLocked
+        self.isActive = isActive
         self.topCornerRadius = topCornerRadius
         self.bottomCornerRadius = bottomCornerRadius
         self.contentPadding = contentPadding
@@ -333,6 +337,20 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
             .fill(Color.white.opacity(0.06))
     }
 
+    private var shimmerBand: some View {
+        LinearGradient(
+            stops: [
+                .init(color: .white.opacity(0), location: 0),
+                .init(color: .white.opacity(0.03), location: 0.36),
+                .init(color: .white.opacity(0.12), location: 0.5),
+                .init(color: .white.opacity(0.03), location: 0.64),
+                .init(color: .white.opacity(0), location: 1),
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+    }
+
     var body: some View {
         content
             .padding(contentPadding)
@@ -369,10 +387,38 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
                                     }
                             }
                         }
+
+                        if window.available && isActive && currentFraction > 0 {
+                            shimmerBand
+                                .frame(width: geometry.size.width * 0.42)
+                                .offset(x: geometry.size.width * shimmerTravel)
+                                .blendMode(.screen)
+                                .mask(alignment: .leading) {
+                                    surfaceShape.frame(width: geometry.size.width * currentFraction)
+                                }
+                                .allowsHitTesting(false)
+                        }
                     }
                 }
             }
             .clipShape(surfaceShape)
+            .onAppear {
+                guard isActive else { return }
+                shimmerTravel = 1.15
+                withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) {
+                    shimmerTravel = -0.42
+                }
+            }
+            .onChange(of: isActive) { _, active in
+                if active {
+                    shimmerTravel = 1.15
+                    withAnimation(.linear(duration: 2.6).repeatForever(autoreverses: false)) {
+                        shimmerTravel = -0.42
+                    }
+                } else {
+                    shimmerTravel = 1.15
+                }
+            }
     }
 }
 
@@ -385,6 +431,7 @@ struct AccountCardView: View {
             WeeklyUsageSurfaceView(
                 window: account.weeklyWindow,
                 isLocked: isRollingWindowLocked(account.rollingWindow),
+                isActive: account.rollingWindow.available,
                 topCornerRadius: 24,
                 bottomCornerRadius: 24,
                 contentPadding: 20
@@ -439,6 +486,7 @@ struct SlimAccountCardView: View {
             WeeklyUsageSurfaceView(
                 window: account.weeklyWindow,
                 isLocked: isRollingWindowLocked(account.rollingWindow),
+                isActive: account.rollingWindow.available,
                 topCornerRadius: 20,
                 bottomCornerRadius: 20,
                 contentPadding: 14
