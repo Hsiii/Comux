@@ -61,6 +61,14 @@ func percentageText(for window: UsageWindow) -> String {
     "\(displayRemainingPercentage(for: window))%"
 }
 
+func sessionResetText(for window: UsageWindow) -> String {
+    if hasJustReset(window) || isFreshResetWindow(window) {
+        return "Fresh session"
+    }
+
+    return "Session resets in \(formatCountdown(window.resetsAt))"
+}
+
 func resetPaceText(for window: UsageWindow) -> String {
     if hasJustReset(window) {
         return "Fresh"

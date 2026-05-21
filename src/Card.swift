@@ -152,6 +152,32 @@ struct WindowCardView: View {
     }
 }
 
+struct SessionUsageRingView: View {
+    let window: UsageWindow
+
+    private var remainingFraction: CGFloat {
+        CGFloat(Double(displayRemainingPercentage(for: window)) / 100)
+    }
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.18), lineWidth: 4)
+
+            Circle()
+                .trim(from: 0, to: remainingFraction)
+                .stroke(
+                    Color.white.opacity(0.9),
+                    style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+        }
+        .frame(width: 16, height: 16)
+        .accessibilityLabel("Session usage remaining")
+        .accessibilityValue(percentageText(for: window))
+    }
+}
+
 struct AccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
@@ -196,12 +222,17 @@ struct AccountCardView: View {
             )
 
             if account.rollingWindow.available {
-                WindowCardView(
-                    window: account.rollingWindow,
-                    compact: true,
-                    isLocked: false,
-                    headerPlacement: .below
-                )
+                HStack(spacing: 8) {
+                    Spacer()
+
+                    SessionUsageRingView(window: account.rollingWindow)
+
+                    Text(sessionResetText(for: account.rollingWindow))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             }
         }
         .padding(20)
@@ -256,12 +287,17 @@ struct SlimAccountCardView: View {
             )
 
             if account.rollingWindow.available {
-                WindowCardView(
-                    window: account.rollingWindow,
-                    compact: true,
-                    isLocked: false,
-                    headerPlacement: .below
-                )
+                HStack(spacing: 8) {
+                    Spacer()
+
+                    SessionUsageRingView(window: account.rollingWindow)
+
+                    Text(sessionResetText(for: account.rollingWindow))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             }
         }
         .padding(14)
