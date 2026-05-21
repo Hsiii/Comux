@@ -341,9 +341,9 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         LinearGradient(
             stops: [
                 .init(color: .white.opacity(0), location: 0),
-                .init(color: .white.opacity(0.028), location: 0.18),
+                .init(color: .white.opacity(0.028), location: 0.25),
                 .init(color: .white.opacity(0.072), location: 0.5),
-                .init(color: .white.opacity(0.028), location: 0.82),
+                .init(color: .white.opacity(0.028), location: 0.75),
                 .init(color: .white.opacity(0), location: 1),
             ],
             startPoint: .leading,
