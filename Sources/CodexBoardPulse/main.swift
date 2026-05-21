@@ -131,9 +131,6 @@ enum CodexBoardPaths {
         .appendingPathComponent(".codexboard", isDirectory: true)
     static let cache = root.appendingPathComponent("cache.json", isDirectory: false)
     static let config = root.appendingPathComponent("accounts.json", isDirectory: false)
-    static let sample = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        .appendingPathComponent("sample-cache.json")
-        .standardizedFileURL
     static let codexHome = URL(fileURLWithPath: ProcessInfo.processInfo.environment["CODEX_HOME"] ?? "\(NSHomeDirectory())/.codex")
     static let codexAuth = codexHome.appendingPathComponent("auth.json", isDirectory: false)
 }
@@ -191,9 +188,7 @@ final class CacheStore {
             withIntermediateDirectories: true
         )
 
-        if let data = try? Data(contentsOf: CodexBoardPaths.sample) {
-            try? data.write(to: CodexBoardPaths.cache)
-        } else if let data = try? self.encoder.encode(self.emptyPayload()) {
+        if let data = try? self.encoder.encode(self.emptyPayload()) {
             try? data.write(to: CodexBoardPaths.cache)
         }
     }

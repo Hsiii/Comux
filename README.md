@@ -28,12 +28,12 @@ swift run
 
 ## Extra accounts
 
-1. Copy [accounts.example.json](/Users/hsi/Documents/Projects/Personal/CodexBoard/accounts.example.json) to `~/.codexboard/accounts.json`.
-2. Add one object per extra account with its own ChatGPT cookie.
+1. Create `~/.codexboard/accounts.json`.
+2. Add one object per extra account with its own ChatGPT cookie using the `AccountConfig` shape from [main.swift](/Users/hsi/Documents/Projects/Personal/CodexBoard/Sources/CodexBoardPulse/main.swift).
 3. Run the app.
 
 ## Notes
 
 - The current system account needs no cookie config.
 - Nicknames are stored locally in `UserDefaults`.
-- The bundled sample cache in [sample-cache.json](/Users/hsi/Documents/Projects/Personal/CodexBoard/sample-cache.json) is only used as a local seed if no live cache exists yet.
+- The app creates an empty local cache at `~/.codexboard/cache.json` on first run.
