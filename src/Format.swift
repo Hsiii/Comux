@@ -74,9 +74,13 @@ func resetPaceText(for window: UsageWindow) -> String {
         return "Fresh"
     }
 
-    let delta = displayRemainingPercentage(for: window) - Int(round(expectedRemainingPercentage(for: window)))
+    let delta = currentExpectationDelta(for: window)
     let deltaText = delta > 0 ? "+\(delta)%" : "\(delta)%"
     return "\(deltaText) • Resets in \(formatCountdown(window.resetsAt))"
+}
+
+func currentExpectationDelta(for window: UsageWindow) -> Int {
+    displayRemainingPercentage(for: window) - Int(round(expectedRemainingPercentage(for: window)))
 }
 
 func displayWindowLabel(for window: UsageWindow) -> String {
@@ -207,14 +211,12 @@ func sortedAccountsByResetTime(
     _ accounts: [AccountSnapshot],
     displayName: (AccountSnapshot) -> String
 ) -> [AccountSnapshot] {
-    let now = Date()
-
     return accounts.sorted { left, right in
-        let leftFresh = isFreshResetWindow(left.weeklyWindow, now: now)
-        let rightFresh = isFreshResetWindow(right.weeklyWindow, now: now)
+        let leftDelta = currentExpectationDelta(for: left.weeklyWindow)
+        let rightDelta = currentExpectationDelta(for: right.weeklyWindow)
 
-        if leftFresh != rightFresh {
-            return leftFresh
+        if leftDelta != rightDelta {
+            return leftDelta > rightDelta
         }
 
         let leftDate = ISO8601DateFormatter().date(from: left.weeklyWindow.resetsAt)
