@@ -1,6 +1,6 @@
-# CodexBoard
+# CodexMux
 
-CodexBoard is a native macOS menu bar utility for tracking Codex usage across
+CodexMux is a native macOS menu bar utility for tracking Codex usage across
 multiple accounts.
 
 ## What it does
@@ -9,7 +9,7 @@ multiple accounts.
 - fetches extra accounts independently with per-account ChatGPT cookies
 - normalizes weekly and rolling 5-hour usage into one local cache
 - shows a compact native dashboard directly from the menu bar app
-- stores snapshots in `~/.codexboard/cache.json`
+- stores snapshots in `~/.codexmux/cache.json`
 
 ## Architecture
 
@@ -23,17 +23,17 @@ multiple accounts.
 
 ```bash
 cd /Users/hsi/Documents/Projects/Personal/CodexBoard
-swift run
+swift run CodexMux
 ```
 
 ## Extra accounts
 
-1. Create `~/.codexboard/accounts.json`.
-2. Add one object per extra account with its own ChatGPT cookie using the `AccountConfig` shape from [main.swift](/Users/hsi/Documents/Projects/Personal/CodexBoard/main.swift).
+1. Create `~/.codexmux/accounts.json`.
+2. Add one object per extra account with its own ChatGPT cookie using the `AccountConfig` shape from [Model.swift](/Users/hsi/Documents/Projects/Personal/CodexBoard/Model.swift).
 3. Run the app.
 
 ## Notes
 
 - The current system account needs no cookie config.
 - Nicknames are stored locally in `UserDefaults`.
-- The app creates an empty local cache at `~/.codexboard/cache.json` on first run.
+- The app creates an empty local cache at `~/.codexmux/cache.json` on first run.

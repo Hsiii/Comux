@@ -12,7 +12,7 @@ final class CacheStore {
     func load() -> CachePayload {
         self.ensureSeeded()
 
-        guard let data = try? Data(contentsOf: CodexBoardPaths.cache),
+        guard let data = try? Data(contentsOf: CodexMuxPaths.cache),
               let payload = try? self.decoder.decode(CachePayload.self, from: data)
         else {
             return self.emptyPayload()
@@ -23,10 +23,10 @@ final class CacheStore {
 
     func save(_ payload: CachePayload) throws {
         try FileManager.default.createDirectory(
-            at: CodexBoardPaths.root,
+            at: CodexMuxPaths.root,
             withIntermediateDirectories: true
         )
-        try self.encoder.encode(payload).write(to: CodexBoardPaths.cache)
+        try self.encoder.encode(payload).write(to: CodexMuxPaths.cache)
     }
 
     func removeAccount(withID accountID: String) throws -> CachePayload {
@@ -35,7 +35,7 @@ final class CacheStore {
         let payload = CachePayload(
             meta: CacheMeta(
                 generatedAt: ISO8601DateFormatter().string(from: Date()),
-                cachePath: CodexBoardPaths.cache.path(percentEncoded: false),
+                cachePath: CodexMuxPaths.cache.path(percentEncoded: false),
                 source: existing.meta.source
             ),
             accounts: filteredAccounts
@@ -45,17 +45,17 @@ final class CacheStore {
     }
 
     private func ensureSeeded() {
-        if FileManager.default.fileExists(atPath: CodexBoardPaths.cache.path(percentEncoded: false)) {
+        if FileManager.default.fileExists(atPath: CodexMuxPaths.cache.path(percentEncoded: false)) {
             return
         }
 
         try? FileManager.default.createDirectory(
-            at: CodexBoardPaths.root,
+            at: CodexMuxPaths.root,
             withIntermediateDirectories: true
         )
 
         if let data = try? self.encoder.encode(self.emptyPayload()) {
-            try? data.write(to: CodexBoardPaths.cache)
+            try? data.write(to: CodexMuxPaths.cache)
         }
     }
 
@@ -63,7 +63,7 @@ final class CacheStore {
         CachePayload(
             meta: CacheMeta(
                 generatedAt: ISO8601DateFormatter().string(from: Date()),
-                cachePath: CodexBoardPaths.cache.path(percentEncoded: false),
+                cachePath: CodexMuxPaths.cache.path(percentEncoded: false),
                 source: "native-swift-cache"
             ),
             accounts: []
@@ -80,9 +80,8 @@ final class AccountConfigStore {
     }()
 
     func load() -> PulseConfig {
-        guard let data = try? Data(contentsOf: CodexBoardPaths.config),
-              let config = try? self.decoder.decode(PulseConfig.self, from: data)
-        else {
+        guard let data = try? Data(contentsOf: CodexMuxPaths.config),
+              let config = try? self.decoder.decode(PulseConfig.self, from: data) else {
             return .default
         }
 
@@ -91,10 +90,10 @@ final class AccountConfigStore {
 
     func save(_ config: PulseConfig) throws {
         try FileManager.default.createDirectory(
-            at: CodexBoardPaths.root,
+            at: CodexMuxPaths.root,
             withIntermediateDirectories: true
         )
-        try self.encoder.encode(config).write(to: CodexBoardPaths.config, options: [.atomic])
+        try self.encoder.encode(config).write(to: CodexMuxPaths.config, options: [.atomic])
     }
 
     func removeAccount(withID accountID: String) throws {
@@ -112,7 +111,7 @@ final class AccountConfigStore {
 final class NicknameStore: ObservableObject {
     @Published private(set) var nicknames: [String: String]
 
-    private let defaultsKey = "codexboard.nicknames.v1"
+    private let defaultsKey = "codexmux.nicknames.v1"
 
     init() {
         self.nicknames = Self.loadNicknames(for: self.defaultsKey)

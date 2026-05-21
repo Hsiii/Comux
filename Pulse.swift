@@ -8,7 +8,7 @@ final class PulseCoordinator: ObservableObject {
     @Published var cache = CachePayload(
         meta: CacheMeta(
             generatedAt: ISO8601DateFormatter().string(from: Date()),
-            cachePath: CodexBoardPaths.cache.path(percentEncoded: false),
+            cachePath: CodexMuxPaths.cache.path(percentEncoded: false),
             source: "native-swift-cache"
         ),
         accounts: []
@@ -141,11 +141,11 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func loadSystemIdentity() throws -> SystemAuthIdentity? {
-        guard FileManager.default.fileExists(atPath: CodexBoardPaths.codexAuth.path(percentEncoded: false)) else {
+        guard FileManager.default.fileExists(atPath: CodexMuxPaths.codexAuth.path(percentEncoded: false)) else {
             return nil
         }
 
-        let data = try Data(contentsOf: CodexBoardPaths.codexAuth)
+        let data = try Data(contentsOf: CodexMuxPaths.codexAuth)
         guard let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tokens = payload["tokens"] as? [String: Any],
               let accessToken = tokens["access_token"] as? String
@@ -571,7 +571,7 @@ final class PulseCoordinator: ObservableObject {
         return CachePayload(
             meta: CacheMeta(
                 generatedAt: ISO8601DateFormatter().string(from: Date()),
-                cachePath: CodexBoardPaths.cache.path(percentEncoded: false),
+                cachePath: CodexMuxPaths.cache.path(percentEncoded: false),
                 source: "native-swift-cache"
             ),
             accounts: mergedAccounts

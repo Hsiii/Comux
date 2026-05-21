@@ -1,9 +1,9 @@
 import AppKit
 import Foundation
 
-enum CodexBoardPaths {
+enum CodexMuxPaths {
     static let root = URL(fileURLWithPath: NSHomeDirectory())
-        .appendingPathComponent(".codexboard", isDirectory: true)
+        .appendingPathComponent(".codexmux", isDirectory: true)
     static let cache = root.appendingPathComponent("cache.json", isDirectory: false)
     static let config = root.appendingPathComponent("accounts.json", isDirectory: false)
     static let codexHome = URL(fileURLWithPath: ProcessInfo.processInfo.environment["CODEX_HOME"] ?? "\(NSHomeDirectory())/.codex")

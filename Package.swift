@@ -2,14 +2,14 @@
 import PackageDescription
 
 let package = Package(
-    name: "CodexBoardPulse",
+    name: "CodexMux",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "CodexBoardPulse", targets: ["CodexBoardPulse"])
+        .executable(name: "CodexMux", targets: ["CodexMux"])
     ],
     targets: [
         .executableTarget(
-            name: "CodexBoardPulse",
+            name: "CodexMux",
             path: ".",
             exclude: ["README.md", ".gitignore"],
             sources: [
