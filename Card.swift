@@ -111,7 +111,7 @@ struct AccountCardView: View {
             WindowCardView(
                 window: account.weeklyWindow,
                 compact: false,
-                isLocked: account.rollingWindow.available && remainingPercentage(for: account.rollingWindow) == 0
+                isLocked: isRollingWindowLocked(account.rollingWindow)
             )
 
             if account.rollingWindow.available {
@@ -151,7 +151,7 @@ struct SlimAccountCardView: View {
             WindowCardView(
                 window: account.weeklyWindow,
                 compact: false,
-                isLocked: account.rollingWindow.available && remainingPercentage(for: account.rollingWindow) == 0
+                isLocked: isRollingWindowLocked(account.rollingWindow)
             )
 
             if account.rollingWindow.available {

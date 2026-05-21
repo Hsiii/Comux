@@ -186,6 +186,10 @@ func isFreshResetWindow(_ window: UsageWindow, now: Date = Date()) -> Bool {
     return resetDate <= now
 }
 
+func isRollingWindowLocked(_ window: UsageWindow) -> Bool {
+    window.available && remainingPercentage(for: window) == 0 && !hasJustReset(window)
+}
+
 func sortedAccountsByResetTime(
     _ accounts: [AccountSnapshot],
     displayName: (AccountSnapshot) -> String
