@@ -53,28 +53,32 @@ struct WindowCardView: View {
     private var bar: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 999)
+                barShape
                     .fill(Color.white.opacity(0.08))
 
                 if showsExpectedOverlay {
                     brightFill
-                        .frame(width: geometry.size.width * currentFraction)
+                        .frame(width: geometry.size.width)
+                        .mask(alignment: .leading) {
+                            segmentMask(width: geometry.size.width * currentFraction)
+                        }
 
                     barFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 999)
-                                .frame(width: geometry.size.width * expectedFraction)
+                            segmentMask(width: geometry.size.width * expectedFraction)
                         }
                 } else {
                     expectedFill
-                        .frame(width: geometry.size.width * expectedFraction)
+                        .frame(width: geometry.size.width)
+                        .mask(alignment: .leading) {
+                            segmentMask(width: geometry.size.width * expectedFraction)
+                        }
 
                     barFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 999)
-                                .frame(width: geometry.size.width * currentFraction)
+                            segmentMask(width: geometry.size.width * currentFraction)
                         }
                 }
             }
@@ -123,17 +127,28 @@ struct WindowCardView: View {
         Color.white.opacity(0.24)
     }
 
-    private var expectedFill: some View {
+    private var barShape: RoundedRectangle {
         RoundedRectangle(cornerRadius: 999)
+    }
+
+    @ViewBuilder
+    private func segmentMask(width: CGFloat) -> some View {
+        barShape
+            .frame(width: max(width, 0), alignment: .leading)
+    }
+
+    private var expectedFill: some View {
+        barShape
             .fill(expectedBarColor)
     }
 
     private var brightFill: some View {
         ZStack {
             barFill
-            RoundedRectangle(cornerRadius: 999)
+            barShape
                 .fill(Color.white.opacity(0.24))
         }
+        .clipShape(barShape)
     }
 }
 
