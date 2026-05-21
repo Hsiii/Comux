@@ -121,6 +121,7 @@ struct SlimDashboardPanelView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
             }
+            .padding(.leading, 14)
         }
         .padding(16)
     }
