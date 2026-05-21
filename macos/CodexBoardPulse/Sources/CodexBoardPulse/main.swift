@@ -1278,10 +1278,10 @@ struct AccountManagerOverlayView: View {
     let onCancel: () -> Void
     let onSave: () -> Void
 
-    @FocusState private var focusedAccountID: String?
+    @State private var editingAccountID: String?
     @State private var draftNicknames: [String: String]
     @State private var pendingRemoval: AccountSnapshot?
-    @State private var removalDialogVisible = false
+    @FocusState private var focusedAccountID: String?
 
     init(
         coordinator: PulseCoordinator,
@@ -1311,7 +1311,7 @@ struct AccountManagerOverlayView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(coordinator.cache.accounts) { account in
                         VStack(alignment: .leading, spacing: 10) {
-                            if self.focusedAccountID == account.id {
+                            if self.editingAccountID == account.id {
                                 TextField(
                                     account.label,
                                     text: Binding(
@@ -1322,18 +1322,21 @@ struct AccountManagerOverlayView: View {
                                 .focused(self.$focusedAccountID, equals: account.id)
                                 .textFieldStyle(.roundedBorder)
                                 .onSubmit {
+                                    self.editingAccountID = nil
                                     self.focusedAccountID = nil
                                 }
                             } else {
-                                Button {
-                                    self.focusedAccountID = account.id
-                                } label: {
-                                    Text(self.displayName(for: account))
-                                        .font(.headline.weight(.semibold))
-                                        .foregroundStyle(.primary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .buttonStyle(.plain)
+                                Text(self.displayName(for: account))
+                                    .font(.headline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        self.editingAccountID = account.id
+                                        DispatchQueue.main.async {
+                                            self.focusedAccountID = account.id
+                                        }
+                                    }
                             }
 
                             HStack(spacing: 12) {
@@ -1346,9 +1349,8 @@ struct AccountManagerOverlayView: View {
 
                                 Button("Remove") {
                                     self.pendingRemoval = account
-                                    self.removalDialogVisible = true
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.borderless)
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(coordinator.isRemovable(account) ? .red : .secondary)
                                 .disabled(!coordinator.isRemovable(account))
@@ -1370,6 +1372,7 @@ struct AccountManagerOverlayView: View {
 
                 Button("Save") {
                     nicknameStore.saveNicknames(self.draftNicknames, for: coordinator.cache.accounts)
+                    self.editingAccountID = nil
                     self.focusedAccountID = nil
                     onSave()
                 }
@@ -1384,12 +1387,8 @@ struct AccountManagerOverlayView: View {
             RoundedRectangle(cornerRadius: 20)
                 .strokeBorder(Color.white.opacity(0.12))
         }
-        .confirmationDialog(
-            "Remove account?",
-            isPresented: self.$removalDialogVisible,
-            titleVisibility: .visible
-        ) {
-            Button("Remove Account", role: .destructive) {
+        .alert("Remove account?", isPresented: removalAlertPresented) {
+            Button("Remove", role: .destructive) {
                 guard let account = self.pendingRemoval else {
                     return
                 }
@@ -1397,6 +1396,7 @@ struct AccountManagerOverlayView: View {
                 try? coordinator.removeAccount(account)
                 nicknameStore.removeNickname(for: account)
                 self.draftNicknames.removeValue(forKey: account.id)
+                self.editingAccountID = nil
                 self.focusedAccountID = nil
                 self.pendingRemoval = nil
             }
@@ -1416,6 +1416,17 @@ struct AccountManagerOverlayView: View {
                 self.draftNicknames[account.id] = nicknameStore.nickname(for: account)
             }
         }
+    }
+
+    private var removalAlertPresented: Binding<Bool> {
+        Binding(
+            get: { self.pendingRemoval != nil },
+            set: { isPresented in
+                if !isPresented {
+                    self.pendingRemoval = nil
+                }
+            }
+        )
     }
 
     private func displayName(for account: AccountSnapshot) -> String {
