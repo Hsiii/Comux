@@ -5,7 +5,7 @@
 
 A macOS menu bar app to track and sort your Codex account limits at a glance.
 
-<img src="assets/demo.png" alt="CodexMux demo" height="480" />
+<img src="assets/demo.png" alt="CodexMux demo" height="720" />
 </div>
 
 ## Why
