@@ -1,6 +1,14 @@
 import AppKit
 import SwiftUI
 
+private struct ViewHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 private struct ScrollIndicatorConfigurator: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
@@ -47,8 +55,10 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
     @Binding var isManagingAccounts: Bool
+    @State private var measuredContentHeight: CGFloat = 88
 
     private let maxPanelHeight: CGFloat = 620
+    private let minPanelHeight: CGFloat = 88
 
     var body: some View {
         ZStack {
@@ -56,36 +66,14 @@ struct SlimDashboardPanelView: View {
                 .ignoresSafeArea()
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    ForEach(sortedAccounts) { account in
-                        SlimAccountCardView(
-                            account: account,
-                            displayName: nicknameStore.displayName(for: account)
-                        )
-                    }
-
-                    HStack(spacing: 8) {
-                        Spacer()
-
-                        Button("Edit") {
-                            isManagingAccounts = true
-                        }
-                        .buttonStyle(.plain)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                        Button("Quit") {
-                            TerminationController.shared.requestQuit()
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
-                }
-                .padding(16)
+                self.panelContent
             }
-            .frame(maxHeight: self.maxPanelHeight)
+            .frame(height: self.panelHeight)
             .scrollBounceBehavior(.basedOnSize)
             .usesSubtleAppKitScrollIndicators()
+            .onPreferenceChange(ViewHeightKey.self) { height in
+                self.measuredContentHeight = max(height, self.minPanelHeight)
+            }
         }
         .preferredColorScheme(.dark)
         .task {
@@ -97,6 +85,45 @@ struct SlimDashboardPanelView: View {
         sortedAccountsByResetTime(coordinator.cache.accounts) { account in
             nicknameStore.displayName(for: account)
         }
+    }
+
+    private var panelContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(sortedAccounts) { account in
+                SlimAccountCardView(
+                    account: account,
+                    displayName: nicknameStore.displayName(for: account)
+                )
+            }
+
+            HStack(spacing: 8) {
+                Spacer()
+
+                Button("Edit") {
+                    isManagingAccounts = true
+                }
+                .buttonStyle(.plain)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+                Button("Quit") {
+                    TerminationController.shared.requestQuit()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(16)
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .preference(key: ViewHeightKey.self, value: geometry.size.height)
+            }
+        }
+    }
+
+    private var panelHeight: CGFloat {
+        min(max(self.measuredContentHeight, self.minPanelHeight), self.maxPanelHeight)
     }
 }
 
