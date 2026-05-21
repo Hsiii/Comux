@@ -104,6 +104,7 @@ struct AccountManagerOverlayView: View {
                     }
                 }
             }
+            .scrollIndicators(.hidden)
 
             HStack {
                 Spacer()

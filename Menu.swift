@@ -39,6 +39,7 @@ struct SlimDashboardPanelView: View {
                 }
                 .padding(16)
             }
+            .scrollIndicators(.hidden)
         }
         .preferredColorScheme(.dark)
         .task {
