@@ -91,6 +91,7 @@ struct SystemAuthIdentity {
     let email: String?
     let name: String?
     let planType: String?
+    let organizationTitles: [String]
     let subject: String?
 }
 
@@ -271,7 +272,7 @@ final class PulseCoordinator: ObservableObject {
             accountID: rawUsage["account_id"] as? String ?? identity.accountId ?? identity.subject ?? UUID().uuidString,
             label: identity.name ?? rawUsage["email"] as? String ?? identity.email ?? "Current system account",
             email: rawUsage["email"] as? String ?? identity.email ?? "Unknown account",
-            workspaceLabel: "",
+            workspaceLabel: self.defaultWorkspaceLabel(for: identity),
             plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
             color: "#8cf5b0",
             source: "live system auth",
@@ -324,6 +325,7 @@ final class PulseCoordinator: ObservableObject {
             email: idTokenClaims?["email"] as? String,
             name: idTokenClaims?["name"] as? String,
             planType: planClaims?["chatgpt_plan_type"] as? String,
+            organizationTitles: self.resolveOrganizationTitles(from: planClaims),
             subject: idTokenClaims?["sub"] as? String
         )
     }
@@ -476,7 +478,13 @@ final class PulseCoordinator: ObservableObject {
             "workspace_name",
             "workspaceName",
             "team_workspace_name",
-            "teamWorkspaceName"
+            "teamWorkspaceName",
+            "current_workspace_name",
+            "currentWorkspaceName",
+            "organization_name",
+            "organizationName",
+            "account_organization",
+            "accountOrganization"
         ]
 
         for key in directCandidates {
@@ -490,7 +498,10 @@ final class PulseCoordinator: ObservableObject {
             "workspace",
             "current_workspace",
             "team",
-            "organization"
+            "organization",
+            "account",
+            "identity",
+            "subscription"
         ]
 
         for key in nestedCandidates {
@@ -498,7 +509,14 @@ final class PulseCoordinator: ObservableObject {
                 continue
             }
 
-            for nestedKey in ["name", "workspace_name", "display_name"] {
+            for nestedKey in [
+                "name",
+                "title",
+                "workspace_name",
+                "display_name",
+                "organization_name",
+                "account_organization"
+            ] {
                 if let value = nested[nestedKey] as? String,
                    !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     return value
@@ -507,6 +525,35 @@ final class PulseCoordinator: ObservableObject {
         }
 
         return fallback
+    }
+
+    private func resolveOrganizationTitles(from authClaims: [String: Any]?) -> [String] {
+        guard let organizations = authClaims?["organizations"] as? [[String: Any]] else {
+            return []
+        }
+
+        return organizations.compactMap { organization in
+            for key in ["title", "name", "display_name"] {
+                if let value = organization[key] as? String {
+                    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        return trimmed
+                    }
+                }
+            }
+
+            return nil
+        }
+    }
+
+    private func defaultWorkspaceLabel(for identity: SystemAuthIdentity) -> String {
+        if let organizationTitle = identity.organizationTitles.first(where: {
+            $0.caseInsensitiveCompare("Personal") != .orderedSame
+        }) {
+            return organizationTitle
+        }
+
+        return ""
     }
 
     private func buildWindow(label: String, rawWindow: [String: Any]?) -> UsageWindow {
