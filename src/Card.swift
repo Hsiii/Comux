@@ -125,27 +125,28 @@ struct AccountCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text(displayName)
                         .font(.title3.weight(.semibold))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                    Text(tierLabel(for: account.plan))
-                        .font(.caption)
+                    Text(resetPaceText(for: account.weeklyWindow))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity, alignment: .center)
+
+                    Text(percentageText(for: account.weeklyWindow))
+                        .font(.title3.weight(.semibold))
+                        .fixedSize(horizontal: true, vertical: false)
                 }
-                .fixedSize(horizontal: true, vertical: false)
 
-                Text(resetPaceText(for: account.weeklyWindow))
-                    .font(.caption.weight(.semibold))
+                Text(tierLabel(for: account.plan))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .frame(maxWidth: .infinity, alignment: .center)
-
-                Text(percentageText(for: account.weeklyWindow))
-                    .font(.title3.weight(.semibold))
-                    .fixedSize(horizontal: true, vertical: false)
             }
 
             WindowCardView(
@@ -176,31 +177,31 @@ struct SlimAccountCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 12) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text(displayName)
                         .font(.headline.weight(.semibold))
                         .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                    if let tag = compactAccountTag(for: account) {
-                        Text(tag)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
+                    Text(resetPaceText(for: account.weeklyWindow))
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity, alignment: .center)
+
+                    Text(percentageText(for: account.weeklyWindow))
+                        .font(.headline.weight(.semibold))
+                        .fixedSize(horizontal: true, vertical: false)
                 }
-                .fixedSize(horizontal: true, vertical: false)
 
-                Text(resetPaceText(for: account.weeklyWindow))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                    .frame(maxWidth: .infinity, alignment: .center)
-
-                Text(percentageText(for: account.weeklyWindow))
-                    .font(.headline.weight(.semibold))
-                    .fixedSize(horizontal: true, vertical: false)
+                if let tag = compactAccountTag(for: account) {
+                    Text(tag)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             WindowCardView(
