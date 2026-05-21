@@ -93,6 +93,8 @@ cat > "$PLIST_PATH" <<EOF
 </plist>
 EOF
 
+codesign --force --deep --sign - "$APP_DIR"
+
 if [[ "$SYNC_TRACKED_BUNDLE" == "1" ]]; then
     rm -rf "$TRACKED_BUNDLE_DIR/CodexMux.app"
     cp -R "$APP_DIR" "$TRACKED_BUNDLE_DIR/CodexMux.app"
