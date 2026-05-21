@@ -13,6 +13,9 @@ struct CodexMuxApp: App {
                 }
         } label: {
             Image(nsImage: Self.codexMenuBarIcon)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
         }
         .menuBarExtraStyle(.window)
     }
@@ -24,7 +27,7 @@ struct CodexMuxApp: App {
             return NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "CodexMux") ?? NSImage()
         }
 
-        image.size = NSSize(width: 18, height: 18)
+        image.size = NSSize(width: 16, height: 16)
         image.isTemplate = true
         image.accessibilityDescription = "CodexMux"
         return image
