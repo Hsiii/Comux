@@ -123,8 +123,8 @@ tell application "Finder"
         set text size of viewOptions to 14
         set background color of viewOptions to {59000, 60200, 62000}
 
-        set position of item "${APP_NAME}.app" to {170, 210}
-        set position of item "Applications" to {430, 210}
+        set position of item "${APP_NAME}.app" to {150, 210}
+        set position of item "Applications" to {410, 210}
 
         close
         open
