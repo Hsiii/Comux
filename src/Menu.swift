@@ -139,7 +139,7 @@ struct SlimDashboardPanelView: View {
                     ))
                     .controlSize(.small)
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: "gearshape")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(width: 28, height: 28)
