@@ -7,13 +7,12 @@ BUILD_DIR="$ROOT_DIR/.build"
 DIST_DIR="$BUILD_DIR/dist"
 STAGING_DIR="$BUILD_DIR/dmg"
 APP_BUILD_DIR="$BUILD_DIR/apple"
-MOUNT_DIR="$BUILD_DIR/dmg-mount"
 ROOT_DMG_DIR="$ROOT_DIR"
 APP_NAME="CodexMux"
 APP_BUNDLE_PATH="$APP_BUILD_DIR/${APP_NAME}.app"
 
 VERSION=""
-VOLUME_NAME="$APP_NAME"
+VOLUME_NAME=""
 
 usage() {
     cat <<'EOF'
@@ -67,7 +66,6 @@ fi
 mkdir -p "$DIST_DIR"
 rm -rf "$STAGING_DIR"
 mkdir -p "$STAGING_DIR"
-rm -rf "$MOUNT_DIR"
 
 cp -R "$APP_BUNDLE_PATH" "$STAGING_DIR/${APP_NAME}.app"
 ln -s /Applications "$STAGING_DIR/Applications"
@@ -76,6 +74,12 @@ dmg_name="$APP_NAME"
 if [[ -n "$VERSION" ]]; then
     dmg_name="${dmg_name}-${VERSION}"
 fi
+
+if [[ -z "$VOLUME_NAME" ]]; then
+    VOLUME_NAME="$dmg_name"
+fi
+
+MOUNT_DIR="/Volumes/${VOLUME_NAME}"
 
 dmg_path="$DIST_DIR/${dmg_name}.dmg"
 root_dmg_path="$ROOT_DMG_DIR/${dmg_name}.dmg"
@@ -90,18 +94,15 @@ hdiutil create \
     -format UDRW \
     "$temp_dmg_path" >/dev/null
 
-mkdir -p "$MOUNT_DIR"
 hdiutil attach \
     "$temp_dmg_path" \
     -readwrite \
     -noverify \
-    -noautoopen \
-    -mountpoint "$MOUNT_DIR" >/dev/null
+    -noautoopen >/dev/null
 
 cleanup_mount() {
     if [[ -d "$MOUNT_DIR" ]]; then
         hdiutil detach "$MOUNT_DIR" -quiet >/dev/null 2>&1 || true
-        rm -rf "$MOUNT_DIR"
     fi
 }
 
@@ -139,7 +140,6 @@ EOF
 sleep 1
 sync
 hdiutil detach "$MOUNT_DIR" -quiet >/dev/null
-rm -rf "$MOUNT_DIR"
 trap - EXIT
 
 hdiutil convert "$temp_dmg_path" \
