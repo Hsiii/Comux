@@ -182,7 +182,7 @@ struct RollingUsageInlineView: View {
     }
 
     private var lineWidth: CGFloat {
-        max(2, round(size * 0.22))
+        max(1.75, size * 0.16)
     }
 
     private var expectedRing: some View {
