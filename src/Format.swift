@@ -61,6 +61,18 @@ func percentageText(for window: UsageWindow) -> String {
     "\(displayRemainingPercentage(for: window))%"
 }
 
+func sessionBadgeText(for window: UsageWindow) -> String {
+    if isRollingWindowLocked(window) {
+        return "Session locked"
+    }
+
+    if hasJustReset(window) || isFreshResetWindow(window) {
+        return "Session fresh"
+    }
+
+    return "Session \(percentageText(for: window))"
+}
+
 func sessionResetText(for window: UsageWindow) -> String {
     if hasJustReset(window) || isFreshResetWindow(window) {
         return "Fresh session"

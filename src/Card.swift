@@ -263,6 +263,11 @@ struct HeaderIdentityClusterView: View {
                         window: rollingWindow,
                         size: ringSize
                     )
+
+                    Text(sessionBadgeText(for: rollingWindow))
+                        .font(nameFont)
+                        .foregroundStyle(Color.white.opacity(0.5))
+                        .lineLimit(1)
                 }
             }
             Spacer(minLength: 8)
