@@ -43,3 +43,9 @@ Build the native macOS app bundle:
 ./scripts/build-app.sh
 open CodexMux.app
 ```
+
+Build a DMG for distribution:
+
+```bash
+./scripts/package-dmg.sh --version 0.1.0
+```
