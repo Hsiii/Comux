@@ -23,10 +23,16 @@ manually.
 
 ## Install
 
-Launch the app bundle tracked in this repo:
+Launch the app bundle tracked in this repo directly:
 
 ```bash
 open CodexMux.app
+```
+
+Or open the DMG in the repo root and drag the app into `/Applications`:
+
+```bash
+open CodexMux-0.1.0.dmg
 ```
 
 ## Development
@@ -49,3 +55,5 @@ Build a DMG for distribution:
 ```bash
 ./scripts/package-dmg.sh --version 0.1.0
 ```
+
+That command also copies the final DMG to the repo root so it can be opened directly from there.

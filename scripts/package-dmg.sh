@@ -8,6 +8,7 @@ DIST_DIR="$BUILD_DIR/dist"
 STAGING_DIR="$BUILD_DIR/dmg"
 APP_BUILD_DIR="$BUILD_DIR/apple"
 MOUNT_DIR="$BUILD_DIR/dmg-mount"
+ROOT_DMG_DIR="$ROOT_DIR"
 APP_NAME="CodexMux"
 APP_BUNDLE_PATH="$APP_BUILD_DIR/${APP_NAME}.app"
 
@@ -77,9 +78,10 @@ if [[ -n "$VERSION" ]]; then
 fi
 
 dmg_path="$DIST_DIR/${dmg_name}.dmg"
+root_dmg_path="$ROOT_DMG_DIR/${dmg_name}.dmg"
 temp_dmg_path="$BUILD_DIR/${dmg_name}-temp.dmg"
 
-rm -f "$dmg_path" "$temp_dmg_path"
+rm -f "$dmg_path" "$root_dmg_path" "$temp_dmg_path"
 
 hdiutil create \
     -volname "$VOLUME_NAME" \
@@ -145,5 +147,6 @@ hdiutil convert "$temp_dmg_path" \
     -o "$dmg_path" >/dev/null
 
 rm -f "$temp_dmg_path"
+cp -R "$dmg_path" "$root_dmg_path"
 
-printf '%s\n' "$dmg_path"
+printf '%s\n' "$root_dmg_path"
