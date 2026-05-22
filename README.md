@@ -17,7 +17,7 @@ A macOS menu bar app to track and sort your Codex account limits at a glance.
 
 ## Install
 
-Launch the app bundle tracked in this repo directly or install it to your Applications folder with the included DMG.
+Open [CodexMux.app](dist/CodexMux.app) directly or [CodexMux.dmg](dist/CodexMux.dmg) to install it to your Applications folder.
 
 ## Development
 

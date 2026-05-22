@@ -7,7 +7,7 @@ BUILD_DIR="$ROOT_DIR/.build"
 DIST_DIR="$BUILD_DIR/dist"
 STAGING_DIR="$BUILD_DIR/dmg"
 APP_BUILD_DIR="$BUILD_DIR/apple"
-ROOT_DMG_DIR="$ROOT_DIR"
+TRACKED_DIST_DIR="$ROOT_DIR/dist"
 APP_NAME="CodexMux"
 APP_BUNDLE_PATH="$APP_BUILD_DIR/${APP_NAME}.app"
 
@@ -80,11 +80,13 @@ if [[ -z "$VOLUME_NAME" ]]; then
 fi
 
 dmg_path="$DIST_DIR/${dmg_name}.dmg"
-root_dmg_path="$ROOT_DMG_DIR/${APP_NAME}.dmg"
+tracked_dmg_path="$TRACKED_DIST_DIR/${APP_NAME}.dmg"
 temp_dmg_path="$BUILD_DIR/${dmg_name}-temp.dmg"
 attach_plist_path="$BUILD_DIR/${dmg_name}-attach.plist"
 
-rm -f "$dmg_path" "$root_dmg_path" "$temp_dmg_path" "$attach_plist_path"
+mkdir -p "$TRACKED_DIST_DIR"
+
+rm -f "$dmg_path" "$tracked_dmg_path" "$temp_dmg_path" "$attach_plist_path"
 
 hdiutil create \
     -volname "$VOLUME_NAME" \
@@ -158,6 +160,6 @@ hdiutil convert "$temp_dmg_path" \
 
 rm -f "$temp_dmg_path"
 rm -f "$attach_plist_path"
-cp -R "$dmg_path" "$root_dmg_path"
+cp -R "$dmg_path" "$tracked_dmg_path"
 
-printf '%s\n' "$root_dmg_path"
+printf '%s\n' "$tracked_dmg_path"

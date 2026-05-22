@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/apple"
 DERIVED_DATA_DIR="$ROOT_DIR/.build/xcodebuild"
 XCODE_APP_DIR="$DERIVED_DATA_DIR/Build/Products/Debug/CodexMux.app"
-TRACKED_BUNDLE_DIR="$ROOT_DIR"
+TRACKED_DIST_DIR="$ROOT_DIR/dist"
 APP_DIR="$BUILD_DIR/CodexMux.app"
 ICONSET_DIR="$ROOT_DIR/.build/CodexMux.iconset"
 ICON_SOURCE_PATH="$ROOT_DIR/assets/app-icon.png"
@@ -29,6 +29,7 @@ if ! command -v xcodegen >/dev/null 2>&1; then
 fi
 
 mkdir -p "$BUILD_DIR"
+mkdir -p "$TRACKED_DIST_DIR"
 
 if [[ ! -f "$APP_ICON_PATH" ]]; then
   rm -rf "$ICONSET_DIR"
@@ -65,7 +66,7 @@ if [[ -f "$APP_ICON_PATH" ]]; then
   codesign --force --sign - "$APP_DIR"
 fi
 rm -rf "$ROOT_DIR/CodexMux.xcodeproj"
-rm -rf "$TRACKED_BUNDLE_DIR/CodexMux.app"
-cp -R "$APP_DIR" "$TRACKED_BUNDLE_DIR/CodexMux.app"
+rm -rf "$TRACKED_DIST_DIR/CodexMux.app"
+cp -R "$APP_DIR" "$TRACKED_DIST_DIR/CodexMux.app"
 
 echo "$APP_DIR"
