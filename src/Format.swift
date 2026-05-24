@@ -231,6 +231,13 @@ func sortedAccountsByResetTime(
             return leftDelta > rightDelta
         }
 
+        let leftCurrent = displayRemainingPercentage(for: left.weeklyWindow)
+        let rightCurrent = displayRemainingPercentage(for: right.weeklyWindow)
+
+        if leftCurrent != rightCurrent {
+            return leftCurrent > rightCurrent
+        }
+
         let leftDate = ISO8601DateFormatter().date(from: left.weeklyWindow.resetsAt)
         let rightDate = ISO8601DateFormatter().date(from: right.weeklyWindow.resetsAt)
 
