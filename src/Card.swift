@@ -405,6 +405,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 struct AccountCardView: View {
     let account: AccountSnapshot
     let displayName: String
+    private let cardHeight: CGFloat = 88
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
 
     var body: some View {
@@ -456,6 +457,7 @@ struct AccountCardView: View {
             }
         }
         .background(Color.white.opacity(0.04))
+        .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight, alignment: .topLeading)
         .clipShape(RoundedRectangle(cornerRadius: 20))
     }
 }
