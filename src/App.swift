@@ -51,7 +51,7 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
         self.popover.contentViewController = hostingController
         self.popover.behavior = .transient
         self.popover.animates = true
-        self.popover.contentSize = NSSize(width: 440, height: 620)
+        self.popover.contentSize = NSSize(width: 352, height: 620)
     }
 
     @objc
