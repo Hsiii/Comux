@@ -264,6 +264,10 @@ struct HeaderIdentityClusterView: View {
     let ringSize: CGFloat
     let spacing: CGFloat
 
+    private var lockCountdownSpacing: CGFloat {
+        spacing / 2
+    }
+
     private var truncatedDisplayName: String {
         String(displayName.prefix(12))
     }
@@ -275,7 +279,7 @@ struct HeaderIdentityClusterView: View {
                 .lineLimit(1)
 
             if isRollingWindowLocked(rollingWindow) {
-                HStack(alignment: .firstTextBaseline, spacing: spacing) {
+                HStack(alignment: .firstTextBaseline, spacing: lockCountdownSpacing) {
                     Image(systemName: "lock.fill")
                         .font(nameFont.weight(.semibold))
 
@@ -551,6 +555,10 @@ struct AccountCardView: View {
     private let identityClusterWidth: CGFloat = 188
     private let identitySpacing: CGFloat = 6
 
+    private var lockCountdownSpacing: CGFloat {
+        identitySpacing / 2
+    }
+
     private var truncatedDisplayName: String {
         String(displayName.prefix(12))
     }
@@ -626,7 +634,7 @@ struct AccountCardView: View {
                 .foregroundStyle(.primary)
 
             if isRollingWindowLocked(account.rollingWindow) {
-                HStack(alignment: .firstTextBaseline, spacing: identitySpacing) {
+                HStack(alignment: .firstTextBaseline, spacing: lockCountdownSpacing) {
                     Image(systemName: "lock.fill")
                         .font(.headline.weight(.semibold))
 
