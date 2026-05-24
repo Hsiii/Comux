@@ -410,8 +410,12 @@ struct AccountCardView: View {
     let onRemove: () -> Void
     private let cardHeight: CGFloat = 56
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
-    private let actionButtonSize: CGFloat = 28
-    private let actionButtonCornerRadius: CGFloat = 10
+    private let identityClusterWidth: CGFloat = 188
+    private let identitySpacing: CGFloat = 6
+
+    private var truncatedDisplayName: String {
+        String(displayName.prefix(12))
+    }
 
     var body: some View {
         WeeklyUsageSurfaceView(
@@ -424,24 +428,13 @@ struct AccountCardView: View {
         ) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    HeaderIdentityClusterView(
-                        displayName: displayName,
-                        rollingWindow: account.rollingWindow,
-                        nameFont: .headline.weight(.semibold),
-                        clusterWidth: 188,
-                        ringSize: 12,
-                        spacing: 6
-                    )
+                    self.identityCluster
 
                     Spacer(minLength: 12)
 
-                    HStack(spacing: 8) {
-                        Text(percentageText(for: account.weeklyWindow))
-                            .font(.headline.weight(.semibold))
-                            .fixedSize(horizontal: true, vertical: false)
-
-                        self.actionsMenu
-                    }
+                    Text(percentageText(for: account.weeklyWindow))
+                        .font(.headline.weight(.semibold))
+                        .fixedSize(horizontal: true, vertical: false)
                 }
 
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -468,6 +461,27 @@ struct AccountCardView: View {
         .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight, alignment: .topLeading)
     }
 
+    private var identityCluster: some View {
+        HStack(alignment: .firstTextBaseline, spacing: identitySpacing) {
+            self.actionsMenu
+
+            if isRollingWindowLocked(account.rollingWindow) {
+                HStack(alignment: .firstTextBaseline, spacing: identitySpacing) {
+                    Image(systemName: "lock.fill")
+                        .font(.headline.weight(.semibold))
+
+                    Text(formatCountdown(account.rollingWindow.resetsAt))
+                        .font(.headline.weight(.semibold))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Color.white.opacity(0.5))
+            }
+
+            Spacer(minLength: 8)
+        }
+        .frame(width: identityClusterWidth, alignment: .leading)
+    }
+
     private var actionsMenu: some View {
         Menu {
             Button("Edit Display Name…", action: onEditDisplayName)
@@ -475,12 +489,17 @@ struct AccountCardView: View {
             Button("Remove", role: .destructive, action: onRemove)
                 .disabled(!canRemove)
         } label: {
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: actionButtonSize, height: actionButtonSize)
-                .background(Color.white.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: actionButtonCornerRadius, style: .continuous))
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(truncatedDisplayName)
+                    .font(.headline.weight(.semibold))
+                    .lineLimit(1)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(.primary)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
