@@ -5,6 +5,8 @@ private let statusPanelGap: CGFloat = 6
 
 @MainActor
 final class PopoverHostingController<Content: View>: NSHostingController<Content> {
+    var onPreferredContentSizeChange: ((NSSize) -> Void)?
+
     override func loadView() {
         super.loadView()
         self.view.wantsLayer = true
@@ -13,7 +15,13 @@ final class PopoverHostingController<Content: View>: NSHostingController<Content
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        self.preferredContentSize = self.view.fittingSize
+        let nextSize = self.view.fittingSize
+        guard self.preferredContentSize != nextSize else {
+            return
+        }
+
+        self.preferredContentSize = nextSize
+        self.onPreferredContentSizeChange?(nextSize)
     }
 }
 
@@ -88,6 +96,13 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
         panel.onCloseRequest = { [weak self] in
             self?.closePanel()
         }
+        hostingController.onPreferredContentSizeChange = { [weak self, weak panel] size in
+            guard let self, let panel else {
+                return
+            }
+
+            self.updatePanelSize(size, for: panel)
+        }
         self.panel = panel
     }
 
@@ -108,7 +123,7 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
 
         if let controller = panel.contentViewController {
             controller.view.layoutSubtreeIfNeeded()
-            panel.setContentSize(controller.preferredContentSize)
+            self.updatePanelSize(controller.preferredContentSize, for: panel)
         }
 
         self.positionPanel(relativeTo: button, panel: panel)
@@ -135,6 +150,22 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
 
         let originY = buttonFrameOnScreen.minY - panelSize.height - statusPanelGap
         panel.setFrameOrigin(NSPoint(x: originX, y: originY))
+    }
+
+    private func updatePanelSize(_ size: NSSize, for panel: NSPanel) {
+        guard size.width > 0, size.height > 0 else {
+            return
+        }
+
+        if panel.contentView?.frame.size != size {
+            panel.setContentSize(size)
+        }
+
+        guard panel.isVisible, let button = self.statusItem?.button else {
+            return
+        }
+
+        self.positionPanel(relativeTo: button, panel: panel)
     }
 
     private func installEventMonitors() {
