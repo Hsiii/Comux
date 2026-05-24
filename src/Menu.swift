@@ -17,7 +17,7 @@ private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
 private let controlSectionHorizontalInset: CGFloat = 0
 private let controlStateColumnWidth: CGFloat = 8
-private let controlStateSpacing: CGFloat = 4
+private let controlStateSpacing: CGFloat = 0
 
 private var maxPanelHeight: CGFloat {
     let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
@@ -90,7 +90,7 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var isManagingAccounts: Bool
     @Binding var measuredContentHeight: CGFloat
-    private let panelPadding: CGFloat = 12
+    private let panelPadding: CGFloat = 16
 
     var body: some View {
         ZStack {
