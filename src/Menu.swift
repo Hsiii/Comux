@@ -168,12 +168,82 @@ private struct EditDisplayNameSheet: View {
     }
 }
 
+private struct RemoveAccountSheet: View {
+    let account: AccountSnapshot
+    let onCancel: () -> Void
+    let onConfirm: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: editDialogContentSpacing) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Remove Account")
+                    .font(.title3.weight(.semibold))
+
+                Text("Remove the saved account for \(account.email) from CodexMux?")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(account.label)
+                    .font(.headline.weight(.semibold))
+
+                Text(account.email)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+
+                if let tag = compactAccountTag(for: account) {
+                    Text(tag)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            Text("This only removes the saved account from CodexMux. It does not change the underlying ChatGPT account.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: editDialogButtonSpacing) {
+                Spacer(minLength: 0)
+
+                Button("Cancel", role: .cancel, action: self.onCancel)
+                    .keyboardShortcut(.defaultAction)
+
+                Button("Remove", role: .destructive, action: self.onConfirm)
+            }
+        }
+        .padding(editDialogOuterPadding)
+        .frame(width: editDialogWidth, alignment: .leading)
+    }
+}
+
+private enum AccountDialogRoute: Identifiable {
+    case edit(AccountSnapshot)
+    case remove(AccountSnapshot)
+
+    var id: String {
+        switch self {
+        case .edit(let account):
+            return "edit:\(account.id)"
+        case .remove(let account):
+            return "remove:\(account.id)"
+        }
+    }
+}
+
 struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var nicknameStore: NicknameStore
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var measuredContentHeight: CGFloat
     let onEditDisplayNameRequested: (AccountSnapshot) -> Void
+    let onRemoveRequested: (AccountSnapshot) -> Void
 
     var body: some View {
         ZStack {
@@ -224,7 +294,7 @@ struct SlimDashboardPanelView: View {
                         self.promptForDisplayName(account)
                     },
                     onRemove: {
-                        self.confirmRemoval(of: account)
+                        self.promptForRemoval(account)
                     }
                 )
             }
@@ -301,31 +371,12 @@ struct SlimDashboardPanelView: View {
         self.onEditDisplayNameRequested(account)
     }
 
-    private func confirmRemoval(of account: AccountSnapshot) {
+    private func promptForRemoval(_ account: AccountSnapshot) {
         guard coordinator.isRemovable(account) else {
             NSSound.beep()
             return
         }
-
-        let alert = NSAlert()
-        alert.messageText = "Remove Account?"
-        alert.informativeText = "This removes \(account.email) from CodexMux."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Remove")
-        alert.addButton(withTitle: "Cancel")
-
-        let response = alert.runModal()
-        guard response == .alertFirstButtonReturn else {
-            return
-        }
-
-        do {
-            try coordinator.removeAccount(account)
-            nicknameStore.removeNickname(for: account)
-        } catch {
-            let errorAlert = NSAlert(error: error)
-            errorAlert.runModal()
-        }
+        self.onRemoveRequested(account)
     }
 }
 
@@ -337,7 +388,7 @@ struct PulseMenuView: View {
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
     @State private var dashboardContentHeight: CGFloat = 620
     @State private var isShowingLaunchAtLoginError = false
-    @State private var editingAccount: AccountSnapshot?
+    @State private var activeDialog: AccountDialogRoute?
     @State private var draftDisplayName = ""
 
     var body: some View {
@@ -348,6 +399,9 @@ struct PulseMenuView: View {
             measuredContentHeight: self.$dashboardContentHeight,
             onEditDisplayNameRequested: { account in
                 self.promptForDisplayName(account)
+            },
+            onRemoveRequested: { account in
+                self.promptForRemoval(account)
             }
         )
         .frame(width: panelWidth, height: self.panelHeight)
@@ -355,17 +409,8 @@ struct PulseMenuView: View {
         .onChange(of: self.launchAtLoginStore.errorMessage) { _, errorMessage in
             self.isShowingLaunchAtLoginError = errorMessage != nil
         }
-        .sheet(item: self.$editingAccount) { account in
-            EditDisplayNameSheet(
-                account: account,
-                draftName: self.$draftDisplayName,
-                onCancel: {
-                    self.cancelDisplayNameEditing()
-                },
-                onSave: {
-                    self.saveDisplayName(for: account)
-                }
-            )
+        .sheet(item: self.$activeDialog) { route in
+            self.accountDialog(for: route)
         }
         .alert("Couldn’t Update Login Item", isPresented: self.$isShowingLaunchAtLoginError) {
             Button("OK") {
@@ -378,11 +423,15 @@ struct PulseMenuView: View {
 
     private func promptForDisplayName(_ account: AccountSnapshot) {
         self.draftDisplayName = self.nicknameStore.nickname(for: account)
-        self.editingAccount = account
+        self.activeDialog = .edit(account)
+    }
+
+    private func promptForRemoval(_ account: AccountSnapshot) {
+        self.activeDialog = .remove(account)
     }
 
     private func cancelDisplayNameEditing() {
-        self.editingAccount = nil
+        self.activeDialog = nil
         self.draftDisplayName = ""
     }
 
@@ -392,6 +441,49 @@ struct PulseMenuView: View {
             for: [account]
         )
         self.cancelDisplayNameEditing()
+    }
+
+    private func cancelRemoval() {
+        self.activeDialog = nil
+    }
+
+    private func confirmRemoval(of account: AccountSnapshot) {
+        do {
+            try self.coordinator.removeAccount(account)
+            self.nicknameStore.removeNickname(for: account)
+            self.activeDialog = nil
+        } catch {
+            self.activeDialog = nil
+            let errorAlert = NSAlert(error: error)
+            errorAlert.runModal()
+        }
+    }
+
+    @ViewBuilder
+    private func accountDialog(for route: AccountDialogRoute) -> some View {
+        switch route {
+        case .edit(let account):
+            EditDisplayNameSheet(
+                account: account,
+                draftName: self.$draftDisplayName,
+                onCancel: {
+                    self.cancelDisplayNameEditing()
+                },
+                onSave: {
+                    self.saveDisplayName(for: account)
+                }
+            )
+        case .remove(let account):
+            RemoveAccountSheet(
+                account: account,
+                onCancel: {
+                    self.cancelRemoval()
+                },
+                onConfirm: {
+                    self.confirmRemoval(of: account)
+                }
+            )
+        }
     }
 
     private var panelHeight: CGFloat {

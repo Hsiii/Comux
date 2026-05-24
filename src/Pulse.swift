@@ -569,12 +569,12 @@ final class PulseCoordinator: ObservableObject {
     ) -> CachePayload {
         var existingByIdentity = Dictionary(
             uniqueKeysWithValues: existing.accounts.map {
-                (canonicalAccountIdentity(for: $0), $0)
+                ($0.accountId, $0)
             }
         )
 
         for snapshot in incoming {
-            let identity = canonicalAccountIdentity(for: snapshot)
+            let identity = snapshot.accountId
             let prior = existingByIdentity[identity]
 
             existingByIdentity[identity] = AccountSnapshot(
@@ -599,11 +599,11 @@ final class PulseCoordinator: ObservableObject {
 
         var mergedAccounts = Array(existingByIdentity.values)
         let activeIdentity = incoming.first(where: { $0.isCurrentSystemAccount == true })
-            .map(canonicalAccountIdentity(for:))
+            .map(\.accountId)
 
         if let activeIdentity {
             mergedAccounts = mergedAccounts.map { account in
-                let isActive = canonicalAccountIdentity(for: account) == activeIdentity
+                let isActive = account.accountId == activeIdentity
 
                 return AccountSnapshot(
                     accountId: account.accountId,
