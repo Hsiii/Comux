@@ -136,43 +136,37 @@ struct SlimDashboardPanelView: View {
     }
 
     private var controlStrip: some View {
-        HStack(spacing: 12) {
-            Button(self.launchAtLoginTitle) {
+        VStack(alignment: .leading, spacing: 0) {
+            Divider()
+                .padding(.bottom, 8)
+
+            self.controlRow(self.launchAtLoginTitle) {
                 launchAtLoginStore.setEnabled(!launchAtLoginStore.opensAtLogin)
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 12.5, weight: .medium))
-            .foregroundStyle(.primary)
-            .frame(height: controlHeight)
 
-            Spacer(minLength: 0)
-
-            Menu {
-                Button("Manage Accounts") {
-                    isManagingAccounts = true
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: controlHeight, height: controlHeight)
-                    .contentShape(Rectangle())
+            self.controlRow("Manage Accounts…") {
+                isManagingAccounts = true
             }
-            .focusable(false)
-            .menuStyle(.borderlessButton)
 
             Divider()
-                .frame(height: 16)
+                .padding(.vertical, 8)
 
-            Button("Quit") {
+            self.controlRow("Quit") {
                 NSApp.terminate(nil)
             }
-            .buttonStyle(.plain)
-            .font(.system(size: 12.5, weight: .medium))
-            .foregroundStyle(.secondary)
-            .frame(height: controlHeight)
         }
-        .padding(.leading, 14)
+        .padding(.horizontal, 14)
+    }
+
+    private func controlRow(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var measuringContent: some View {
