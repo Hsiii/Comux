@@ -90,6 +90,7 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var isManagingAccounts: Bool
     @Binding var measuredContentHeight: CGFloat
+    private let panelPadding: CGFloat = 14
 
     var body: some View {
         ZStack {
@@ -132,7 +133,7 @@ struct SlimDashboardPanelView: View {
 
             self.controlStrip
         }
-        .padding(16)
+        .padding(panelPadding)
     }
 
     private var launchAtLoginTitle: String {
