@@ -71,6 +71,9 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
 
         self.popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         self.popover.contentViewController?.view.window?.becomeKey()
+        DispatchQueue.main.async { [weak self] in
+            self?.popover.contentViewController?.view.window?.makeFirstResponder(nil)
+        }
     }
 
     private static var codexMenuBarIcon: NSImage {

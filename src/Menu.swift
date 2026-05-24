@@ -14,6 +14,8 @@ private let minPanelHeight: CGFloat = 88
 private let panelWidth: CGFloat = 360
 private let managerHeight: CGFloat = 460
 private let controlHeight: CGFloat = 28
+private let controlHorizontalInset: CGFloat = 14
+private let controlDividerSpacing: CGFloat = 6
 
 private var maxPanelHeight: CGFloat {
     let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
@@ -138,7 +140,7 @@ struct SlimDashboardPanelView: View {
     private var controlStrip: some View {
         VStack(alignment: .leading, spacing: 0) {
             Divider()
-                .padding(.bottom, 8)
+                .padding(.bottom, controlDividerSpacing)
 
             self.controlRow(self.launchAtLoginTitle) {
                 launchAtLoginStore.setEnabled(!launchAtLoginStore.opensAtLogin)
@@ -149,13 +151,13 @@ struct SlimDashboardPanelView: View {
             }
 
             Divider()
-                .padding(.vertical, 8)
+                .padding(.vertical, controlDividerSpacing)
 
             self.controlRow("Quit") {
                 NSApp.terminate(nil)
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, controlHorizontalInset)
     }
 
     private func controlRow(_ title: String, action: @escaping () -> Void) -> some View {
@@ -167,6 +169,7 @@ struct SlimDashboardPanelView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .focusable(false)
     }
 
     private var measuringContent: some View {
