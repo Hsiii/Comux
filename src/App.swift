@@ -110,6 +110,9 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
         self.installEventMonitors()
         panel.orderFrontRegardless()
         panel.makeKey()
+        Task { @MainActor [weak self] in
+            await self?.coordinator.syncNow()
+        }
         DispatchQueue.main.async { [weak self] in
             self?.panel?.makeFirstResponder(nil)
         }
