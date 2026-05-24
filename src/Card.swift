@@ -488,6 +488,7 @@ struct AccountCardView: View {
                 .disabled(!canRemove)
         } label: {
             Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
