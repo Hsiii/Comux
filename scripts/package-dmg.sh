@@ -109,6 +109,8 @@ if [[ -z "$MOUNT_DIR" ]]; then
     exit 1
 fi
 
+MOUNT_NAME="$(basename "$MOUNT_DIR")"
+
 touch "$MOUNT_DIR/.DS_Store"
 
 cleanup_mount() {
@@ -123,8 +125,9 @@ sleep 1
 
 osascript <<EOF
 tell application "Finder"
-    tell disk "${VOLUME_NAME}"
+    tell disk "${MOUNT_NAME}"
         open
+        delay 1
         set containerWindow to container window
         set current view of containerWindow to icon view
         set toolbar visible of containerWindow to false
@@ -140,17 +143,19 @@ tell application "Finder"
 
         set position of item "${APP_NAME}.app" to {150, 150}
         set position of item "Applications" to {410, 150}
+        update without registering applications
+        delay 2
 
         close
         open
         update without registering applications
-        delay 1
+        delay 2
         close
     end tell
 end tell
 EOF
 
-sleep 1
+sleep 2
 sync
 hdiutil detach "$MOUNT_DIR" -quiet >/dev/null || hdiutil detach "$MOUNT_DIR" -force -quiet >/dev/null
 trap - EXIT
