@@ -16,6 +16,7 @@ private let controlHeight: CGFloat = 28
 private let controlDividerSpacing: CGFloat = 6
 private let controlSectionHorizontalInset: CGFloat = 0
 private let controlTextLeadingInset: CGFloat = 16
+private let controlHoverCornerRadius: CGFloat = 8
 
 private var maxPanelHeight: CGFloat {
     let visibleScreenHeight = NSScreen.main?.visibleFrame.height ?? 900
@@ -79,6 +80,37 @@ extension View {
         self
             .scrollIndicators(.automatic)
             .background(ScrollIndicatorConfigurator())
+    }
+}
+
+private struct ControlRowButtonStyle: ButtonStyle {
+    @State private var isHovered = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                RoundedRectangle(cornerRadius: controlHoverCornerRadius, style: .continuous)
+                    .fill(self.backgroundColor(isPressed: configuration.isPressed))
+            }
+            .foregroundStyle(self.foregroundColor)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.12), value: isHovered)
+            .onHover { hovering in
+                isHovered = hovering
+            }
+    }
+
+    private var foregroundColor: Color {
+        isHovered ? Color(nsColor: .selectedMenuItemTextColor) : .primary
+    }
+
+    private func backgroundColor(isPressed: Bool) -> Color {
+        guard isHovered || isPressed else {
+            return .clear
+        }
+
+        let color = NSColor.selectedContentBackgroundColor
+        return Color(nsColor: color.withAlphaComponent(isPressed ? 0.96 : 0.88))
     }
 }
 
@@ -173,19 +205,17 @@ struct SlimDashboardPanelView: View {
         Button(action: action) {
             Text(title)
                 .font(.system(size: 12.5, weight: .regular))
-                .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
                 .padding(.leading, controlTextLeadingInset)
                 .overlay(alignment: .leading) {
                     Image(systemName: "checkmark")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.primary)
                         .frame(width: controlTextLeadingInset, alignment: .center)
                         .opacity(showsCheckmark ? 1 : 0)
                 }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ControlRowButtonStyle())
         .focusable(false)
     }
 

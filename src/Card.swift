@@ -279,6 +279,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
     let window: UsageWindow
     let isLocked: Bool
     let isActive: Bool
+    let isHovered: Bool
     let topCornerRadius: CGFloat
     let bottomCornerRadius: CGFloat
     let contentInsets: EdgeInsets
@@ -288,6 +289,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         window: UsageWindow,
         isLocked: Bool,
         isActive: Bool,
+        isHovered: Bool = false,
         topCornerRadius: CGFloat,
         bottomCornerRadius: CGFloat,
         contentInsets: EdgeInsets,
@@ -296,6 +298,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         self.window = window
         self.isLocked = isLocked
         self.isActive = isActive
+        self.isHovered = isHovered
         self.topCornerRadius = topCornerRadius
         self.bottomCornerRadius = bottomCornerRadius
         self.contentInsets = contentInsets
@@ -350,7 +353,11 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 
     private var expectedTint: some View {
         surfaceShape
-            .fill(Color.white.opacity(0.06))
+            .fill(Color.white.opacity(isHovered ? 0.072 : 0.06))
+    }
+
+    private var baseFillOpacity: Double {
+        isHovered ? 0.056 : 0.04
     }
 
     var body: some View {
@@ -360,7 +367,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         surfaceShape
-                            .fill(Color.white.opacity(0.04))
+                            .fill(Color.white.opacity(baseFillOpacity))
 
                         if window.available {
                             if showsExpectedOverlay {
@@ -408,6 +415,7 @@ struct AccountCardView: View {
     let canRemove: Bool
     let onEditDisplayName: () -> Void
     let onRemove: () -> Void
+    @State private var isHovered = false
     private let cardHeight: CGFloat = 56
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
     private let identityClusterWidth: CGFloat = 188
@@ -422,6 +430,7 @@ struct AccountCardView: View {
             window: account.weeklyWindow,
             isLocked: isRollingWindowLocked(account.rollingWindow),
             isActive: account.isCurrentSystemAccount == true,
+            isHovered: isHovered,
             topCornerRadius: 20,
             bottomCornerRadius: 20,
             contentInsets: contentInsets
@@ -459,6 +468,9 @@ struct AccountCardView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight, alignment: .topLeading)
+        .onHover { hovering in
+            isHovered = hovering
+        }
     }
 
     private var identityCluster: some View {
@@ -489,11 +501,20 @@ struct AccountCardView: View {
             Button("Remove", role: .destructive, action: onRemove)
                 .disabled(!canRemove)
         } label: {
-            Text(truncatedDisplayName)
-                .font(.headline.weight(.semibold))
-                .lineLimit(1)
-                .foregroundStyle(.primary)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(truncatedDisplayName)
+                    .font(.headline.weight(.semibold))
+                    .lineLimit(1)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
+            .foregroundStyle(.primary)
         }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
         .fixedSize()
         .help("Account actions")
     }
