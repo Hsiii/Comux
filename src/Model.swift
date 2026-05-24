@@ -5,9 +5,12 @@ struct UsageWindow: Codable {
     let label: String
     let usedMinutes: Int
     let limitMinutes: Int
-    let remainingMinutes: Int
     let usedPercentage: Double
     let resetsAt: String
+
+    var remainingMinutes: Int {
+        max(limitMinutes - usedMinutes, 0)
+    }
 }
 
 struct PaceSnapshot: Codable {

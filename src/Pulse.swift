@@ -504,7 +504,6 @@ final class PulseCoordinator: ObservableObject {
                 label: label,
                 usedMinutes: 0,
                 limitMinutes: 0,
-                remainingMinutes: 0,
                 usedPercentage: 0,
                 resetsAt: ""
             )
@@ -515,14 +514,12 @@ final class PulseCoordinator: ObservableObject {
         let usedPercent = (rawWindow["used_percent"] as? NSNumber)?.doubleValue ?? 0
         let limitMinutes = Int(round(Double(limitSeconds) / 60))
         let usedMinutes = Int(round(Double(limitMinutes) * (usedPercent / 100)))
-        let remainingMinutes = max(limitMinutes - usedMinutes, 0)
 
         return UsageWindow(
             available: true,
             label: label,
             usedMinutes: usedMinutes,
             limitMinutes: limitMinutes,
-            remainingMinutes: remainingMinutes,
             usedPercentage: usedPercent,
             resetsAt: Date(timeIntervalSince1970: resetAtEpoch).ISO8601Format()
         )
