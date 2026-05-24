@@ -20,6 +20,7 @@ private let controlDividerHorizontalInset: CGFloat = 16
 private let controlRowHorizontalInset: CGFloat = 12
 private let controlSectionBottomPadding: CGFloat = 12
 private let controlTextLeadingInset: CGFloat = 14
+private let controlHoverInset: CGFloat = 4
 private let controlHoverCornerRadius: CGFloat = 8
 
 private var maxPanelHeight: CGFloat {
@@ -95,6 +96,7 @@ private struct ControlRowButtonStyle: ButtonStyle {
             .background {
                 RoundedRectangle(cornerRadius: controlHoverCornerRadius, style: .continuous)
                     .fill(self.backgroundColor(isPressed: configuration.isPressed))
+                    .padding(controlHoverInset)
             }
             .foregroundStyle(self.foregroundColor)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)

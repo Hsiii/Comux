@@ -487,7 +487,8 @@ struct AccountCardView: View {
             Button("Remove", role: .destructive, action: onRemove)
                 .disabled(!canRemove)
         } label: {
-            Color.clear
+            Rectangle()
+                .fill(Color.white.opacity(0.001))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
         }
