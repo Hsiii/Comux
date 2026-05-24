@@ -148,7 +148,7 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
                 return event
             }
 
-            if let eventWindow = event.window, eventWindow === panel || eventWindow === self.statusItem?.button?.window {
+            if let eventWindow = event.window, self.isPanelInteractionWindow(eventWindow, panel: panel) {
                 return event
             }
 
@@ -176,6 +176,22 @@ final class CodexMuxAppDelegate: NSObject, NSApplicationDelegate {
     private func closePanel() {
         self.panel?.orderOut(nil)
         self.teardownEventMonitors()
+    }
+
+    private func isPanelInteractionWindow(_ window: NSWindow, panel: NSPanel) -> Bool {
+        if window === panel || window === self.statusItem?.button?.window {
+            return true
+        }
+
+        if window.sheetParent === panel || window.parent === panel {
+            return true
+        }
+
+        if panel.attachedSheet === window {
+            return true
+        }
+
+        return panel.childWindows?.contains(where: { $0 === window }) == true
     }
 
     private static var codexMenuBarIcon: NSImage {
