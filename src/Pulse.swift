@@ -600,6 +600,7 @@ final class PulseCoordinator: ObservableObject {
         incoming: [AccountSnapshot]
     ) -> CachePayload {
         var existingByIdentity: [String: AccountSnapshot] = [:]
+        let existingAccounts = existing.accounts
 
         for account in existing.accounts {
             let identity = self.snapshotIdentity(for: account)
@@ -607,8 +608,14 @@ final class PulseCoordinator: ObservableObject {
             existingByIdentity[identity] = self.preferredStoredSnapshot(prior, candidate: account)
         }
 
+        var activeIdentity: String?
+
         for snapshot in incoming {
-            let identity = self.snapshotIdentity(for: snapshot)
+            let identity = self.resolvedIncomingIdentity(
+                for: snapshot,
+                existingAccounts: existingAccounts,
+                mergedAccounts: Array(existingByIdentity.values)
+            )
             let prior = existingByIdentity[identity]
 
             existingByIdentity[identity] = AccountSnapshot(
@@ -629,11 +636,13 @@ final class PulseCoordinator: ObservableObject {
                     next: snapshot.history.first
                 )
             )
+
+            if snapshot.isCurrentSystemAccount == true {
+                activeIdentity = identity
+            }
         }
 
         var mergedAccounts = Array(existingByIdentity.values)
-        let activeIdentity = incoming.first(where: { $0.isCurrentSystemAccount == true })
-            .map(\.accountId)
 
         if let activeIdentity {
             mergedAccounts = mergedAccounts.map { account in
@@ -710,6 +719,70 @@ final class PulseCoordinator: ObservableObject {
             email: account.email,
             isCurrentSystemAccount: account.isCurrentSystemAccount == true
         )
+    }
+
+    private func resolvedIncomingIdentity(
+        for account: AccountSnapshot,
+        existingAccounts: [AccountSnapshot],
+        mergedAccounts: [AccountSnapshot]
+    ) -> String {
+        let defaultIdentity = self.snapshotIdentity(for: account)
+
+        guard account.isCurrentSystemAccount == true,
+              let matchedIdentity = self.matchingCachedIdentity(
+                for: account,
+                candidates: existingAccounts + mergedAccounts
+              )
+        else {
+            return defaultIdentity
+        }
+
+        return matchedIdentity
+    }
+
+    private func matchingCachedIdentity(
+        for account: AccountSnapshot,
+        candidates: [AccountSnapshot]
+    ) -> String? {
+        let normalizedEmail = account.email
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let normalizedWorkspace = account.workspaceLabel
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let normalizedPlan = account.plan
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard !normalizedEmail.isEmpty else {
+            return nil
+        }
+
+        return candidates.first { candidate in
+            guard candidate.isCurrentSystemAccount != true else {
+                return false
+            }
+
+            let candidateEmail = candidate.email
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            let candidateWorkspace = candidate.workspaceLabel
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            let candidatePlan = candidate.plan
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+
+            guard candidateEmail == normalizedEmail,
+                  candidateWorkspace == normalizedWorkspace,
+                  candidatePlan == normalizedPlan
+            else {
+                return false
+            }
+
+            return candidate.accountId.hasPrefix("system::") == false
+        }
+        .map { self.snapshotIdentity(for: $0) }
     }
 
     private func preferredStoredSnapshot(
