@@ -127,7 +127,15 @@ func canonicalAccountIdentity(for account: AccountSnapshot) -> String {
 
 func isPersonalPlan(_ plan: String) -> Bool {
     let normalized = plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    return normalized.contains("free") || normalized.contains("personal")
+    return normalized.contains("free")
+        || normalized.contains("plus")
+        || normalized.contains("pro")
+        || normalized.contains("personal")
+}
+
+func isTeamPlan(_ plan: String) -> Bool {
+    let normalized = plan.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    return normalized.contains("team")
 }
 
 func normalizedWorkspaceLabel(_ workspaceLabel: String, plan: String) -> String {
@@ -147,7 +155,7 @@ func normalizedWorkspaceLabel(_ workspaceLabel: String, plan: String) -> String 
 func normalizedPlanLabel(_ plan: String, workspaceLabel: String) -> String {
     let trimmedPlan = plan.trimmingCharacters(in: .whitespacesAndNewlines)
 
-    if workspaceLabel == "Personal" && trimmedPlan.lowercased().contains("team") {
+    if workspaceLabel == "Personal" && isTeamPlan(trimmedPlan) {
         return "Codex Personal"
     }
 
@@ -161,12 +169,20 @@ func tierLabel(for plan: String) -> String {
         return "Team"
     }
 
-    if isPersonalPlan(plan) {
-        return "Personal"
+    if normalized.contains("free") {
+        return "Free"
+    }
+
+    if normalized.contains("plus") {
+        return "Plus"
     }
 
     if normalized.contains("pro") {
         return "Pro"
+    }
+
+    if normalized.contains("personal") {
+        return "Personal"
     }
 
     if normalized.hasPrefix("codex ") {
@@ -185,7 +201,7 @@ func accountTierText(for account: AccountSnapshot) -> String {
     }
 
     if workspace == "Personal" {
-        return "Personal"
+        return tier
     }
 
     if tier == "Team" && !workspace.isEmpty {

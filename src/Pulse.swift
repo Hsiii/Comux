@@ -160,7 +160,9 @@ final class PulseCoordinator: ObservableObject {
             label: account.label,
             email: account.email,
             workspaceLabel: workspaceLabel,
-            plan: account.plan,
+            plan: self.displayPlan(rawUsage["plan_type"] as? String) == "Codex"
+                ? account.plan
+                : self.displayPlan(rawUsage["plan_type"] as? String),
             color: account.color,
             source: account.source ?? "native cookie sync",
             isCurrentSystemAccount: false,
