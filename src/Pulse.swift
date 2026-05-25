@@ -624,17 +624,15 @@ final class PulseCoordinator: ObservableObject {
         var existingByIdentity: [String: AccountSnapshot] = [:]
 
         for account in existing.accounts {
-            let identity = self.snapshotIdentity(for: account)
-            let prior = existingByIdentity[identity]
-            existingByIdentity[identity] = self.preferredStoredSnapshot(prior, candidate: account)
+            let prior = existingByIdentity[account.accountId]
+            existingByIdentity[account.accountId] = self.preferredStoredSnapshot(prior, candidate: account)
         }
 
         var activeIdentity: String?
 
         for snapshot in incoming {
-            let identity = self.snapshotIdentity(for: snapshot)
-            existingByIdentity[identity] = AccountSnapshot(
-                accountId: identity,
+            existingByIdentity[snapshot.accountId] = AccountSnapshot(
+                accountId: snapshot.accountId,
                 label: snapshot.label,
                 email: snapshot.email,
                 workspaceId: snapshot.workspaceId,
@@ -648,7 +646,7 @@ final class PulseCoordinator: ObservableObject {
             )
 
             if snapshot.isCurrentSystemAccount == true {
-                activeIdentity = identity
+                activeIdentity = snapshot.accountId
             }
         }
 
@@ -700,10 +698,6 @@ final class PulseCoordinator: ObservableObject {
         )
     }
 
-    private func snapshotIdentity(for account: AccountSnapshot) -> String {
-        canonicalAccountIdentity(for: account)
-    }
-
     private func preferredStoredSnapshot(
         _ current: AccountSnapshot?,
         candidate: AccountSnapshot
@@ -717,7 +711,7 @@ final class PulseCoordinator: ObservableObject {
         let newest = candidateDate >= currentDate ? candidate : current
 
         return AccountSnapshot(
-            accountId: self.snapshotIdentity(for: newest),
+            accountId: newest.accountId,
             label: newest.label,
             email: newest.email,
             workspaceId: newest.workspaceId,
