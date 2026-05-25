@@ -133,6 +133,7 @@ final class PulseCoordinator: ObservableObject {
                         ?? UUID().uuidString,
                     label: identity.name ?? currentUsage["email"] as? String ?? identity.email ?? "Current system account",
                     email: currentUsage["email"] as? String ?? identity.email ?? "Unknown account",
+                    workspaceID: currentUsage["account_id"] as? String ?? identity.accountId,
                     workspaceLabel: self.resolveWorkspaceName(
                         currentUsage,
                         workspaceItem: nil,
@@ -168,6 +169,7 @@ final class PulseCoordinator: ObservableObject {
                     accountID: workspaceItem.id,
                     label: identity.name ?? rawUsage["email"] as? String ?? identity.email ?? "Current system account",
                     email: rawUsage["email"] as? String ?? identity.email ?? "Unknown account",
+                    workspaceID: workspaceItem.id,
                     workspaceLabel: self.resolveWorkspaceName(
                         rawUsage,
                         workspaceItem: workspaceItem,
@@ -205,6 +207,7 @@ final class PulseCoordinator: ObservableObject {
             accountID: account.id,
             label: account.label,
             email: account.email,
+            workspaceID: workspaceAccountID,
             workspaceLabel: workspaceLabel,
             plan: self.displayPlan(rawUsage["plan_type"] as? String) == "Codex"
                 ? account.plan
@@ -368,6 +371,7 @@ final class PulseCoordinator: ObservableObject {
         accountID: String,
         label: String,
         email: String,
+        workspaceID: String?,
         workspaceLabel: String,
         plan: String,
         source: String,
@@ -388,6 +392,7 @@ final class PulseCoordinator: ObservableObject {
         )
         let snapshotKey = buildAccountPrimaryKey(
             email: email,
+            workspaceId: workspaceID,
             workspaceLabel: resolvedWorkspaceLabel
         )
 
@@ -395,6 +400,7 @@ final class PulseCoordinator: ObservableObject {
             accountId: snapshotKey,
             label: label,
             email: email,
+            workspaceId: workspaceID,
             workspaceLabel: resolvedWorkspaceLabel,
             plan: resolvedPlan,
             source: source,
@@ -556,6 +562,7 @@ final class PulseCoordinator: ObservableObject {
         return config.accounts.first(where: {
             buildAccountPrimaryKey(
                 email: $0.email,
+                workspaceId: $0.accountHeader,
                 workspaceLabel: normalizedWorkspaceLabel($0.workspaceLabel, plan: $0.plan)
             ) == accountIdentity
         })?.id
@@ -620,6 +627,7 @@ final class PulseCoordinator: ObservableObject {
                 accountId: identity,
                 label: snapshot.label,
                 email: snapshot.email,
+                workspaceId: snapshot.workspaceId,
                 workspaceLabel: snapshot.workspaceLabel,
                 plan: snapshot.plan,
                 source: snapshot.source,
@@ -644,6 +652,7 @@ final class PulseCoordinator: ObservableObject {
                     accountId: account.accountId,
                     label: account.label,
                     email: account.email,
+                    workspaceId: account.workspaceId,
                     workspaceLabel: account.workspaceLabel,
                     plan: account.plan,
                     source: account.source,
@@ -659,6 +668,7 @@ final class PulseCoordinator: ObservableObject {
                     accountId: account.accountId,
                     label: account.label,
                     email: account.email,
+                    workspaceId: account.workspaceId,
                     workspaceLabel: account.workspaceLabel,
                     plan: account.plan,
                     source: account.source,
@@ -683,6 +693,7 @@ final class PulseCoordinator: ObservableObject {
     private func snapshotIdentity(for account: AccountSnapshot) -> String {
         buildAccountPrimaryKey(
             email: account.email,
+            workspaceId: account.workspaceId,
             workspaceLabel: account.workspaceLabel
         )
     }
@@ -703,6 +714,7 @@ final class PulseCoordinator: ObservableObject {
             accountId: self.snapshotIdentity(for: newest),
             label: newest.label,
             email: newest.email,
+            workspaceId: newest.workspaceId,
             workspaceLabel: newest.workspaceLabel,
             plan: newest.plan,
             source: newest.source,

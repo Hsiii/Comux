@@ -17,6 +17,7 @@ struct AccountSnapshot: Codable, Identifiable {
     let accountId: String
     let label: String
     let email: String
+    let workspaceId: String?
     let workspaceLabel: String
     let plan: String
     let source: String
@@ -73,14 +74,22 @@ func legacyBaseAccountID(from accountID: String) -> String {
 
 func buildAccountPrimaryKey(
     email: String,
+    workspaceId: String?,
     workspaceLabel: String
 ) -> String {
     let normalizedEmail = email
         .trimmingCharacters(in: .whitespacesAndNewlines)
         .lowercased()
+    let normalizedWorkspaceID = workspaceId?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .lowercased() ?? ""
     let normalizedWorkspace = workspaceLabel
         .trimmingCharacters(in: .whitespacesAndNewlines)
         .lowercased()
+
+    if !normalizedEmail.isEmpty && !normalizedWorkspaceID.isEmpty {
+        return "\(normalizedEmail)::\(normalizedWorkspaceID)"
+    }
 
     if !normalizedEmail.isEmpty && !normalizedWorkspace.isEmpty {
         return "\(normalizedEmail)::\(normalizedWorkspace)"
@@ -88,6 +97,10 @@ func buildAccountPrimaryKey(
 
     if !normalizedEmail.isEmpty {
         return normalizedEmail
+    }
+
+    if !normalizedWorkspaceID.isEmpty {
+        return "workspace::\(normalizedWorkspaceID)"
     }
 
     return normalizedWorkspace.isEmpty ? UUID().uuidString : "workspace::\(normalizedWorkspace)"

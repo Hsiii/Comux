@@ -112,6 +112,7 @@ func displayWindowLabel(for window: UsageWindow) -> String {
 func canonicalAccountIdentity(for account: AccountSnapshot) -> String {
     return buildAccountPrimaryKey(
         email: account.email,
+        workspaceId: account.workspaceId,
         workspaceLabel: account.workspaceLabel
     )
 }

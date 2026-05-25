@@ -109,6 +109,7 @@ final class CacheStore {
             accountId: normalizedAccountID,
             label: account.label,
             email: account.email,
+            workspaceId: account.workspaceId,
             workspaceLabel: account.workspaceLabel,
             plan: account.plan,
             source: account.source,
@@ -135,6 +136,7 @@ final class CacheStore {
             accountId: newest.accountId,
             label: newest.label,
             email: newest.email,
+            workspaceId: newest.workspaceId,
             workspaceLabel: newest.workspaceLabel,
             plan: newest.plan,
             source: newest.source,
@@ -377,6 +379,7 @@ final class NicknameStore: ObservableObject {
         return payload.accounts.map { account in
             let stableAccountID = buildAccountPrimaryKey(
                 email: account.email,
+                workspaceId: account.workspaceId,
                 workspaceLabel: account.workspaceLabel
             )
 
@@ -384,6 +387,7 @@ final class NicknameStore: ObservableObject {
                 accountId: stableAccountID,
                 label: account.label,
                 email: account.email,
+                workspaceId: account.workspaceId,
                 workspaceLabel: account.workspaceLabel,
                 plan: account.plan,
                 source: account.source,
