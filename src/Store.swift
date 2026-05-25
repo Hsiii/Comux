@@ -18,7 +18,15 @@ final class CacheStore {
             return self.emptyPayload()
         }
 
-        return payload
+        let migratedPayload = self.migrateLegacyAccounts(in: payload)
+        let migratedData = try? self.encoder.encode(migratedPayload)
+        let originalData = try? self.encoder.encode(payload)
+
+        if migratedData != originalData {
+            try? self.save(migratedPayload)
+        }
+
+        return migratedPayload
     }
 
     func save(_ payload: CachePayload) throws {
@@ -67,6 +75,88 @@ final class CacheStore {
                 source: "native-swift-cache"
             ),
             accounts: []
+        )
+    }
+
+    private func migrateLegacyAccounts(in payload: CachePayload) -> CachePayload {
+        var accountsByIdentity: [String: AccountSnapshot] = [:]
+
+        for account in payload.accounts {
+            let normalizedAccount = self.normalizedAccountIdentity(for: account)
+            let prior = accountsByIdentity[normalizedAccount.accountId]
+            accountsByIdentity[normalizedAccount.accountId] = self.preferredAccountSnapshot(
+                current: prior,
+                candidate: normalizedAccount
+            )
+        }
+
+        let migratedAccounts = accountsByIdentity.values.sorted {
+            $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending
+        }
+
+        return CachePayload(
+            meta: CacheMeta(
+                generatedAt: payload.meta.generatedAt,
+                cachePath: payload.meta.cachePath,
+                source: payload.meta.source
+            ),
+            accounts: migratedAccounts
+        )
+    }
+
+    private func normalizedAccountIdentity(for account: AccountSnapshot) -> AccountSnapshot {
+        let usesSystemIdentity = account.source == "live system auth"
+        let normalizedAccountID = buildSnapshotKey(
+            accountId: account.accountId,
+            email: account.email,
+            isCurrentSystemAccount: usesSystemIdentity || account.isCurrentSystemAccount == true
+        )
+
+        return AccountSnapshot(
+            accountId: normalizedAccountID,
+            label: account.label,
+            email: account.email,
+            workspaceLabel: account.workspaceLabel,
+            plan: account.plan,
+            color: account.color,
+            source: account.source,
+            isCurrentSystemAccount: account.isCurrentSystemAccount,
+            lastSyncedAt: account.lastSyncedAt,
+            weeklyWindow: account.weeklyWindow,
+            rollingWindow: account.rollingWindow,
+            pace: account.pace,
+            history: account.history
+        )
+    }
+
+    private func preferredAccountSnapshot(
+        current: AccountSnapshot?,
+        candidate: AccountSnapshot
+    ) -> AccountSnapshot {
+        guard let current else {
+            return candidate
+        }
+
+        let currentDate = ISO8601DateFormatter().date(from: current.lastSyncedAt) ?? .distantPast
+        let candidateDate = ISO8601DateFormatter().date(from: candidate.lastSyncedAt) ?? .distantPast
+        let newest = candidateDate >= currentDate ? candidate : current
+        let oldest = candidateDate >= currentDate ? current : candidate
+        let mergedHistory = Array((oldest.history + newest.history).suffix(12))
+
+        return AccountSnapshot(
+            accountId: newest.accountId,
+            label: newest.label,
+            email: newest.email,
+            workspaceLabel: newest.workspaceLabel,
+            plan: newest.plan,
+            color: newest.color,
+            source: newest.source,
+            isCurrentSystemAccount: newest.isCurrentSystemAccount,
+            lastSyncedAt: newest.lastSyncedAt,
+            weeklyWindow: newest.weeklyWindow,
+            rollingWindow: newest.rollingWindow,
+            pace: newest.pace,
+            history: mergedHistory
         )
     }
 }
