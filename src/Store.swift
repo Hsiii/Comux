@@ -203,6 +203,7 @@ final class NicknameStore: ObservableObject {
 
     private let defaultsKey = "codexmux.nicknames.v1"
     private let legacyDefaultsKey = "codexboard.nicknames.v1"
+    private let decoder = JSONDecoder()
 
     init() {
         let nicknames = Self.loadNicknames(for: self.defaultsKey)
@@ -216,6 +217,12 @@ final class NicknameStore: ObservableObject {
             }
         } else {
             self.nicknames = nicknames
+        }
+
+        let migratedNicknames = self.migrateLegacyNicknames(self.nicknames)
+
+        if migratedNicknames != self.nicknames {
+            self.persistNicknames(migratedNicknames)
         }
     }
 
@@ -252,11 +259,25 @@ final class NicknameStore: ObservableObject {
         return normalizedEmail.isEmpty ? account.accountId : normalizedEmail
     }
 
+    private func legacyCanonicalIdentity(for account: AccountSnapshot) -> String {
+        let normalizedEmail = self.normalizedEmail(for: account)
+        let normalizedPlan = account.plan
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard !normalizedEmail.isEmpty, !normalizedPlan.isEmpty else {
+            return ""
+        }
+
+        return "\(normalizedEmail)::\(normalizedPlan)"
+    }
+
     private func legacyStorageKeys(for account: AccountSnapshot) -> [String] {
         let baseAccountId = legacyBaseAccountID(from: account.accountId)
 
         return [
             self.preferredStorageKey(for: account),
+            self.legacyCanonicalIdentity(for: account),
             self.normalizedEmail(for: account),
             account.accountId,
             baseAccountId
@@ -318,5 +339,78 @@ final class NicknameStore: ObservableObject {
         }
 
         self.persistNicknames(nextNicknames)
+    }
+
+    private func migrateLegacyNicknames(_ nicknames: [String: String]) -> [String: String] {
+        guard !nicknames.isEmpty else {
+            return nicknames
+        }
+
+        let cacheAccounts = self.loadAccountsForNicknameMigration()
+        guard !cacheAccounts.isEmpty else {
+            return nicknames
+        }
+
+        var migratedNicknames = nicknames
+
+        for account in cacheAccounts {
+            let preferredKey = self.preferredStorageKey(for: account)
+            let legacyKeys = self.legacyStorageKeys(for: account)
+
+            guard !preferredKey.isEmpty else {
+                continue
+            }
+
+            let legacyNickname = legacyKeys.lazy
+                .compactMap { key -> String? in
+                    let trimmed = migratedNicknames[key]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    return trimmed.isEmpty ? nil : trimmed
+                }
+                .first
+
+            guard let legacyNickname else {
+                continue
+            }
+
+            for key in legacyKeys where key != preferredKey {
+                migratedNicknames.removeValue(forKey: key)
+            }
+
+            migratedNicknames[preferredKey] = legacyNickname
+        }
+
+        return migratedNicknames
+    }
+
+    private func loadAccountsForNicknameMigration() -> [AccountSnapshot] {
+        guard let data = try? Data(contentsOf: CodexMuxPaths.cache),
+              let payload = try? self.decoder.decode(CachePayload.self, from: data)
+        else {
+            return []
+        }
+
+        return payload.accounts.map { account in
+            let stableAccountID = buildSnapshotKey(
+                accountId: account.accountId,
+                email: account.email,
+                isCurrentSystemAccount: account.source == "live system auth" || account.isCurrentSystemAccount == true
+            )
+
+            return AccountSnapshot(
+                accountId: stableAccountID,
+                label: account.label,
+                email: account.email,
+                workspaceLabel: account.workspaceLabel,
+                plan: account.plan,
+                color: account.color,
+                source: account.source,
+                isCurrentSystemAccount: account.isCurrentSystemAccount,
+                lastSyncedAt: account.lastSyncedAt,
+                weeklyWindow: account.weeklyWindow,
+                rollingWindow: account.rollingWindow,
+                pace: account.pace,
+                history: account.history
+            )
+        }
     }
 }
