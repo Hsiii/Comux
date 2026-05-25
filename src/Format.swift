@@ -110,14 +110,6 @@ func displayWindowLabel(for window: UsageWindow) -> String {
 }
 
 func canonicalAccountIdentity(for account: AccountSnapshot) -> String {
-    let normalizedEmail = account.email
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-        .lowercased()
-
-    if !normalizedEmail.isEmpty {
-        return normalizedEmail
-    }
-
     return buildSnapshotKey(
         accountId: account.accountId,
         email: account.email,

@@ -94,7 +94,7 @@ func buildSnapshotKey(
     email: String,
     isCurrentSystemAccount: Bool
 ) -> String {
-    let normalizedAccountID = legacyBaseAccountID(from: accountId)
+    let normalizedAccountID = accountId
         .trimmingCharacters(in: .whitespacesAndNewlines)
     let normalizedEmail = email
         .trimmingCharacters(in: .whitespacesAndNewlines)
