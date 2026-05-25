@@ -259,6 +259,8 @@ func sortedAccountsByResetTime(
         let rightCurrent = displayRemainingPercentage(for: right.weeklyWindow)
         let leftIsFull = leftCurrent == 100
         let rightIsFull = rightCurrent == 100
+        let leftIsEmpty = leftCurrent == 0
+        let rightIsEmpty = rightCurrent == 0
 
         if leftIsFull != rightIsFull {
             return leftIsFull
@@ -271,6 +273,10 @@ func sortedAccountsByResetTime(
             if leftIsPaid != rightIsPaid {
                 return leftIsPaid
             }
+        }
+
+        if leftIsEmpty != rightIsEmpty {
+            return !leftIsEmpty
         }
 
         let leftDelta = currentExpectationDelta(for: left.weeklyWindow)
