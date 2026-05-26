@@ -78,6 +78,10 @@ final class CacheStore {
         var accountsByIdentity: [String: AccountSnapshot] = [:]
 
         for account in payload.accounts {
+            if self.shouldDropLegacyLabelScopedAccount(account, within: payload.accounts) {
+                continue
+            }
+
             let normalizedAccount = self.normalizedAccountIdentity(
                 for: account
             )
@@ -98,6 +102,56 @@ final class CacheStore {
             ),
             accounts: migratedAccounts
         )
+    }
+
+    private func shouldDropLegacyLabelScopedAccount(
+        _ account: AccountSnapshot,
+        within accounts: [AccountSnapshot]
+    ) -> Bool {
+        let workspaceID = resolvedWorkspaceIdentity(
+            accountId: account.accountId,
+            workspaceId: account.workspaceId
+        )
+
+        guard workspaceID == nil else {
+            return false
+        }
+
+        let normalizedEmail = account.email
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let normalizedWorkspaceLabel = account.workspaceLabel
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        guard !normalizedEmail.isEmpty, !normalizedWorkspaceLabel.isEmpty else {
+            return false
+        }
+
+        return accounts.contains { candidate in
+            guard candidate.accountId != account.accountId else {
+                return false
+            }
+
+            let candidateWorkspaceID = resolvedWorkspaceIdentity(
+                accountId: candidate.accountId,
+                workspaceId: candidate.workspaceId
+            )
+
+            guard candidateWorkspaceID != nil else {
+                return false
+            }
+
+            let candidateEmail = candidate.email
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            let candidateWorkspaceLabel = candidate.workspaceLabel
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+
+            return candidateEmail == normalizedEmail
+                && candidateWorkspaceLabel == normalizedWorkspaceLabel
+        }
     }
 
     private func normalizedAccountIdentity(
