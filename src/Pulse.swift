@@ -74,21 +74,18 @@ final class PulseCoordinator: ObservableObject {
 
         let config = self.loadConfig()
         var incomingSnapshots: [AccountSnapshot] = []
-        var didRefreshSystemSnapshots = false
 
         do {
             incomingSnapshots.append(contentsOf: try await self.buildSystemSnapshotsIfAvailable())
-            didRefreshSystemSnapshots = true
         } catch {
             self.lastObservedAuthSignature = self.currentAuthFileSignature()
             self.scheduleAuthRefreshRetryIfNeeded()
         }
 
-        if didRefreshSystemSnapshots {
+        if !incomingSnapshots.isEmpty {
             self.publishMergedSnapshots(
                 incomingSnapshots,
-                config: config,
-                replaceSystemAuthSnapshots: true
+                config: config
             )
         }
 
@@ -98,8 +95,7 @@ final class PulseCoordinator: ObservableObject {
                 incomingSnapshots.append(snapshot)
                 self.publishMergedSnapshots(
                     incomingSnapshots,
-                    config: config,
-                    replaceSystemAuthSnapshots: didRefreshSystemSnapshots
+                    config: config
                 )
             } catch {
                 continue
@@ -671,16 +667,11 @@ final class PulseCoordinator: ObservableObject {
 
     private func mergeSnapshots(
         existing: CachePayload,
-        incoming: [AccountSnapshot],
-        replaceSystemAuthSnapshots: Bool
+        incoming: [AccountSnapshot]
     ) -> CachePayload {
         var existingByIdentity: [String: AccountSnapshot] = [:]
 
         for account in existing.accounts {
-            if replaceSystemAuthSnapshots && self.isLiveSystemAuthSnapshot(account) {
-                continue
-            }
-
             let prior = existingByIdentity[account.accountId]
             existingByIdentity[account.accountId] = self.preferredStoredSnapshot(prior, candidate: account)
         }
@@ -792,13 +783,11 @@ final class PulseCoordinator: ObservableObject {
 
     private func publishMergedSnapshots(
         _ snapshots: [AccountSnapshot],
-        config: PulseConfig,
-        replaceSystemAuthSnapshots: Bool = false
+        config: PulseConfig
     ) {
         let merged = self.mergeSnapshots(
             existing: self.cache,
-            incoming: snapshots,
-            replaceSystemAuthSnapshots: replaceSystemAuthSnapshots
+            incoming: snapshots
         )
 
         try? self.cacheStore.save(merged)
@@ -807,10 +796,6 @@ final class PulseCoordinator: ObservableObject {
             for: merged.accounts,
             config: config
         )
-    }
-
-    private func isLiveSystemAuthSnapshot(_ snapshot: AccountSnapshot) -> Bool {
-        snapshot.source == "live system auth"
     }
 
     private func scheduleAuthRefreshRetryIfNeeded() {
