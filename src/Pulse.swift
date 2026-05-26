@@ -13,6 +13,7 @@ final class PulseCoordinator: ObservableObject {
 
     private let cacheStore = CacheStore()
     private let accountConfigStore = AccountConfigStore()
+    private let durableStore = DurableStoreCoordinator.shared
     private var hasStarted = false
     private var isSyncing = false
     nonisolated(unsafe) private var syncTimer: Timer?
@@ -91,12 +92,31 @@ final class PulseCoordinator: ObservableObject {
     }
 
     func removeAccount(_ account: AccountSnapshot) throws {
-        guard let configAccountID = self.configAccountID(for: account, in: self.loadConfig()) else {
+        let existingConfig = self.loadConfig()
+
+        guard let configAccountID = self.configAccountID(for: account, in: existingConfig) else {
             return
         }
 
-        try self.accountConfigStore.removeAccount(withID: configAccountID)
-        self.cache = try self.cacheStore.removeAccount(withID: account.accountId)
+        let filteredConfig = PulseConfig(
+            pollIntervalSeconds: existingConfig.pollIntervalSeconds,
+            accounts: existingConfig.accounts.filter { $0.id != configAccountID }
+        )
+        let filteredAccounts = self.cache.accounts.filter { $0.accountId != account.accountId }
+        let filteredCache = CachePayload(
+            meta: CacheMeta(
+                source: self.cache.meta.source
+            ),
+            accounts: filteredAccounts
+        )
+
+        try self.durableStore.saveCacheAndConfig(
+            cache: filteredCache,
+            config: filteredConfig,
+            event: "account.remove"
+        )
+
+        self.cache = filteredCache
         self.removableAccountIDs.remove(account.accountId)
     }
 

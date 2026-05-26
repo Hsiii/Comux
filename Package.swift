@@ -15,6 +15,7 @@ let package = Package(
                 "App.swift",
                 "Model.swift",
                 "Path.swift",
+                "Persistence.swift",
                 "Store.swift",
                 "Pulse.swift",
                 "Format.swift",

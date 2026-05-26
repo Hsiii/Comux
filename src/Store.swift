@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 final class CacheStore {
-    private let decoder = JSONDecoder()
+    private let durableStore = DurableStoreCoordinator.shared
     private let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -10,13 +10,10 @@ final class CacheStore {
     }()
 
     func load() -> CachePayload {
-        self.ensureSeeded()
-
-        guard let data = try? Data(contentsOf: CodexMuxPaths.cache),
-              let payload = try? self.decoder.decode(CachePayload.self, from: data)
-        else {
-            return self.emptyPayload()
-        }
+        let payload = self.durableStore.load(
+            from: CodexMuxPaths.cache,
+            fallback: self.emptyPayload()
+        )
 
         let migratedPayload = self.migrateLegacyAccounts(in: payload)
         let migratedData = try? self.encoder.encode(migratedPayload)
@@ -30,11 +27,11 @@ final class CacheStore {
     }
 
     func save(_ payload: CachePayload) throws {
-        try FileManager.default.createDirectory(
-            at: CodexMuxPaths.root,
-            withIntermediateDirectories: true
+        try self.durableStore.save(
+            payload,
+            to: CodexMuxPaths.cache,
+            event: "cache.save"
         )
-        try self.encoder.encode(payload).write(to: CodexMuxPaths.cache)
     }
 
     func removeAccount(withID accountID: String) throws -> CachePayload {
@@ -48,21 +45,6 @@ final class CacheStore {
         )
         try self.save(payload)
         return payload
-    }
-
-    private func ensureSeeded() {
-        if FileManager.default.fileExists(atPath: CodexMuxPaths.cache.path(percentEncoded: false)) {
-            return
-        }
-
-        try? FileManager.default.createDirectory(
-            at: CodexMuxPaths.root,
-            withIntermediateDirectories: true
-        )
-
-        if let data = try? self.encoder.encode(self.emptyPayload()) {
-            try? data.write(to: CodexMuxPaths.cache)
-        }
     }
 
     private func emptyPayload() -> CachePayload {
@@ -211,28 +193,21 @@ final class CacheStore {
 }
 
 final class AccountConfigStore {
-    private let decoder = JSONDecoder()
-    private let encoder: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return encoder
-    }()
+    private let durableStore = DurableStoreCoordinator.shared
 
     func load() -> PulseConfig {
-        guard let data = try? Data(contentsOf: CodexMuxPaths.config),
-              let config = try? self.decoder.decode(PulseConfig.self, from: data) else {
-            return .default
-        }
-
-        return config
+        self.durableStore.load(
+            from: CodexMuxPaths.config,
+            fallback: .default
+        )
     }
 
     func save(_ config: PulseConfig) throws {
-        try FileManager.default.createDirectory(
-            at: CodexMuxPaths.root,
-            withIntermediateDirectories: true
+        try self.durableStore.save(
+            config,
+            to: CodexMuxPaths.config,
+            event: "config.save"
         )
-        try self.encoder.encode(config).write(to: CodexMuxPaths.config, options: [.atomic])
     }
 
     func removeAccount(withID accountID: String) throws {
@@ -250,28 +225,29 @@ final class AccountConfigStore {
 final class NicknameStore: ObservableObject {
     @Published private(set) var nicknames: [String: String]
 
+    private let durableStore = DurableStoreCoordinator.shared
     private let defaultsKey = "codexmux.nicknames.v1"
     private let legacyDefaultsKey = "codexboard.nicknames.v1"
-    private let decoder = JSONDecoder()
 
     init() {
-        let nicknames = Self.loadNicknames(for: self.defaultsKey)
+        let fileNicknames = self.durableStore.load(
+            from: CodexMuxPaths.nicknames,
+            fallback: NicknamePayload.empty
+        ).nicknames
+        let defaultsNicknames = Self.loadNicknames(for: self.defaultsKey)
+        let legacyNicknames = Self.loadNicknames(for: self.legacyDefaultsKey)
+        let seedNicknames = !fileNicknames.isEmpty
+            ? fileNicknames
+            : (!defaultsNicknames.isEmpty ? defaultsNicknames : legacyNicknames)
 
-        if nicknames.isEmpty {
-            let legacyNicknames = Self.loadNicknames(for: self.legacyDefaultsKey)
-            self.nicknames = legacyNicknames
-
-            if !legacyNicknames.isEmpty {
-                UserDefaults.standard.set(legacyNicknames, forKey: self.defaultsKey)
-            }
-        } else {
-            self.nicknames = nicknames
-        }
+        self.nicknames = seedNicknames
 
         let migratedNicknames = self.migrateLegacyNicknames(self.nicknames)
 
         if migratedNicknames != self.nicknames {
             self.persistNicknames(migratedNicknames)
+        } else if fileNicknames != seedNicknames {
+            self.persistNicknames(seedNicknames)
         }
     }
 
@@ -280,12 +256,25 @@ final class NicknameStore: ObservableObject {
     }
 
     private func loadNicknames() -> [String: String] {
-        Self.loadNicknames(for: self.defaultsKey)
+        self.durableStore.load(
+            from: CodexMuxPaths.nicknames,
+            fallback: NicknamePayload.empty
+        ).nicknames
     }
 
     private func persistNicknames(_ nicknames: [String: String]) {
         self.nicknames = nicknames
-        UserDefaults.standard.set(nicknames, forKey: self.defaultsKey)
+        let payload = NicknamePayload(
+            schemaVersion: 1,
+            updatedAt: ISO8601DateFormatter().string(from: Date()),
+            nicknames: nicknames
+        )
+
+        try? self.durableStore.save(
+            payload,
+            to: CodexMuxPaths.nicknames,
+            event: "nicknames.save"
+        )
     }
 
     private func normalizedEmail(for account: AccountSnapshot) -> String {
@@ -432,11 +421,15 @@ final class NicknameStore: ObservableObject {
     }
 
     private func loadAccountsForNicknameMigration() -> [AccountSnapshot] {
-        guard let data = try? Data(contentsOf: CodexMuxPaths.cache),
-              let payload = try? self.decoder.decode(CachePayload.self, from: data)
-        else {
-            return []
-        }
+        let payload = self.durableStore.load(
+            from: CodexMuxPaths.cache,
+            fallback: CachePayload(
+                meta: CacheMeta(
+                    source: "native-swift-cache"
+                ),
+                accounts: []
+            )
+        )
 
         return payload.accounts.map { account in
             let workspaceID = resolvedWorkspaceIdentity(
