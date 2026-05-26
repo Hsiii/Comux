@@ -565,6 +565,11 @@ struct PulseMenuView: View {
         }
         .frame(width: panelWidth, height: self.panelHeight)
         .background(.clear)
+        .onAppear {
+            Task {
+                await self.coordinator.syncNow()
+            }
+        }
         .animation(.easeOut(duration: 0.14), value: self.activeDialog?.id)
         .alert("Couldn’t Update Login Item", isPresented: self.isShowingLaunchAtLoginError) {
             Button("OK") {

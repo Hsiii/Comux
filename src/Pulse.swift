@@ -17,6 +17,9 @@ final class PulseCoordinator: ObservableObject {
     private var hasStarted = false
     private var isSyncing = false
     nonisolated(unsafe) private var syncTimer: Timer?
+    nonisolated(unsafe) private var authMonitorSource: DispatchSourceFileSystemObject?
+    nonisolated(unsafe) private var authMonitorFileDescriptor: CInt = -1
+    private var lastObservedAuthSignature: AuthFileSignature?
 
     var accountCount: Int {
         self.cache.accounts.count
@@ -33,6 +36,8 @@ final class PulseCoordinator: ObservableObject {
             for: self.cache.accounts,
             config: self.loadConfig()
         )
+        self.lastObservedAuthSignature = self.currentAuthFileSignature()
+        self.startAuthFileMonitor()
 
         // Initial sync
         Task {
@@ -49,6 +54,11 @@ final class PulseCoordinator: ObservableObject {
 
     deinit {
         self.syncTimer?.invalidate()
+        self.authMonitorSource?.cancel()
+        if self.authMonitorFileDescriptor >= 0 {
+            close(self.authMonitorFileDescriptor)
+            self.authMonitorFileDescriptor = -1
+        }
     }
 
     func syncNow() async {
@@ -61,30 +71,36 @@ final class PulseCoordinator: ObservableObject {
             self.isSyncing = false
         }
 
+        let config = self.loadConfig()
+        var incomingSnapshots: [AccountSnapshot] = []
+
         do {
-            let config = self.loadConfig()
-            var incomingSnapshots: [AccountSnapshot] = []
-
             incomingSnapshots.append(contentsOf: try await self.buildSystemSnapshotsIfAvailable())
+        } catch {
+            self.lastObservedAuthSignature = self.currentAuthFileSignature()
+        }
 
-            if !incomingSnapshots.isEmpty {
-                self.publishMergedSnapshots(
-                    incomingSnapshots,
-                    config: config
-                )
-            }
+        if !incomingSnapshots.isEmpty {
+            self.publishMergedSnapshots(
+                incomingSnapshots,
+                config: config
+            )
+        }
 
-            for account in config.accounts {
+        for account in config.accounts {
+            do {
                 let snapshot = try await self.buildCookieSnapshot(for: account)
                 incomingSnapshots.append(snapshot)
                 self.publishMergedSnapshots(
                     incomingSnapshots,
                     config: config
                 )
+            } catch {
+                continue
             }
-        } catch {
-            return
         }
+
+        self.lastObservedAuthSignature = self.currentAuthFileSignature()
     }
 
     func isRemovable(_ account: AccountSnapshot) -> Bool {
@@ -779,4 +795,72 @@ final class PulseCoordinator: ObservableObject {
             config: config
         )
     }
+
+    private func startAuthFileMonitor() {
+        let authDirectoryURL = CodexMuxPaths.codexAuth.deletingLastPathComponent()
+        let directoryPath = authDirectoryURL.path(percentEncoded: false)
+        let fileDescriptor = open(directoryPath, O_EVTONLY)
+
+        guard fileDescriptor >= 0 else {
+            return
+        }
+
+        self.authMonitorFileDescriptor = fileDescriptor
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fileDescriptor,
+            eventMask: [.write, .rename, .delete, .extend, .attrib],
+            queue: DispatchQueue.main
+        )
+
+        source.setEventHandler { [weak self] in
+            guard let self else {
+                return
+            }
+
+            let currentSignature = self.currentAuthFileSignature()
+            guard currentSignature != self.lastObservedAuthSignature else {
+                return
+            }
+
+            self.lastObservedAuthSignature = currentSignature
+            Task { @MainActor in
+                await self.syncNow()
+            }
+        }
+
+        source.setCancelHandler { [weak self] in
+            guard let self else {
+                return
+            }
+
+            if self.authMonitorFileDescriptor >= 0 {
+                close(self.authMonitorFileDescriptor)
+                self.authMonitorFileDescriptor = -1
+            }
+        }
+
+        self.authMonitorSource = source
+        source.resume()
+    }
+
+    private func currentAuthFileSignature() -> AuthFileSignature? {
+        let authPath = CodexMuxPaths.codexAuth.path(percentEncoded: false)
+
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: authPath) else {
+            return nil
+        }
+
+        let modificationDate = attributes[.modificationDate] as? Date ?? .distantPast
+        let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+
+        return AuthFileSignature(
+            modificationDate: modificationDate,
+            size: size
+        )
+    }
+}
+
+private struct AuthFileSignature: Equatable {
+    let modificationDate: Date
+    let size: Int64
 }
