@@ -228,10 +228,9 @@ final class PulseCoordinator: ObservableObject {
         identity: SystemAuthIdentity
     ) throws -> AccountSnapshot {
         let plan = self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType)
-        let workspaceLabel = self.resolveWorkspaceName(
-            currentUsage,
-            workspaceItem: nil,
-            identity: identity
+        let workspaceLabel = self.resolveWorkspaceLabel(
+            payload: currentUsage,
+            fallback: ""
         )
         let workspaceID = normalizedWorkspaceLabel(workspaceLabel, plan: plan) == "Personal"
             ? nil
@@ -431,8 +430,7 @@ final class PulseCoordinator: ObservableObject {
             return nil
         }
 
-        let trimmedName = matchingWorkspace.name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmedName.isEmpty ? "Personal" : trimmedName
+        return matchingWorkspace.name?.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func normalizeUsage(
