@@ -89,7 +89,8 @@ final class PulseCoordinator: ObservableObject {
         if didRefreshSystemState || !incomingSnapshots.isEmpty {
             self.publishMergedSnapshots(
                 incomingSnapshots,
-                config: config
+                config: config,
+                systemStateWasRefreshed: didRefreshSystemState
             )
         }
 
@@ -99,7 +100,8 @@ final class PulseCoordinator: ObservableObject {
                 incomingSnapshots.append(snapshot)
                 self.publishMergedSnapshots(
                     incomingSnapshots,
-                    config: config
+                    config: config,
+                    systemStateWasRefreshed: didRefreshSystemState
                 )
             } catch {
                 continue
@@ -686,11 +688,13 @@ final class PulseCoordinator: ObservableObject {
 
     private func publishMergedSnapshots(
         _ snapshots: [AccountSnapshot],
-        config: PulseConfig
+        config: PulseConfig,
+        systemStateWasRefreshed: Bool = false
     ) {
         let merged = self.snapshotMerger.merge(
             existing: self.cache,
-            incoming: snapshots
+            incoming: snapshots,
+            systemStateWasRefreshed: systemStateWasRefreshed
         )
 
         try? self.cacheStore.save(merged)

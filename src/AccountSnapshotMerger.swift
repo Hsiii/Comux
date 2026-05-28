@@ -3,7 +3,8 @@ import Foundation
 struct AccountSnapshotMerger {
     func merge(
         existing: CachePayload,
-        incoming: [AccountSnapshot]
+        incoming: [AccountSnapshot],
+        systemStateWasRefreshed: Bool = false
     ) -> CachePayload {
         var existingByIdentity: [String: AccountSnapshot] = [:]
 
@@ -37,7 +38,7 @@ struct AccountSnapshotMerger {
                     isCurrentSystemAccount: account.accountId == activeIdentity
                 )
             }
-        } else {
+        } else if systemStateWasRefreshed {
             mergedAccounts = mergedAccounts.map { account in
                 self.snapshot(
                     from: account,
