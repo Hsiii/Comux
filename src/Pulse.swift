@@ -82,8 +82,12 @@ final class PulseCoordinator: ObservableObject {
             incomingSnapshots.append(contentsOf: systemRefresh.snapshots)
             didRefreshSystemState = true
         } catch {
-            self.lastObservedAuthSignature = self.currentAuthFileSignature()
-            self.scheduleAuthRefreshRetryIfNeeded()
+            if SystemRefreshErrorPolicy.shouldTreatAsRefreshedSystemState(error) {
+                didRefreshSystemState = true
+            } else {
+                self.lastObservedAuthSignature = self.currentAuthFileSignature()
+                self.scheduleAuthRefreshRetryIfNeeded()
+            }
         }
 
         if didRefreshSystemState || !incomingSnapshots.isEmpty {

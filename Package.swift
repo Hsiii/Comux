@@ -18,6 +18,7 @@ let package = Package(
                 "AccountSnapshotMerger.swift",
                 "UsagePayloadParser.swift",
                 "WorkspaceLabelResolver.swift",
+                "SystemRefreshErrorPolicy.swift",
                 "Path.swift",
                 "Persistence.swift",
                 "Store.swift",
