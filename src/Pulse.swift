@@ -414,26 +414,15 @@ final class PulseCoordinator: ObservableObject {
         cookieHeader: String?,
         workspaceAccountID: String?
     ) async throws -> String? {
-        let normalizedWorkspaceAccountID = self.normalizeWorkspaceAccountID(workspaceAccountID)
         let workspaceItems = try await self.fetchWorkspaceItems(
             accessToken: accessToken,
             cookieHeader: cookieHeader
         )
-        let matchingWorkspace: WorkspaceItem?
-
-        if let normalizedWorkspaceAccountID {
-            matchingWorkspace = workspaceItems.first { item in
-                self.normalizeWorkspaceAccountID(item.id) == normalizedWorkspaceAccountID
-            }
-        } else {
-            matchingWorkspace = workspaceItems.first
-        }
-
-        guard let matchingWorkspace else {
-            return nil
-        }
-
-        return matchingWorkspace.name?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return WorkspaceLabelResolver.resolve(
+            workspaceItems: workspaceItems,
+            workspaceAccountID: workspaceAccountID,
+            normalizeWorkspaceAccountID: self.normalizeWorkspaceAccountID
+        )
     }
 
     private func normalizeUsage(
