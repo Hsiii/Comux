@@ -210,6 +210,119 @@ final class AccountSnapshotMergerTests: XCTestCase {
         XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == team.accountId }))
     }
 
+    func testRotatedPersonalWorkspaceIDSupersedesOlderPersonalSystemSeat() {
+        let merger = AccountSnapshotMerger()
+        let oldPersonal = self.makeSnapshot(
+            accountId: "person@example.com::user-old",
+            email: "person@example.com",
+            workspaceId: "user-old",
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "profile-1",
+            lastSyncedAt: "2026-05-27T00:00:00Z"
+        )
+        let currentPersonal = self.makeSnapshot(
+            accountId: "person@example.com::user-new",
+            email: "person@example.com",
+            workspaceId: "user-new",
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: true,
+            systemAuthProfileId: "profile-1",
+            lastSyncedAt: "2026-05-28T00:00:00Z"
+        )
+
+        let merged = merger.merge(
+            existing: CachePayload(
+                meta: CacheMeta(source: "test"),
+                accounts: [oldPersonal]
+            ),
+            incoming: [currentPersonal],
+            systemStateWasRefreshed: true
+        )
+
+        XCTAssertEqual(merged.accounts.map(\.accountId), [currentPersonal.accountId])
+    }
+
+    func testPersonalSystemSeatCanSupersedeAfterProfileIDFormatChanges() {
+        let merger = AccountSnapshotMerger()
+        let oldPersonal = self.makeSnapshot(
+            accountId: "person@example.com::user-old",
+            email: "person@example.com",
+            workspaceId: "user-old",
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "old-provider|profile-1",
+            lastSyncedAt: "2026-05-27T00:00:00Z"
+        )
+        let currentPersonal = self.makeSnapshot(
+            accountId: "person@example.com::user-new",
+            email: "person@example.com",
+            workspaceId: "user-new",
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: true,
+            systemAuthProfileId: "new-provider|profile-1",
+            lastSyncedAt: "2026-05-28T00:00:00Z"
+        )
+
+        let merged = merger.merge(
+            existing: CachePayload(
+                meta: CacheMeta(source: "test"),
+                accounts: [oldPersonal]
+            ),
+            incoming: [currentPersonal],
+            systemStateWasRefreshed: true
+        )
+
+        XCTAssertEqual(merged.accounts.map(\.accountId), [currentPersonal.accountId])
+    }
+
+    func testNewerNonCurrentPersonalSnapshotDoesNotSupersedeCurrentSystemSeat() {
+        let merger = AccountSnapshotMerger()
+        let currentPersonal = self.makeSnapshot(
+            accountId: "person@example.com::user-current",
+            email: "person@example.com",
+            workspaceId: "user-current",
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: true,
+            systemAuthProfileId: "profile-1",
+            lastSyncedAt: "2026-05-27T00:00:00Z"
+        )
+        let newerNonCurrentPersonal = self.makeSnapshot(
+            accountId: "person@example.com::user-newer",
+            email: "person@example.com",
+            workspaceId: "user-newer",
+            workspaceLabel: "",
+            plan: "Codex Free",
+            source: "live system auth",
+            isCurrentSystemAccount: false,
+            systemAuthProfileId: "profile-1",
+            lastSyncedAt: "2026-05-28T00:00:00Z"
+        )
+
+        let merged = merger.merge(
+            existing: CachePayload(
+                meta: CacheMeta(source: "test"),
+                accounts: [currentPersonal]
+            ),
+            incoming: [newerNonCurrentPersonal],
+            systemStateWasRefreshed: true
+        )
+
+        XCTAssertEqual(merged.accounts.count, 2)
+        XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == currentPersonal.accountId }))
+        XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == newerNonCurrentPersonal.accountId }))
+    }
+
     private func makeSnapshot(
         accountId: String,
         email: String,
@@ -219,6 +332,7 @@ final class AccountSnapshotMergerTests: XCTestCase {
         source: String,
         isCurrentSystemAccount: Bool?,
         systemAuthProfileId: String? = nil,
+        lastSyncedAt: String = "2026-05-28T00:00:00Z",
         weeklyAvailable: Bool = true
     ) -> AccountSnapshot {
         AccountSnapshot(
@@ -231,7 +345,7 @@ final class AccountSnapshotMergerTests: XCTestCase {
             source: source,
             systemAuthProfileId: systemAuthProfileId,
             isCurrentSystemAccount: isCurrentSystemAccount,
-            lastSyncedAt: "2026-05-28T00:00:00Z",
+            lastSyncedAt: lastSyncedAt,
             weeklyWindow: UsageWindow(
                 available: weeklyAvailable,
                 label: "Weekly window",

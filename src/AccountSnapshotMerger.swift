@@ -244,22 +244,20 @@ struct AccountSnapshotMerger {
         _ existing: AccountSnapshot,
         incoming: [AccountSnapshot]
     ) -> Bool {
-        guard existing.source == "live system auth",
-              let existingProfileID = normalizedSystemAuthProfileID(existing.systemAuthProfileId)
-        else {
+        guard existing.source == "live system auth" else {
             return false
         }
 
-        let incomingForProfile = incoming.filter {
+        let incomingForSameSeat = incoming.filter {
             $0.source == "live system auth"
-                && normalizedSystemAuthProfileID($0.systemAuthProfileId) == existingProfileID
+                && self.couldBeSameSystemSeat($0, existing: existing)
         }
 
-        guard !incomingForProfile.isEmpty else {
+        guard !incomingForSameSeat.isEmpty else {
             return false
         }
 
-        return incomingForProfile.contains { candidate in
+        return incomingForSameSeat.contains { candidate in
             candidate.accountId != existing.accountId
                 && self.clearlySupersedesSystemSnapshot(candidate, existing: existing)
         }
@@ -279,7 +277,7 @@ struct AccountSnapshotMerger {
         existing: AccountSnapshot
     ) -> Bool {
         guard candidate.source == "live system auth",
-              AccountIdentity.normalizedEmail(candidate.email) == AccountIdentity.normalizedEmail(existing.email)
+              self.candidateWinsSystemSnapshot(candidate, existing: existing)
         else {
             return false
         }
@@ -287,7 +285,8 @@ struct AccountSnapshotMerger {
         let existingWorkspaceSlot = self.systemWorkspaceSlot(for: existing)
         let candidateWorkspaceSlot = self.systemWorkspaceSlot(for: candidate)
 
-        if let existingWorkspaceSlot {
+        if let existingWorkspaceSlot,
+           !existingWorkspaceSlot.hasPrefix("user-") {
             return candidateWorkspaceSlot == existingWorkspaceSlot
         }
 
@@ -310,6 +309,38 @@ struct AccountSnapshotMerger {
             && candidateWorkspace == "Personal"
             && isPersonalPlan(existing.plan)
             && isPersonalPlan(candidate.plan)
+    }
+
+    private func couldBeSameSystemSeat(
+        _ candidate: AccountSnapshot,
+        existing: AccountSnapshot
+    ) -> Bool {
+        let candidateProfileID = normalizedSystemAuthProfileID(candidate.systemAuthProfileId)
+        let existingProfileID = normalizedSystemAuthProfileID(existing.systemAuthProfileId)
+
+        if let candidateProfileID,
+           let existingProfileID,
+           candidateProfileID == existingProfileID {
+            return true
+        }
+
+        return AccountIdentity.normalizedEmail(candidate.email) == AccountIdentity.normalizedEmail(existing.email)
+    }
+
+    private func candidateWinsSystemSnapshot(
+        _ candidate: AccountSnapshot,
+        existing: AccountSnapshot
+    ) -> Bool {
+        if candidate.isCurrentSystemAccount == true,
+           existing.isCurrentSystemAccount != true {
+            return true
+        }
+
+        if candidate.isCurrentSystemAccount != existing.isCurrentSystemAccount {
+            return false
+        }
+
+        return self.snapshotRecency(candidate) > self.snapshotRecency(existing)
     }
 
     private func systemWorkspaceSlot(for account: AccountSnapshot) -> String? {
