@@ -137,11 +137,11 @@ final class AccountSnapshotMergerTests: XCTestCase {
         XCTAssertNotNil(merged.accounts.first(where: { $0.accountId == workspaceB.accountId }))
     }
 
-    func testSameEmailNoWorkspaceWorkspaceAndNoUsageWorkspaceSeatsCoexist() {
+    func testSameEmailNoWorkspaceWorkspaceAndNoSeatWorkspaceAccountsCoexist() {
         let merger = AccountSnapshotMerger()
         let noWorkspace = self.makeSnapshot(
-            accountId: "person@example.com",
-            email: "person@example.com",
+            accountId: "orangesagocream@gmail.com",
+            email: "orangesagocream@gmail.com",
             workspaceId: nil,
             workspaceLabel: "",
             plan: "Codex Free",
@@ -150,8 +150,8 @@ final class AccountSnapshotMergerTests: XCTestCase {
             systemAuthProfileId: "profile-1"
         )
         let workspace = self.makeSnapshot(
-            accountId: "person@example.com::workspace-a",
-            email: "person@example.com",
+            accountId: "orangesagocream@gmail.com::workspace-a",
+            email: "orangesagocream@gmail.com",
             workspaceId: "workspace-a",
             workspaceLabel: "Workspace A",
             plan: "Codex Team",
@@ -160,18 +160,24 @@ final class AccountSnapshotMergerTests: XCTestCase {
             systemAuthProfileId: "profile-1"
         )
         let noUsageWorkspace = self.makeSnapshot(
-            accountId: "person@example.com::workspace-b",
-            email: "person@example.com",
-            workspaceId: "workspace-b",
-            workspaceLabel: "Usage Based",
+            accountId: "orangesagocream@gmail.com::8ccae9fa-c4dc-4d0b-bfb6-8cf230d7e084",
+            email: "orangesagocream@gmail.com",
+            workspaceId: "8ccae9fa-c4dc-4d0b-bfb6-8cf230d7e084",
+            workspaceLabel: "Kiwi",
             plan: "Codex Self_serve_business_usage_based",
             source: "live system auth",
             isCurrentSystemAccount: false,
-            systemAuthProfileId: "profile-1",
+            systemAuthProfileId: "google-oauth2|111509752519153701574",
             weeklyAvailable: false,
             weeklyUsedMinutes: 0,
             weeklyLimitMinutes: 0,
-            weeklyUsedPercentage: 0
+            weeklyUsedPercentage: 0,
+            weeklyResetsAt: "",
+            rollingAvailable: false,
+            rollingUsedMinutes: 0,
+            rollingLimitMinutes: 0,
+            rollingUsedPercentage: 0,
+            rollingResetsAt: ""
         )
 
         let merged = merger.merge(
@@ -190,6 +196,10 @@ final class AccountSnapshotMergerTests: XCTestCase {
         XCTAssertEqual(
             merged.accounts.first(where: { $0.accountId == noUsageWorkspace.accountId })?.weeklyWindow.limitMinutes,
             0
+        )
+        XCTAssertEqual(
+            merged.accounts.first(where: { $0.accountId == noUsageWorkspace.accountId })?.rollingWindow.available,
+            false
         )
     }
 
@@ -392,7 +402,13 @@ final class AccountSnapshotMergerTests: XCTestCase {
         weeklyAvailable: Bool = true,
         weeklyUsedMinutes: Int = 10,
         weeklyLimitMinutes: Int = 100,
-        weeklyUsedPercentage: Double = 10
+        weeklyUsedPercentage: Double = 10,
+        weeklyResetsAt: String = "2026-05-29T00:00:00Z",
+        rollingAvailable: Bool = true,
+        rollingUsedMinutes: Int = 5,
+        rollingLimitMinutes: Int = 50,
+        rollingUsedPercentage: Double = 10,
+        rollingResetsAt: String = "2026-05-28T05:00:00Z"
     ) -> AccountSnapshot {
         AccountSnapshot(
             accountId: accountId,
@@ -411,15 +427,15 @@ final class AccountSnapshotMergerTests: XCTestCase {
                 usedMinutes: weeklyUsedMinutes,
                 limitMinutes: weeklyLimitMinutes,
                 usedPercentage: weeklyUsedPercentage,
-                resetsAt: "2026-05-29T00:00:00Z"
+                resetsAt: weeklyResetsAt
             ),
             rollingWindow: UsageWindow(
-                available: true,
+                available: rollingAvailable,
                 label: "Rolling 5-hour window",
-                usedMinutes: 5,
-                limitMinutes: 50,
-                usedPercentage: 10,
-                resetsAt: "2026-05-28T05:00:00Z"
+                usedMinutes: rollingUsedMinutes,
+                limitMinutes: rollingLimitMinutes,
+                usedPercentage: rollingUsedPercentage,
+                resetsAt: rollingResetsAt
             )
         )
     }

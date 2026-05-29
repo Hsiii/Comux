@@ -58,7 +58,11 @@ func displayRemainingPercentage(for window: UsageWindow) -> Int {
 }
 
 func percentageText(for window: UsageWindow) -> String {
-    "\(displayRemainingPercentage(for: window))%"
+    guard window.available else {
+        return "No seat"
+    }
+
+    return "\(displayRemainingPercentage(for: window))%"
 }
 
 func sessionBadgeText(for window: UsageWindow) -> String {
@@ -82,6 +86,10 @@ func sessionResetText(for window: UsageWindow) -> String {
 }
 
 func resetPaceText(for window: UsageWindow) -> String {
+    guard window.available else {
+        return "No usage access"
+    }
+
     if hasJustReset(window) {
         return "Fresh"
     }

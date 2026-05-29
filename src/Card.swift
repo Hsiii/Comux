@@ -48,7 +48,7 @@ struct WindowCardView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
-            Text(window.available ? resetPaceText(for: window) : "n/a")
+            Text(resetPaceText(for: window))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
