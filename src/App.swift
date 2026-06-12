@@ -26,7 +26,15 @@ struct ComuxApp: App {
                     await self.coordinator.syncNow()
                 }
         } label: {
-            Image(nsImage: Self.codexMenuBarIcon)
+            HStack(spacing: 4) {
+                Image(nsImage: Self.codexMenuBarIcon)
+
+                if let usageText = menuBarUsageText(from: self.coordinator.cache.accounts) {
+                    Text(usageText)
+                        .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                }
+            }
         }
         .menuBarExtraStyle(.window)
     }

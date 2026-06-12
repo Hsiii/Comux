@@ -65,6 +65,21 @@ func percentageText(for window: UsageWindow) -> String {
     return "\(displayRemainingPercentage(for: window))%"
 }
 
+func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot? {
+    sortedAccountsByResetTime(accounts) { account in
+        account.label.isEmpty ? account.email : account.label
+    }.first
+}
+
+func menuBarUsageText(from accounts: [AccountSnapshot]) -> String? {
+    guard let account = primaryMenuBarAccount(from: accounts),
+          account.rollingWindow.available else {
+        return nil
+    }
+
+    return percentageText(for: account.rollingWindow)
+}
+
 func sessionBadgeText(for window: UsageWindow) -> String {
     if isRollingWindowLocked(window) {
         return "Session locked"
