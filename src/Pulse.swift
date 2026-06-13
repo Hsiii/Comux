@@ -656,7 +656,7 @@ final class PulseCoordinator: ObservableObject {
 
         let limitSeconds = (rawWindow["limit_window_seconds"] as? NSNumber)?.intValue ?? 0
         let resetAtEpoch = (rawWindow["reset_at"] as? NSNumber)?.doubleValue ?? 0
-        let usedPercent = (rawWindow["used_percent"] as? NSNumber)?.doubleValue ?? 0
+        let usedPercent = clampPercentage((rawWindow["used_percent"] as? NSNumber)?.doubleValue ?? 0)
         let limitMinutes = Int(round(Double(limitSeconds) / 60))
         let usedMinutes = Int(round(Double(limitMinutes) * (usedPercent / 100)))
 

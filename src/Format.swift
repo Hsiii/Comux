@@ -66,7 +66,7 @@ func percentageText(for window: UsageWindow) -> String {
 }
 
 func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot? {
-    sortedAccountsByResetTime(accounts) { account in
+    return sortedAccountsByResetTime(accounts) { account in
         account.label.isEmpty ? account.email : account.label
     }.first
 }
@@ -107,6 +107,10 @@ func resetPaceText(for window: UsageWindow) -> String {
 
     if hasJustReset(window) {
         return "Fresh"
+    }
+
+    if displayRemainingPercentage(for: window) == 0 {
+        return "Used up • Resets in \(formatCountdown(window.resetsAt))"
     }
 
     let delta = currentExpectationDelta(for: window)

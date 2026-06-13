@@ -16,6 +16,22 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(resetPaceText(for: window), "No usage access")
     }
 
+    func testExhaustedUsageWindowShowsUsedUpPaceText() {
+        let resetDate = Date().addingTimeInterval(7 * 24 * 60 * 60)
+        let window = UsageWindow(
+            available: true,
+            label: "Weekly window",
+            usedMinutes: 120,
+            limitMinutes: 100,
+            usedPercentage: 120,
+            resetsAt: ISO8601DateFormatter().string(from: resetDate)
+        )
+
+        XCTAssertEqual(percentageText(for: window), "0%")
+        XCTAssertTrue(resetPaceText(for: window).hasPrefix("Used up • Resets in "))
+        XCTAssertFalse(resetPaceText(for: window).contains("-100%"))
+    }
+
     func testMenuBarUsageTextUsesTopRankedRollingWindowPercentage() {
         let topAccount = AccountSnapshot(
             accountId: "top",
