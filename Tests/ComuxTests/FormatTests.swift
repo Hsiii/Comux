@@ -92,4 +92,65 @@ final class FormatTests: XCTestCase {
 
         XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "65%")
     }
+
+    func testMenuBarUsageTextPrefersCurrentSystemRollingWindow() {
+        let staleTopRankedAccount = AccountSnapshot(
+            accountId: "stale",
+            label: "Stale",
+            email: "stale@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: nil,
+            isCurrentSystemAccount: false,
+            lastSyncedAt: "2026-06-12T00:00:00Z",
+            weeklyWindow: UsageWindow(
+                available: true,
+                label: "Weekly window",
+                usedMinutes: 10,
+                limitMinutes: 100,
+                usedPercentage: 10,
+                resetsAt: "2099-06-19T00:00:00Z"
+            ),
+            rollingWindow: UsageWindow(
+                available: true,
+                label: "Rolling 5-hour window",
+                usedMinutes: 100,
+                limitMinutes: 100,
+                usedPercentage: 100,
+                resetsAt: "2026-06-12T05:00:00Z"
+            )
+        )
+        let currentAccount = AccountSnapshot(
+            accountId: "current",
+            label: "Current",
+            email: "current@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: nil,
+            isCurrentSystemAccount: true,
+            lastSyncedAt: "2026-06-13T00:00:00Z",
+            weeklyWindow: UsageWindow(
+                available: true,
+                label: "Weekly window",
+                usedMinutes: 40,
+                limitMinutes: 100,
+                usedPercentage: 40,
+                resetsAt: "2099-06-19T00:00:00Z"
+            ),
+            rollingWindow: UsageWindow(
+                available: true,
+                label: "Rolling 5-hour window",
+                usedMinutes: 72,
+                limitMinutes: 100,
+                usedPercentage: 72,
+                resetsAt: "2099-06-12T05:00:00Z"
+            )
+        )
+
+        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "28%")
+    }
 }
