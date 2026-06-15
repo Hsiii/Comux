@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-private let renderScale: CGFloat = 2
+private let renderScale: CGFloat = 3
 private let canvasSize = CGSize(width: 529, height: 679)
 private let outputPixelSize = CGSize(
     width: canvasSize.width * renderScale,
@@ -40,7 +40,7 @@ private struct DemoMockupView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            DemoDesktopBackground()
+            Color(red: 0.91, green: 0.91, blue: 0.92)
                 .ignoresSafeArea()
 
             menuBar
@@ -55,14 +55,14 @@ private struct DemoMockupView: View {
     private var menuBar: some View {
         HStack(spacing: 0) {
             Text("Comux")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
 
             Text("File")
-                .font(.system(size: 14))
+                .font(.system(size: 13))
                 .padding(.leading, 22)
 
             Text("Edit")
-                .font(.system(size: 14))
+                .font(.system(size: 13))
                 .padding(.leading, 18)
 
             Spacer()
@@ -72,37 +72,37 @@ private struct DemoMockupView: View {
 
                 if let usageText = menuBarUsageText(from: accounts) {
                     Text(usageText)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold))
                         .monospacedDigit()
                 }
             }
-            .padding(.horizontal, 8)
-            .frame(height: 20)
+            .padding(.horizontal, 7)
+            .frame(height: 22)
             .background(
                 Capsule(style: .continuous)
-                    .fill(Color.white.opacity(0.14))
+                    .fill(Color.black.opacity(0.08))
             )
 
             Image(systemName: "speaker.wave.3.fill")
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 13, weight: .medium))
                 .padding(.leading, 10)
 
             Image(systemName: "wifi")
-                .font(.system(size: 14, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .padding(.leading, 10)
 
             Image(systemName: "battery.100.bolt")
-                .font(.system(size: 16, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .padding(.leading, 10)
 
             Text("Tue 9:41 AM")
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 12, weight: .medium))
                 .padding(.leading, 12)
         }
-        .foregroundStyle(Color.white.opacity(0.94))
+        .foregroundStyle(Color.black.opacity(0.82))
         .padding(.horizontal, 10)
         .frame(width: canvasSize.width, height: menuBarHeight)
-        .background(Color.black.opacity(0.18))
+        .background(Color.white.opacity(0.28))
     }
 
     private var menuBarIcon: some View {
@@ -116,8 +116,8 @@ private struct DemoMockupView: View {
                     .resizable()
             }
         }
-        .foregroundStyle(Color.white.opacity(0.94))
-        .frame(width: 12, height: 12)
+        .foregroundStyle(Color.black.opacity(0.82))
+        .frame(width: 16, height: 16)
     }
 
     private var panel: some View {
@@ -184,48 +184,6 @@ private struct DemoMockupView: View {
         .foregroundStyle(Color.white.opacity(0.94))
         .frame(height: controlHeight)
         .padding(.horizontal, 26)
-    }
-}
-
-private struct DemoDesktopBackground: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.42, green: 0.49, blue: 0.55),
-                    Color(red: 0.19, green: 0.24, blue: 0.29),
-                    Color(red: 0.58, green: 0.61, blue: 0.63),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Rectangle()
-                .fill(Color(red: 0.77, green: 0.82, blue: 0.86).opacity(0.5))
-                .frame(width: 700, height: 46)
-                .rotationEffect(.degrees(-10))
-                .offset(x: -110, y: -100)
-
-            Rectangle()
-                .fill(Color(red: 0.08, green: 0.11, blue: 0.16).opacity(0.42))
-                .frame(width: 720, height: 50)
-                .rotationEffect(.degrees(-7))
-                .offset(x: -120, y: -8)
-
-            Rectangle()
-                .fill(Color(red: 0.12, green: 0.16, blue: 0.2).opacity(0.5))
-                .frame(width: 760, height: 54)
-                .rotationEffect(.degrees(-9))
-                .offset(x: -120, y: 84)
-
-            Circle()
-                .fill(Color(red: 0.62, green: 0.06, blue: 0.22).opacity(0.5))
-                .frame(width: 160, height: 220)
-                .offset(x: -246, y: 240)
-                .blur(radius: 14)
-
-            Color.black.opacity(0.12)
-        }
     }
 }
 
