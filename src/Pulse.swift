@@ -22,6 +22,7 @@ final class PulseCoordinator: ObservableObject {
     nonisolated(unsafe) private var authMonitorFileDescriptor: CInt = -1
     private var lastObservedAuthSignature: AuthFileSignature?
     private var hasPendingAuthRetry = false
+    private var suppressedAccountIdentities = Set<String>()
 
     var accountCount: Int {
         self.cache.accounts.count
@@ -35,8 +36,7 @@ final class PulseCoordinator: ObservableObject {
         self.hasStarted = true
         self.cache = self.cacheStore.load()
         self.removableAccountIDs = self.buildRemovableAccountIDs(
-            for: self.cache.accounts,
-            config: self.loadConfig()
+            for: self.cache.accounts
         )
         self.lastObservedAuthSignature = self.currentAuthFileSignature()
         self.startAuthFileMonitor()
@@ -121,31 +121,29 @@ final class PulseCoordinator: ObservableObject {
 
     func removeAccount(_ account: AccountSnapshot) throws {
         let existingConfig = self.loadConfig()
+        let removal = AccountRemovalResolver.remove(
+            account,
+            from: self.cache,
+            config: existingConfig
+        )
 
-        guard let configAccountID = self.configAccountID(for: account, in: existingConfig) else {
+        guard removal.cache.accounts.count != self.cache.accounts.count
+            || removal.config.accounts.count != existingConfig.accounts.count
+        else {
             return
         }
 
-        let filteredConfig = PulseConfig(
-            pollIntervalSeconds: existingConfig.pollIntervalSeconds,
-            accounts: existingConfig.accounts.filter { $0.id != configAccountID }
-        )
-        let filteredAccounts = self.cache.accounts.filter { $0.accountId != account.accountId }
-        let filteredCache = CachePayload(
-            meta: CacheMeta(
-                source: self.cache.meta.source
-            ),
-            accounts: filteredAccounts
-        )
-
         try self.durableStore.saveCacheAndConfig(
-            cache: filteredCache,
-            config: filteredConfig,
+            cache: removal.cache,
+            config: removal.config,
             event: "account.remove"
         )
 
-        self.cache = filteredCache
-        self.removableAccountIDs.remove(account.accountId)
+        self.suppressedAccountIdentities.insert(AccountRemovalResolver.identity(for: account))
+        self.cache = removal.cache
+        self.removableAccountIDs = AccountRemovalResolver.removableAccountIDs(
+            for: removal.cache.accounts
+        )
     }
 
     private func loadConfig() -> PulseConfig {
@@ -624,21 +622,9 @@ final class PulseCoordinator: ObservableObject {
         AccountIdentity.trimmedWorkspaceID(value)
     }
 
-    private func configAccountID(for account: AccountSnapshot, in config: PulseConfig) -> String? {
-        let accountIdentity = AccountIdentity.key(for: account).storageKey
-        return config.accounts.first(where: {
-            AccountIdentity.key(for: $0).storageKey == accountIdentity
-        })?.id
-    }
-
-    private func buildRemovableAccountIDs(
-        for accounts: [AccountSnapshot],
-        config: PulseConfig
-    ) -> Set<String> {
-        Set(
-            accounts.compactMap { account in
-                self.configAccountID(for: account, in: config).map { _ in account.accountId }
-            }
+    private func buildRemovableAccountIDs(for accounts: [AccountSnapshot]) -> Set<String> {
+        AccountRemovalResolver.removableAccountIDs(
+            for: accounts
         )
     }
 
@@ -683,17 +669,19 @@ final class PulseCoordinator: ObservableObject {
         config: PulseConfig,
         systemStateWasRefreshed: Bool = false
     ) {
+        let unsuppressedSnapshots = snapshots.filter {
+            !self.suppressedAccountIdentities.contains(AccountRemovalResolver.identity(for: $0))
+        }
         let merged = self.snapshotMerger.merge(
             existing: self.cache,
-            incoming: snapshots,
+            incoming: unsuppressedSnapshots,
             systemStateWasRefreshed: systemStateWasRefreshed
         )
 
         try? self.cacheStore.save(merged)
         self.cache = merged
         self.removableAccountIDs = self.buildRemovableAccountIDs(
-            for: merged.accounts,
-            config: config
+            for: merged.accounts
         )
     }
 
@@ -782,4 +770,51 @@ private struct SystemSnapshotRefresh {
 private struct AuthFileSignature: Equatable {
     let modificationDate: Date
     let size: Int64
+}
+
+enum AccountRemovalResolver {
+    static func identity(for account: AccountSnapshot) -> String {
+        AccountIdentity.key(for: account).storageKey
+    }
+
+    static func configAccountID(for account: AccountSnapshot, in config: PulseConfig) -> String? {
+        let accountIdentity = identity(for: account)
+        return config.accounts.first(where: {
+            AccountIdentity.key(for: $0).storageKey == accountIdentity
+        })?.id
+    }
+
+    static func removableAccountIDs(for accounts: [AccountSnapshot]) -> Set<String> {
+        Set(accounts.map(\.accountId))
+    }
+
+    static func remove(
+        _ account: AccountSnapshot,
+        from cache: CachePayload,
+        config: PulseConfig
+    ) -> (cache: CachePayload, config: PulseConfig) {
+        let removedIdentity = identity(for: account)
+        let configAccountID = configAccountID(for: account, in: config)
+        let filteredConfigAccounts = config.accounts.filter { configAccount in
+            guard let configAccountID else {
+                return true
+            }
+
+            return configAccount.id != configAccountID
+        }
+        let filteredAccounts = cache.accounts.filter { candidate in
+            candidate.accountId != account.accountId && identity(for: candidate) != removedIdentity
+        }
+
+        return (
+            cache: CachePayload(
+                meta: CacheMeta(source: cache.meta.source),
+                accounts: filteredAccounts
+            ),
+            config: PulseConfig(
+                pollIntervalSeconds: config.pollIntervalSeconds,
+                accounts: filteredConfigAccounts
+            )
+        )
+    }
 }
