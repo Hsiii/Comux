@@ -177,8 +177,8 @@ final class DisplayNameStore: ObservableObject {
 
     private let durableStore = DurableStoreCoordinator.shared
 
-    init() {
-        self.displayNames = self.durableStore.loadDisplayNames()
+    init(displayNames: [String: String]? = nil) {
+        self.displayNames = displayNames ?? self.durableStore.loadDisplayNames()
     }
 
     private func loadDisplayNames() -> [String: String] {

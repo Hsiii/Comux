@@ -6,8 +6,12 @@ final class LaunchAtLoginStore: ObservableObject {
     @Published private(set) var opensAtLogin = false
     @Published var errorMessage: String?
 
-    init() {
-        self.refresh()
+    init(opensAtLogin: Bool? = nil) {
+        if let opensAtLogin {
+            self.opensAtLogin = opensAtLogin
+        } else {
+            self.refresh()
+        }
     }
 
     func refresh() {

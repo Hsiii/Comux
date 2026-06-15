@@ -9,12 +9,9 @@ private let outputPixelSize = CGSize(
 )
 private let menuBarHeight: CGFloat = 24
 private let panelWidth: CGFloat = 360
+private let panelHeight: CGFloat = 602
 private let panelTopOffset: CGFloat = 36
 private let panelCornerRadius: CGFloat = 12
-private let panelContentInset: CGFloat = 16
-private let cardStackSpacing: CGFloat = 16
-private let controlHeight: CGFloat = 28
-private let controlDividerSpacing: CGFloat = 6
 private let iconPath = "assets/icon.png"
 
 @main
@@ -31,12 +28,10 @@ struct DemoMockup {
 
 private struct DemoMockupView: View {
     private let accounts = demoAccounts()
-
-    private var sortedRows: [AccountSnapshot] {
-        sortedAccountsByResetTime(accounts) { account in
-            account.label
-        }
-    }
+    private let coordinator = demoCoordinator()
+    private let displayNameStore = DisplayNameStore(displayNames: [:])
+    private let launchAtLoginStore = LaunchAtLoginStore(opensAtLogin: true)
+    @State private var measuredPanelContentHeight: CGFloat = panelHeight
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -121,36 +116,16 @@ private struct DemoMockupView: View {
     }
 
     private var panel: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: cardStackSpacing) {
-                ForEach(sortedRows) { account in
-                    AccountCardView(
-                        account: account,
-                        displayName: account.label,
-                        canRemove: false,
-                        onEditDisplayName: {},
-                        onRemove: {}
-                    )
-                }
-            }
-            .padding(.top, panelContentInset)
-            .padding(.horizontal, panelContentInset)
-
-            Divider()
-                .padding(.top, panelContentInset)
-                .padding(.bottom, controlDividerSpacing)
-                .padding(.horizontal, panelContentInset)
-
-            controlRow("Open at Login", showsCheckmark: true)
-
-            Divider()
-                .padding(.vertical, controlDividerSpacing)
-                .padding(.horizontal, panelContentInset)
-
-            controlRow("Quit")
-                .padding(.bottom, 6)
-        }
-        .frame(width: panelWidth)
+        SlimDashboardPanelView(
+            coordinator: coordinator,
+            displayNameStore: displayNameStore,
+            launchAtLoginStore: launchAtLoginStore,
+            measuredContentHeight: $measuredPanelContentHeight,
+            panelHeight: panelHeight,
+            onEditDisplayNameRequested: { _ in },
+            onRemoveRequested: { _ in }
+        )
+        .frame(width: panelWidth, height: panelHeight)
         .background(
             RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
                 .fill(Color(red: 0.12, green: 0.16, blue: 0.2).opacity(0.9))
@@ -166,25 +141,16 @@ private struct DemoMockupView: View {
         }
         .shadow(color: .black.opacity(0.34), radius: 16, x: 0, y: 8)
     }
+}
 
-    private func controlRow(_ title: String, showsCheckmark: Bool = false) -> some View {
-        HStack(spacing: 0) {
-            if showsCheckmark {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 14)
-                    .padding(.trailing, 4)
-            }
-
-            Text(title)
-                .font(.system(size: 13, weight: .semibold))
-
-            Spacer()
-        }
-        .foregroundStyle(Color.white.opacity(0.94))
-        .frame(height: controlHeight)
-        .padding(.horizontal, 26)
-    }
+@MainActor
+private func demoCoordinator() -> PulseCoordinator {
+    let coordinator = PulseCoordinator()
+    coordinator.cache = CachePayload(
+        meta: CacheMeta(source: "demo-mockup"),
+        accounts: demoAccounts()
+    )
+    return coordinator
 }
 
 private func renderDemoImage() -> NSImage {
