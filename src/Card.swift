@@ -621,7 +621,7 @@ struct AccountCardView: View {
                 .lineLimit(1)
                 .foregroundStyle(.primary)
 
-            if isRollingWindowLocked(account.rollingWindow) {
+            if shouldShowRollingLock(for: account) {
                 HStack(alignment: .firstTextBaseline, spacing: lockCountdownSpacing) {
                     Image(systemName: "lock.fill")
                         .font(.headline.weight(.semibold))

@@ -32,6 +32,72 @@ final class FormatTests: XCTestCase {
         XCTAssertFalse(resetPaceText(for: window).contains("-100%"))
     }
 
+    func testWeeklyExhaustedAccountHidesRollingLockCountdown() {
+        let account = AccountSnapshot(
+            accountId: "used-up",
+            label: "Used Up",
+            email: "used-up@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: nil,
+            isCurrentSystemAccount: true,
+            lastSyncedAt: "2026-06-15T00:00:00Z",
+            weeklyWindow: UsageWindow(
+                available: true,
+                label: "Weekly window",
+                usedMinutes: 100,
+                limitMinutes: 100,
+                usedPercentage: 100,
+                resetsAt: "2099-06-22T00:00:00Z"
+            ),
+            rollingWindow: UsageWindow(
+                available: true,
+                label: "Rolling 5-hour window",
+                usedMinutes: 100,
+                limitMinutes: 100,
+                usedPercentage: 100,
+                resetsAt: "2099-06-15T05:00:00Z"
+            )
+        )
+
+        XCTAssertFalse(shouldShowRollingLock(for: account))
+    }
+
+    func testRollingLockStillShowsWhenWeeklyUsageRemains() {
+        let account = AccountSnapshot(
+            accountId: "session-locked",
+            label: "Session Locked",
+            email: "session-locked@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: nil,
+            isCurrentSystemAccount: true,
+            lastSyncedAt: "2026-06-15T00:00:00Z",
+            weeklyWindow: UsageWindow(
+                available: true,
+                label: "Weekly window",
+                usedMinutes: 40,
+                limitMinutes: 100,
+                usedPercentage: 40,
+                resetsAt: "2099-06-22T00:00:00Z"
+            ),
+            rollingWindow: UsageWindow(
+                available: true,
+                label: "Rolling 5-hour window",
+                usedMinutes: 100,
+                limitMinutes: 100,
+                usedPercentage: 100,
+                resetsAt: "2099-06-15T05:00:00Z"
+            )
+        )
+
+        XCTAssertTrue(shouldShowRollingLock(for: account))
+    }
+
     func testMenuBarUsageTextUsesTopRankedRollingWindowPercentage() {
         let topAccount = AccountSnapshot(
             accountId: "top",

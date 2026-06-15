@@ -280,6 +280,10 @@ func isRollingWindowLocked(_ window: UsageWindow) -> Bool {
     window.available && remainingPercentage(for: window) == 0 && !hasJustReset(window)
 }
 
+func shouldShowRollingLock(for account: AccountSnapshot) -> Bool {
+    isRollingWindowLocked(account.rollingWindow) && displayRemainingPercentage(for: account.weeklyWindow) > 0
+}
+
 func sortedAccountsByResetTime(
     _ accounts: [AccountSnapshot],
     displayName: (AccountSnapshot) -> String
