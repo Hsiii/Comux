@@ -22,6 +22,7 @@ final class PulseCoordinator: ObservableObject {
     nonisolated(unsafe) private var authMonitorFileDescriptor: CInt = -1
     private var lastObservedAuthSignature: AuthFileSignature?
     private var hasPendingAuthRetry = false
+    private var needsSyncAfterCurrent = false
     private var suppressedAccountIdentities = Set<String>()
 
     var accountCount: Int {
@@ -64,15 +65,20 @@ final class PulseCoordinator: ObservableObject {
     }
 
     func syncNow() async {
-        guard !self.isSyncing else {
+        if self.isSyncing {
+            self.needsSyncAfterCurrent = true
             return
         }
 
-        self.isSyncing = true
-        defer {
+        repeat {
+            self.needsSyncAfterCurrent = false
+            self.isSyncing = true
+            await self.performSyncNow()
             self.isSyncing = false
-        }
+        } while self.needsSyncAfterCurrent
+    }
 
+    private func performSyncNow() async {
         let config = self.loadConfig()
         var incomingSnapshots: [AccountSnapshot] = []
         var didRefreshSystemState = false
