@@ -2,10 +2,12 @@ import AppKit
 import SwiftUI
 
 private let canvasSize = CGSize(width: 906, height: 1598)
+private let menuBarHeight: CGFloat = 48
 private let cardWidth: CGFloat = 520
 private let cardSpacing: CGFloat = 12
 private let horizontalPadding: CGFloat = 72
 private let verticalPadding: CGFloat = 96
+private let iconPath = "assets/icon.png"
 
 @main
 @MainActor
@@ -53,8 +55,72 @@ private struct DemoMockupView: View {
                     .shadow(color: .black.opacity(0.16), radius: 28, x: 0, y: 18)
             )
         }
+        .overlay(alignment: .top) {
+            menuBar
+        }
         .frame(width: canvasSize.width, height: canvasSize.height)
         .preferredColorScheme(.dark)
+    }
+
+    private var menuBar: some View {
+        HStack(spacing: 0) {
+            Text("Comux")
+                .font(.system(size: 14, weight: .semibold))
+
+            Text("File")
+                .font(.system(size: 14))
+                .padding(.leading, 22)
+
+            Text("Edit")
+                .font(.system(size: 14))
+                .padding(.leading, 18)
+
+            Spacer()
+
+            HStack(spacing: 4) {
+                menuBarIcon
+
+                if let usageText = menuBarUsageText(from: accounts) {
+                    Text(usageText)
+                        .font(.system(size: 13, weight: .semibold))
+                        .monospacedDigit()
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color.black.opacity(0.08))
+            )
+
+            Text("Tue 9:41 AM")
+                .font(.system(size: 13, weight: .medium))
+                .padding(.leading, 12)
+        }
+        .foregroundStyle(Color.black.opacity(0.82))
+        .padding(.horizontal, 18)
+        .frame(width: canvasSize.width, height: menuBarHeight)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.black.opacity(0.08))
+                .frame(height: 1)
+        }
+    }
+
+    private var menuBarIcon: some View {
+        Group {
+            if let image = NSImage(contentsOfFile: iconPath) {
+                Image(nsImage: image)
+                    .resizable()
+                    .renderingMode(.template)
+            } else {
+                Image(systemName: "gauge.with.needle")
+                    .resizable()
+            }
+        }
+        .foregroundStyle(Color.black.opacity(0.82))
+        .frame(width: 16, height: 16)
     }
 }
 
