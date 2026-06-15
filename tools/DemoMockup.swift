@@ -1,12 +1,20 @@
 import AppKit
 import SwiftUI
 
-private let canvasSize = CGSize(width: 906, height: 1598)
-private let menuBarHeight: CGFloat = 48
-private let cardWidth: CGFloat = 520
-private let cardSpacing: CGFloat = 12
-private let horizontalPadding: CGFloat = 72
-private let verticalPadding: CGFloat = 96
+private let renderScale: CGFloat = 2
+private let canvasSize = CGSize(width: 529, height: 679)
+private let outputPixelSize = CGSize(
+    width: canvasSize.width * renderScale,
+    height: canvasSize.height * renderScale
+)
+private let menuBarHeight: CGFloat = 24
+private let panelWidth: CGFloat = 360
+private let panelTopOffset: CGFloat = 36
+private let panelCornerRadius: CGFloat = 12
+private let panelContentInset: CGFloat = 16
+private let cardStackSpacing: CGFloat = 16
+private let controlHeight: CGFloat = 28
+private let controlDividerSpacing: CGFloat = 6
 private let iconPath = "assets/icon.png"
 
 @main
@@ -31,32 +39,14 @@ private struct DemoMockupView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color(red: 0.91, green: 0.91, blue: 0.92)
+        ZStack(alignment: .top) {
+            DemoDesktopBackground()
                 .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: cardSpacing) {
-                ForEach(sortedRows) { account in
-                    AccountCardView(
-                        account: account,
-                        displayName: account.label,
-                        canRemove: false,
-                        onEditDisplayName: {},
-                        onRemove: {}
-                    )
-                }
-            }
-            .frame(width: cardWidth)
-            .padding(.horizontal, horizontalPadding)
-            .padding(.vertical, verticalPadding)
-            .background(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
-                    .fill(Color(red: 0.08, green: 0.08, blue: 0.1))
-                    .shadow(color: .black.opacity(0.16), radius: 28, x: 0, y: 18)
-            )
-        }
-        .overlay(alignment: .top) {
             menuBar
+
+            panel
+                .padding(.top, panelTopOffset)
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
         .preferredColorScheme(.dark)
@@ -87,25 +77,32 @@ private struct DemoMockupView: View {
                 }
             }
             .padding(.horizontal, 8)
-            .frame(height: 28)
+            .frame(height: 20)
             .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.black.opacity(0.08))
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(0.14))
             )
+
+            Image(systemName: "speaker.wave.3.fill")
+                .font(.system(size: 14, weight: .medium))
+                .padding(.leading, 10)
+
+            Image(systemName: "wifi")
+                .font(.system(size: 14, weight: .semibold))
+                .padding(.leading, 10)
+
+            Image(systemName: "battery.100.bolt")
+                .font(.system(size: 16, weight: .medium))
+                .padding(.leading, 10)
 
             Text("Tue 9:41 AM")
                 .font(.system(size: 13, weight: .medium))
                 .padding(.leading, 12)
         }
-        .foregroundStyle(Color.black.opacity(0.82))
-        .padding(.horizontal, 18)
+        .foregroundStyle(Color.white.opacity(0.94))
+        .padding(.horizontal, 10)
         .frame(width: canvasSize.width, height: menuBarHeight)
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.black.opacity(0.08))
-                .frame(height: 1)
-        }
+        .background(Color.black.opacity(0.18))
     }
 
     private var menuBarIcon: some View {
@@ -119,8 +116,116 @@ private struct DemoMockupView: View {
                     .resizable()
             }
         }
-        .foregroundStyle(Color.black.opacity(0.82))
-        .frame(width: 16, height: 16)
+        .foregroundStyle(Color.white.opacity(0.94))
+        .frame(width: 12, height: 12)
+    }
+
+    private var panel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: cardStackSpacing) {
+                ForEach(sortedRows) { account in
+                    AccountCardView(
+                        account: account,
+                        displayName: account.label,
+                        canRemove: false,
+                        onEditDisplayName: {},
+                        onRemove: {}
+                    )
+                }
+            }
+            .padding(.top, panelContentInset)
+            .padding(.horizontal, panelContentInset)
+
+            Divider()
+                .padding(.top, panelContentInset)
+                .padding(.bottom, controlDividerSpacing)
+                .padding(.horizontal, panelContentInset)
+
+            controlRow("Open at Login", showsCheckmark: true)
+
+            Divider()
+                .padding(.vertical, controlDividerSpacing)
+                .padding(.horizontal, panelContentInset)
+
+            controlRow("Quit")
+                .padding(.bottom, 6)
+        }
+        .frame(width: panelWidth)
+        .background(
+            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                .fill(Color(red: 0.12, green: 0.16, blue: 0.2).opacity(0.9))
+                .background(
+                    RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
+        }
+        .shadow(color: .black.opacity(0.34), radius: 16, x: 0, y: 8)
+    }
+
+    private func controlRow(_ title: String, showsCheckmark: Bool = false) -> some View {
+        HStack(spacing: 0) {
+            if showsCheckmark {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 14)
+                    .padding(.trailing, 4)
+            }
+
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+
+            Spacer()
+        }
+        .foregroundStyle(Color.white.opacity(0.94))
+        .frame(height: controlHeight)
+        .padding(.horizontal, 26)
+    }
+}
+
+private struct DemoDesktopBackground: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.42, green: 0.49, blue: 0.55),
+                    Color(red: 0.19, green: 0.24, blue: 0.29),
+                    Color(red: 0.58, green: 0.61, blue: 0.63),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            Rectangle()
+                .fill(Color(red: 0.77, green: 0.82, blue: 0.86).opacity(0.5))
+                .frame(width: 700, height: 46)
+                .rotationEffect(.degrees(-10))
+                .offset(x: -110, y: -100)
+
+            Rectangle()
+                .fill(Color(red: 0.08, green: 0.11, blue: 0.16).opacity(0.42))
+                .frame(width: 720, height: 50)
+                .rotationEffect(.degrees(-7))
+                .offset(x: -120, y: -8)
+
+            Rectangle()
+                .fill(Color(red: 0.12, green: 0.16, blue: 0.2).opacity(0.5))
+                .frame(width: 760, height: 54)
+                .rotationEffect(.degrees(-9))
+                .offset(x: -120, y: 84)
+
+            Circle()
+                .fill(Color(red: 0.62, green: 0.06, blue: 0.22).opacity(0.5))
+                .frame(width: 160, height: 220)
+                .offset(x: -246, y: 240)
+                .blur(radius: 14)
+
+            Color.black.opacity(0.12)
+        }
     }
 }
 
@@ -133,8 +238,8 @@ private func renderDemoImage() -> NSImage {
 
     guard let bitmap = NSBitmapImageRep(
         bitmapDataPlanes: nil,
-        pixelsWide: Int(canvasSize.width),
-        pixelsHigh: Int(canvasSize.height),
+        pixelsWide: Int(outputPixelSize.width),
+        pixelsHigh: Int(outputPixelSize.height),
         bitsPerSample: 8,
         samplesPerPixel: 4,
         hasAlpha: true,
@@ -175,45 +280,9 @@ private func demoAccounts() -> [AccountSnapshot] {
 
     return [
         makeAccount(
-            id: "used-out",
-            label: "Used Out",
-            workspaceLabel: "Ops",
-            plan: "Codex Team",
-            isCurrent: false,
-            weeklyUsedPercentage: 100,
-            weeklyResetOffset: 2 * 24 * 60 * 60,
-            rollingUsedPercentage: 72,
-            rollingResetOffset: 45 * 60,
-            now: now
-        ),
-        makeAccount(
-            id: "behind",
-            label: "Behind Pace",
-            workspaceLabel: "Labs",
-            plan: "Codex Team",
-            isCurrent: false,
-            weeklyUsedPercentage: 62,
-            weeklyResetOffset: 5 * 24 * 60 * 60,
-            rollingUsedPercentage: 44,
-            rollingResetOffset: 3 * 60 * 60,
-            now: now
-        ),
-        makeAccount(
-            id: "locked",
-            label: "Locked",
-            workspaceLabel: "Personal",
-            plan: "Codex Pro",
-            isCurrent: true,
-            weeklyUsedPercentage: 36,
-            weeklyResetOffset: 3 * 24 * 60 * 60,
-            rollingUsedPercentage: 100,
-            rollingResetOffset: 82 * 60,
-            now: now
-        ),
-        makeAccount(
-            id: "fresh-paid",
-            label: "Fresh Team",
-            workspaceLabel: "Design",
+            id: "hsi-kiwi",
+            label: "Hsi",
+            workspaceLabel: "Kiwi",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 0,
@@ -223,15 +292,75 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "ahead",
-            label: "Ahead Pace",
-            workspaceLabel: "Personal",
-            plan: "Codex Pro",
+            id: "sago-ahead",
+            label: "Sago",
+            workspaceLabel: "せっきたくま",
+            plan: "Codex Team",
             isCurrent: false,
-            weeklyUsedPercentage: 46,
-            weeklyResetOffset: 2 * 24 * 60 * 60,
-            rollingUsedPercentage: 18,
-            rollingResetOffset: 70 * 60,
+            weeklyUsedPercentage: 19,
+            weeklyResetOffset: 5 * 24 * 60 * 60 + 11 * 60 * 60,
+            rollingUsedPercentage: 26,
+            rollingResetOffset: 4 * 60 * 60,
+            now: now
+        ),
+        makeAccount(
+            id: "erikson-locked",
+            label: "Erikson",
+            workspaceLabel: "せっきたくま",
+            plan: "Codex Team",
+            isCurrent: false,
+            weeklyUsedPercentage: 32,
+            weeklyResetOffset: 5 * 24 * 60 * 60 + 10 * 60 * 60,
+            rollingUsedPercentage: 100,
+            rollingResetOffset: 94 * 60,
+            now: now
+        ),
+        makeAccount(
+            id: "nthu-locked",
+            label: "NTHU",
+            workspaceLabel: "せっきたくま",
+            plan: "Codex Team",
+            isCurrent: false,
+            weeklyUsedPercentage: 21,
+            weeklyResetOffset: 6 * 24 * 60 * 60 + 10 * 60 * 60,
+            rollingUsedPercentage: 100,
+            rollingResetOffset: 4 * 60 * 60 + 4 * 60,
+            now: now
+        ),
+        makeAccount(
+            id: "hs1-locked",
+            label: "Hs1",
+            workspaceLabel: "せっきたくま",
+            plan: "Codex Team",
+            isCurrent: false,
+            weeklyUsedPercentage: 67,
+            weeklyResetOffset: 4 * 24 * 60 * 60 + 14 * 60 * 60,
+            rollingUsedPercentage: 100,
+            rollingResetOffset: 2 * 60 * 60 + 56 * 60,
+            now: now
+        ),
+        makeAccount(
+            id: "hsi-used",
+            label: "Hsi",
+            workspaceLabel: "せっきたくま",
+            plan: "Codex Team",
+            isCurrent: false,
+            weeklyUsedPercentage: 100,
+            weeklyResetOffset: 3 * 24 * 60 * 60 + 16 * 60 * 60,
+            rollingUsedPercentage: 80,
+            rollingResetOffset: 3 * 60 * 60,
+            now: now
+        ),
+        makeAccount(
+            id: "sago-used",
+            label: "Sago",
+            workspaceLabel: "Kiwi",
+            plan: "Codex Team",
+            isCurrent: false,
+            weeklyUsedPercentage: 100,
+            weeklyResetOffset: 4 * 24 * 60 * 60 + 13 * 60 * 60,
+            rollingUsedPercentage: 65,
+            rollingResetOffset: 2 * 60 * 60,
             now: now
         ),
     ]
