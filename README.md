@@ -22,7 +22,7 @@ Comux does not currently ship notarized macOS builds. To build a local DMG:
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 brew install xcodegen
-./scripts/package-dmg.sh
+./scripts/dmg.sh
 ```
 
 The resulting DMG is ad-hoc signed for local use, not Developer ID signed for redistribution.
@@ -38,11 +38,11 @@ swift run comux
 Build the native macOS app bundle:
 
 ```bash
-./scripts/build-app.sh
+./scripts/build.sh
 ```
 
 Build a DMG for distribution:
 
 ```bash
-./scripts/package-dmg.sh
+./scripts/dmg.sh
 ```

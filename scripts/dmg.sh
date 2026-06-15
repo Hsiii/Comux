@@ -16,7 +16,7 @@ VOLUME_NAME=""
 
 usage() {
     cat <<'EOF'
-Usage: scripts/package-dmg.sh [--version <version>] [--volume-name <name>]
+Usage: scripts/dmg.sh [--version <version>] [--volume-name <name>]
 
 Options:
   --version <version>      Include the version in the DMG filename.
@@ -56,7 +56,7 @@ if ! command -v osascript >/dev/null 2>&1; then
     exit 1
 fi
 
-"$ROOT_DIR/scripts/build-app.sh" >/dev/null
+"$ROOT_DIR/scripts/build.sh" >/dev/null
 
 if [[ ! -d "$APP_BUNDLE_PATH" ]]; then
     echo "error: expected app bundle at $APP_BUNDLE_PATH" >&2

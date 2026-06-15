@@ -15,7 +15,7 @@ HOMEPAGE=""
 
 usage() {
     cat <<'EOF'
-Usage: scripts/package-homebrew.sh --version <version> [options]
+Usage: scripts/brew.sh --version <version> [options]
 
 Options:
   --build-number <value>  CFBundleVersion value. Defaults to the version string.
@@ -101,7 +101,7 @@ mkdir -p "$DIST_DIR"
 
 COMUX_VERSION="$VERSION" \
 COMUX_BUILD_NUMBER="$BUILD_NUMBER" \
-"$ROOT_DIR/scripts/build-app.sh" >/dev/null
+"$ROOT_DIR/scripts/build.sh" >/dev/null
 
 rm -f "$archive_path"
 ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$archive_path"

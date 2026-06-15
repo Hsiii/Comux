@@ -15,7 +15,7 @@ HOMEPAGE=""
 
 usage() {
     cat <<'EOF'
-Usage: scripts/bootstrap-homebrew-tap.sh --version <version> --source-repo <owner/name> [options]
+Usage: scripts/tap.sh --version <version> --source-repo <owner/name> [options]
 
 Options:
   --build-number <value>  CFBundleVersion value. Defaults to the version string.
@@ -112,7 +112,7 @@ cask_path=""
 output_file="$(mktemp)"
 trap 'rm -f "$output_file"' EXIT
 
-"$ROOT_DIR/scripts/package-homebrew.sh" \
+"$ROOT_DIR/scripts/brew.sh" \
     --version "$VERSION" \
     --build-number "$BUILD_NUMBER" \
     --repo "$SOURCE_REPOSITORY" \

@@ -54,7 +54,7 @@ jobs:
           output_file="$(mktemp)"
           trap 'rm -f "$output_file"' EXIT
 
-          ./scripts/package-homebrew.sh \
+          ./scripts/brew.sh \
             --version "${{ steps.meta.outputs.version }}" \
             --repo "${RELEASE_REPOSITORY}" | tee "$output_file"
 
