@@ -7,7 +7,7 @@ private let windowSize = CGSize(
     width: canvasSize.width * windowRenderScale,
     height: canvasSize.height * windowRenderScale
 )
-private let menuBarHeight: CGFloat = 24
+private let menuBarHeight: CGFloat = 35
 private let panelWidth: CGFloat = 360
 private let panelHeight: CGFloat = 602
 private let panelLeading = (canvasSize.width - panelWidth) / 2
