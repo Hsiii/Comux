@@ -42,7 +42,7 @@ private struct DemoMockupView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Color(white: 0.5)
+            Color(white: 0.3)
                 .ignoresSafeArea()
 
             Image(nsImage: menuBarItemImage)
@@ -254,7 +254,7 @@ private func configureStatusItem(_ statusItem: NSStatusItem, usageText: String) 
     }
 
     statusItem.length = NSStatusItem.variableLength
-    button.appearance = NSAppearance(named: .aqua)
+    button.appearance = NSAppearance(named: .darkAqua)
     button.image = statusIcon()
     button.imagePosition = .imageLeft
     button.imageScaling = .scaleProportionallyDown
