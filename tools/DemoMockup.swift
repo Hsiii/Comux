@@ -11,8 +11,7 @@ private let menuBarHeight: CGFloat = 35
 private let panelWidth: CGFloat = 360
 private let panelHeight: CGFloat = 602
 private let panelLeading = (canvasSize.width - panelWidth) / 2
-private let panelMenuGap: CGFloat = 8
-private let panelTopOffset = menuBarHeight + panelMenuGap
+private let panelTopOffset = menuBarHeight
 private let panelCornerRadius: CGFloat = 12
 private let iconPath = "assets/icon.png"
 
@@ -43,7 +42,7 @@ private struct DemoMockupView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Color(red: 0.91, green: 0.91, blue: 0.92)
+            Color(white: 0.5)
                 .ignoresSafeArea()
 
             Image(nsImage: menuBarItemImage)
