@@ -331,7 +331,7 @@ private func demoAccounts() -> [AccountSnapshot] {
 
     return [
         makeAccount(
-            id: "demo-alpha",
+            id: "alex-atlas",
             label: "Alex",
             workspaceLabel: "Atlas",
             plan: "Codex Team",
@@ -343,8 +343,8 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "demo-bravo",
-            label: "Blake",
+            id: "alex-beacon",
+            label: "Alex",
             workspaceLabel: "Beacon",
             plan: "Codex Team",
             isCurrent: true,
@@ -355,9 +355,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "demo-charlie",
-            label: "Casey",
-            workspaceLabel: "Canvas",
+            id: "blake-beacon",
+            label: "Blake",
+            workspaceLabel: "Beacon",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 32,
@@ -367,10 +367,10 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "demo-delta",
-            label: "Drew",
-            workspaceLabel: "Delta",
-            plan: "Codex Team",
+            id: "casey-plus",
+            label: "Casey",
+            workspaceLabel: "Personal",
+            plan: "Codex Plus",
             isCurrent: false,
             weeklyUsedPercentage: 21,
             weeklyResetOffset: 6 * 24 * 60 * 60 + 10 * 60 * 60,
@@ -379,10 +379,10 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "demo-echo",
-            label: "Emery",
-            workspaceLabel: "Echo",
-            plan: "Codex Team",
+            id: "casey-free",
+            label: "Casey",
+            workspaceLabel: "Personal",
+            plan: "Codex Free",
             isCurrent: false,
             weeklyUsedPercentage: 67,
             weeklyResetOffset: 4 * 24 * 60 * 60 + 14 * 60 * 60,
@@ -391,8 +391,8 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "demo-foxtrot",
-            label: "Finley",
+            id: "morgan-forge",
+            label: "Morgan",
             workspaceLabel: "Forge",
             plan: "Codex Team",
             isCurrent: false,
@@ -403,10 +403,10 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "demo-golf",
-            label: "Gray",
-            workspaceLabel: "Garden",
-            plan: "Codex Team",
+            id: "morgan-plus",
+            label: "Morgan",
+            workspaceLabel: "Personal",
+            plan: "Codex Plus",
             isCurrent: false,
             weeklyUsedPercentage: 100,
             weeklyResetOffset: 4 * 24 * 60 * 60 + 13 * 60 * 60,
