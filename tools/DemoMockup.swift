@@ -384,8 +384,8 @@ private func demoAccounts() -> [AccountSnapshot] {
             workspaceLabel: "Personal",
             plan: "Codex Free",
             isCurrent: false,
-            weeklyUsedPercentage: 67,
-            weeklyResetOffset: 4 * 24 * 60 * 60 + 14 * 60 * 60,
+            weeklyUsedPercentage: 20,
+            weeklyResetOffset: 30 * 24 * 60 * 60 + 60 * 60,
             rollingUsedPercentage: 100,
             rollingResetOffset: 2 * 60 * 60 + 56 * 60,
             now: now
@@ -403,13 +403,13 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "hsi-sub-plus",
-            label: "Hsi Sub",
-            workspaceLabel: "Sub",
-            plan: "Codex Plus",
+            id: "hsiii-free",
+            label: "Hsiii",
+            workspaceLabel: "Personal",
+            plan: "Codex Free",
             isCurrent: false,
             weeklyUsedPercentage: 100,
-            weeklyResetOffset: 4 * 24 * 60 * 60 + 13 * 60 * 60,
+            weeklyResetOffset: 30 * 24 * 60 * 60 + 60 * 60,
             rollingUsedPercentage: 65,
             rollingResetOffset: 2 * 60 * 60,
             now: now
