@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-private let renderScale: CGFloat = 3
+private let renderScale: CGFloat = 4
 private let canvasSize = CGSize(width: 529, height: 679)
 private let outputPixelSize = CGSize(
     width: canvasSize.width * renderScale,
@@ -10,7 +10,8 @@ private let outputPixelSize = CGSize(
 private let menuBarHeight: CGFloat = 24
 private let panelWidth: CGFloat = 360
 private let panelHeight: CGFloat = 602
-private let panelTopOffset: CGFloat = 36
+private let panelLeading = (canvasSize.width - panelWidth) / 2
+private let panelTopOffset: CGFloat = 32
 private let panelCornerRadius: CGFloat = 12
 private let iconPath = "assets/icon.png"
 
@@ -48,56 +49,50 @@ private struct DemoMockupView: View {
     }
 
     private var menuBar: some View {
-        HStack(spacing: 0) {
-            Text("Comux")
-                .font(.system(size: 13, weight: .semibold))
+        ZStack(alignment: .leading) {
+            Color.white.opacity(0.28)
 
-            Text("File")
-                .font(.system(size: 13))
-                .padding(.leading, 22)
+            HStack(spacing: 0) {
+                statusItem
 
-            Text("Edit")
-                .font(.system(size: 13))
-                .padding(.leading, 18)
+                Image(systemName: "speaker.wave.3.fill")
+                    .font(.system(size: 13, weight: .medium))
+                    .padding(.leading, 10)
 
-            Spacer()
+                Image(systemName: "wifi")
+                    .font(.system(size: 13, weight: .semibold))
+                    .padding(.leading, 10)
 
-            HStack(spacing: 4) {
-                menuBarIcon
+                Image(systemName: "battery.100.bolt")
+                    .font(.system(size: 15, weight: .medium))
+                    .padding(.leading, 10)
 
-                if let usageText = menuBarUsageText(from: accounts) {
-                    Text(usageText)
-                        .font(.system(size: 12, weight: .semibold))
-                        .monospacedDigit()
-                }
+                Text("Tue 9:41 AM")
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.leading, 12)
             }
-            .padding(.horizontal, 7)
-            .frame(height: 22)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.black.opacity(0.08))
-            )
-
-            Image(systemName: "speaker.wave.3.fill")
-                .font(.system(size: 13, weight: .medium))
-                .padding(.leading, 10)
-
-            Image(systemName: "wifi")
-                .font(.system(size: 13, weight: .semibold))
-                .padding(.leading, 10)
-
-            Image(systemName: "battery.100.bolt")
-                .font(.system(size: 15, weight: .medium))
-                .padding(.leading, 10)
-
-            Text("Tue 9:41 AM")
-                .font(.system(size: 12, weight: .medium))
-                .padding(.leading, 12)
+            .foregroundStyle(Color.black.opacity(0.82))
+            .padding(.leading, panelLeading)
         }
-        .foregroundStyle(Color.black.opacity(0.82))
-        .padding(.horizontal, 10)
         .frame(width: canvasSize.width, height: menuBarHeight)
-        .background(Color.white.opacity(0.28))
+    }
+
+    private var statusItem: some View {
+        HStack(spacing: 4) {
+            menuBarIcon
+
+            if let usageText = menuBarUsageText(from: accounts) {
+                Text(usageText)
+                    .font(.system(size: 12, weight: .semibold))
+                    .monospacedDigit()
+            }
+        }
+        .padding(.horizontal, 7)
+        .frame(height: 22)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.black.opacity(0.08))
+        )
     }
 
     private var menuBarIcon: some View {
