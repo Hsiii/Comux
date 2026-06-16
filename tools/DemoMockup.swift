@@ -1,11 +1,11 @@
 import AppKit
 import SwiftUI
 
-private let renderScale: CGFloat = 4
+private let windowRenderScale: CGFloat = 2
 private let canvasSize = CGSize(width: 529, height: 679)
-private let outputPixelSize = CGSize(
-    width: canvasSize.width * renderScale,
-    height: canvasSize.height * renderScale
+private let windowSize = CGSize(
+    width: canvasSize.width * windowRenderScale,
+    height: canvasSize.height * windowRenderScale
 )
 private let menuBarHeight: CGFloat = 24
 private let panelWidth: CGFloat = 360
@@ -19,9 +19,10 @@ private let iconPath = "assets/icon.png"
 @MainActor
 struct DemoMockup {
     static func main() throws {
+        NSApplication.shared.setActivationPolicy(.accessory)
         let arguments = CommandLine.arguments.dropFirst()
         let outputPath = arguments.first ?? "assets/demo.png"
-        let image = renderDemoImage()
+        let image = try renderDemoImage()
         try writePNG(image, to: URL(fileURLWithPath: outputPath))
         print("Wrote \(outputPath)")
     }
@@ -148,40 +149,95 @@ private func demoCoordinator() -> PulseCoordinator {
     return coordinator
 }
 
-private func renderDemoImage() -> NSImage {
-    let view = DemoMockupView()
-    let hostingView = NSHostingView(rootView: view)
-    hostingView.frame = CGRect(origin: .zero, size: canvasSize)
-    hostingView.setFrameSize(canvasSize)
+private enum DemoRenderError: Error {
+    case missingScreen
+    case missingWindowID
+    case missingWindowCaptureSymbol
+    case captureFailed
+}
+
+private typealias CGWindowListCreateImageFunction = @convention(c) (
+    CGRect,
+    UInt32,
+    CGWindowID,
+    UInt32
+) -> Unmanaged<CGImage>?
+
+private func renderDemoImage() throws -> NSImage {
+    guard let screen = NSScreen.main else {
+        throw DemoRenderError.missingScreen
+    }
+
+    let rootView = DemoMockupView()
+        .scaleEffect(windowRenderScale, anchor: .topLeading)
+        .frame(width: windowSize.width, height: windowSize.height, alignment: .topLeading)
+    let hostingView = NSHostingView(rootView: rootView)
+    hostingView.frame = CGRect(origin: .zero, size: windowSize)
+    hostingView.setFrameSize(windowSize)
+
+    let window = NSWindow(
+        contentRect: CGRect(origin: .zero, size: windowSize),
+        styleMask: [.borderless],
+        backing: .buffered,
+        defer: false,
+        screen: screen
+    )
+    window.backgroundColor = .clear
+    window.isOpaque = false
+    window.hasShadow = false
+    window.level = .floating
+    window.contentView = hostingView
+    window.setFrameOrigin(
+        CGPoint(
+            x: screen.visibleFrame.midX - (windowSize.width / 2),
+            y: screen.visibleFrame.midY - (windowSize.height / 2)
+        )
+    )
+    window.orderFrontRegardless()
+    window.displayIfNeeded()
     hostingView.layoutSubtreeIfNeeded()
 
-    guard let bitmap = NSBitmapImageRep(
-        bitmapDataPlanes: nil,
-        pixelsWide: Int(outputPixelSize.width),
-        pixelsHigh: Int(outputPixelSize.height),
-        bitsPerSample: 8,
-        samplesPerPixel: 4,
-        hasAlpha: true,
-        isPlanar: false,
-        colorSpaceName: .deviceRGB,
-        bytesPerRow: 0,
-        bitsPerPixel: 0
-    ) else {
-        fatalError("Unable to allocate bitmap for demo mockup.")
+    for _ in 0..<3 {
+        RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        window.displayIfNeeded()
     }
 
-    bitmap.size = canvasSize
-
-    NSGraphicsContext.saveGraphicsState()
-    if let context = NSGraphicsContext(bitmapImageRep: bitmap) {
-        NSGraphicsContext.current = context
-        hostingView.displayIgnoringOpacity(hostingView.bounds, in: context)
+    guard let windowNumber = CGWindowID(exactly: window.windowNumber) else {
+        throw DemoRenderError.missingWindowID
     }
-    NSGraphicsContext.restoreGraphicsState()
 
-    let image = NSImage(size: canvasSize)
-    image.addRepresentation(bitmap)
+    guard let captureWindow = dynamicWindowCaptureFunction() else {
+        throw DemoRenderError.missingWindowCaptureSymbol
+    }
+
+    let imageOptions: CGWindowImageOption = [.bestResolution, .boundsIgnoreFraming]
+    guard let capturedImage = captureWindow(
+        .null,
+        CGWindowListOption.optionIncludingWindow.rawValue,
+        windowNumber,
+        imageOptions.rawValue
+    )?.takeRetainedValue() else {
+        throw DemoRenderError.captureFailed
+    }
+
+    window.orderOut(nil)
+    let image = NSImage(cgImage: capturedImage, size: NSSize(width: capturedImage.width, height: capturedImage.height))
     return image
+}
+
+private func dynamicWindowCaptureFunction() -> CGWindowListCreateImageFunction? {
+    guard let handle = dlopen(
+        "/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics",
+        RTLD_NOW
+    ) else {
+        return nil
+    }
+
+    guard let symbol = dlsym(handle, "CGWindowListCreateImage") else {
+        return nil
+    }
+
+    return unsafeBitCast(symbol, to: CGWindowListCreateImageFunction.self)
 }
 
 private func writePNG(_ image: NSImage, to url: URL) throws {
