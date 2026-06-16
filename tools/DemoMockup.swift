@@ -331,9 +331,9 @@ private func demoAccounts() -> [AccountSnapshot] {
 
     return [
         makeAccount(
-            id: "hsi-kiwi",
-            label: "Hsi",
-            workspaceLabel: "Kiwi",
+            id: "demo-alpha",
+            label: "Alex",
+            workspaceLabel: "Atlas",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 0,
@@ -343,21 +343,21 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "sago-ahead",
-            label: "Sago",
-            workspaceLabel: "せっきたくま",
+            id: "demo-bravo",
+            label: "Blake",
+            workspaceLabel: "Beacon",
             plan: "Codex Team",
-            isCurrent: false,
+            isCurrent: true,
             weeklyUsedPercentage: 19,
             weeklyResetOffset: 5 * 24 * 60 * 60 + 11 * 60 * 60,
-            rollingUsedPercentage: 26,
+            rollingUsedPercentage: 17,
             rollingResetOffset: 4 * 60 * 60,
             now: now
         ),
         makeAccount(
-            id: "erikson-locked",
-            label: "Erikson",
-            workspaceLabel: "せっきたくま",
+            id: "demo-charlie",
+            label: "Casey",
+            workspaceLabel: "Canvas",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 32,
@@ -367,9 +367,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "nthu-locked",
-            label: "NTHU",
-            workspaceLabel: "せっきたくま",
+            id: "demo-delta",
+            label: "Drew",
+            workspaceLabel: "Delta",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 21,
@@ -379,9 +379,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "hs1-locked",
-            label: "Hs1",
-            workspaceLabel: "せっきたくま",
+            id: "demo-echo",
+            label: "Emery",
+            workspaceLabel: "Echo",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 67,
@@ -391,9 +391,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "hsi-used",
-            label: "Hsi",
-            workspaceLabel: "せっきたくま",
+            id: "demo-foxtrot",
+            label: "Finley",
+            workspaceLabel: "Forge",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 100,
@@ -403,9 +403,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "sago-used",
-            label: "Sago",
-            workspaceLabel: "Kiwi",
+            id: "demo-golf",
+            label: "Gray",
+            workspaceLabel: "Garden",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 100,
