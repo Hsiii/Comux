@@ -331,9 +331,9 @@ private func demoAccounts() -> [AccountSnapshot] {
 
     return [
         makeAccount(
-            id: "alex-atlas",
+            id: "alex-main",
             label: "Alex",
-            workspaceLabel: "Atlas",
+            workspaceLabel: "Main",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 0,
@@ -343,9 +343,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "alex-beacon",
+            id: "alex-work",
             label: "Alex",
-            workspaceLabel: "Beacon",
+            workspaceLabel: "Work",
             plan: "Codex Team",
             isCurrent: true,
             weeklyUsedPercentage: 19,
@@ -355,9 +355,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "blake-beacon",
-            label: "Blake",
-            workspaceLabel: "Beacon",
+            id: "jamie-work",
+            label: "Jamie",
+            workspaceLabel: "Work",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 32,
@@ -367,8 +367,8 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "casey-plus",
-            label: "Casey",
+            id: "alex-plus",
+            label: "Alex",
             workspaceLabel: "Personal",
             plan: "Codex Plus",
             isCurrent: false,
@@ -379,8 +379,8 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "casey-free",
-            label: "Casey",
+            id: "jamie-free",
+            label: "Jamie",
             workspaceLabel: "Personal",
             plan: "Codex Free",
             isCurrent: false,
@@ -391,9 +391,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "morgan-forge",
+            id: "morgan-side",
             label: "Morgan",
-            workspaceLabel: "Forge",
+            workspaceLabel: "Side",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 100,
@@ -403,9 +403,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "morgan-plus",
+            id: "morgan-sub",
             label: "Morgan",
-            workspaceLabel: "Personal",
+            workspaceLabel: "Sub",
             plan: "Codex Plus",
             isCurrent: false,
             weeklyUsedPercentage: 100,
