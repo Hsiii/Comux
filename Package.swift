@@ -38,7 +38,8 @@ let package = Package(
         ),
         .testTarget(
             name: "ComuxTests",
-            dependencies: ["Comux"]
+            dependencies: ["Comux"],
+            path: "test"
         )
     ]
 )
