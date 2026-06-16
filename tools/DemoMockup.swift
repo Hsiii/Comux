@@ -11,104 +11,55 @@ private let menuBarHeight: CGFloat = 24
 private let panelWidth: CGFloat = 360
 private let panelHeight: CGFloat = 602
 private let panelLeading = (canvasSize.width - panelWidth) / 2
-private let panelTopOffset: CGFloat = 32
+private let panelMenuGap: CGFloat = 8
+private let panelTopOffset = menuBarHeight + panelMenuGap
 private let panelCornerRadius: CGFloat = 12
 private let iconPath = "assets/icon.png"
 
 @main
 @MainActor
 struct DemoMockup {
-    static func main() throws {
-        NSApplication.shared.setActivationPolicy(.accessory)
+    static func main() {
         let arguments = CommandLine.arguments.dropFirst()
         let outputPath = arguments.first ?? "assets/demo.png"
-        let image = try renderDemoImage()
-        try writePNG(image, to: URL(fileURLWithPath: outputPath))
-        print("Wrote \(outputPath)")
+        let app = NSApplication.shared
+
+        app.setActivationPolicy(.accessory)
+        demoCaptureController = DemoCaptureController(outputPath: outputPath)
+        app.delegate = demoCaptureController
+        app.run()
     }
 }
 
+@MainActor private var demoCaptureController: DemoCaptureController?
+
 private struct DemoMockupView: View {
-    private let accounts = demoAccounts()
+    let menuBarItemImage: NSImage
+
     private let coordinator = demoCoordinator()
     private let displayNameStore = DisplayNameStore(displayNames: [:])
     private let launchAtLoginStore = LaunchAtLoginStore(opensAtLogin: true)
     @State private var measuredPanelContentHeight: CGFloat = panelHeight
 
     var body: some View {
-        ZStack(alignment: .top) {
+        ZStack(alignment: .topLeading) {
             Color(red: 0.91, green: 0.91, blue: 0.92)
                 .ignoresSafeArea()
 
-            menuBar
+            Image(nsImage: menuBarItemImage)
+                .resizable()
+                .frame(width: menuBarItemImage.size.width, height: menuBarItemImage.size.height)
+                .position(
+                    x: panelLeading + panelWidth - (menuBarItemImage.size.width / 2),
+                    y: menuBarHeight / 2
+                )
 
             panel
+                .padding(.leading, panelLeading)
                 .padding(.top, panelTopOffset)
         }
         .frame(width: canvasSize.width, height: canvasSize.height)
         .preferredColorScheme(.dark)
-    }
-
-    private var menuBar: some View {
-        ZStack(alignment: .leading) {
-            Color.white.opacity(0.28)
-
-            HStack(spacing: 0) {
-                statusItem
-
-                Image(systemName: "speaker.wave.3.fill")
-                    .font(.system(size: 13, weight: .medium))
-                    .padding(.leading, 10)
-
-                Image(systemName: "wifi")
-                    .font(.system(size: 13, weight: .semibold))
-                    .padding(.leading, 10)
-
-                Image(systemName: "battery.100.bolt")
-                    .font(.system(size: 15, weight: .medium))
-                    .padding(.leading, 10)
-
-                Text("Tue 9:41 AM")
-                    .font(.system(size: 12, weight: .medium))
-                    .padding(.leading, 12)
-            }
-            .foregroundStyle(Color.black.opacity(0.82))
-            .padding(.leading, panelLeading)
-        }
-        .frame(width: canvasSize.width, height: menuBarHeight)
-    }
-
-    private var statusItem: some View {
-        HStack(spacing: 4) {
-            menuBarIcon
-
-            if let usageText = menuBarUsageText(from: accounts) {
-                Text(usageText)
-                    .font(.system(size: 12, weight: .semibold))
-                    .monospacedDigit()
-            }
-        }
-        .padding(.horizontal, 7)
-        .frame(height: 22)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color.black.opacity(0.08))
-        )
-    }
-
-    private var menuBarIcon: some View {
-        Group {
-            if let image = NSImage(contentsOfFile: iconPath) {
-                Image(nsImage: image)
-                    .resizable()
-                    .renderingMode(.template)
-            } else {
-                Image(systemName: "gauge.with.needle")
-                    .resizable()
-            }
-        }
-        .foregroundStyle(Color.black.opacity(0.82))
-        .frame(width: 16, height: 16)
     }
 
     private var panel: some View {
@@ -154,6 +105,9 @@ private enum DemoRenderError: Error {
     case missingWindowID
     case missingWindowCaptureSymbol
     case captureFailed
+    case missingStatusButton
+    case missingStatusSnapshot
+    case missingUsageText
 }
 
 private typealias CGWindowListCreateImageFunction = @convention(c) (
@@ -163,12 +117,163 @@ private typealias CGWindowListCreateImageFunction = @convention(c) (
     UInt32
 ) -> Unmanaged<CGImage>?
 
-private func renderDemoImage() throws -> NSImage {
-    guard let screen = NSScreen.main else {
-        throw DemoRenderError.missingScreen
+@MainActor
+private final class DemoCaptureController: NSObject, NSApplicationDelegate {
+    private let outputPath: String
+    private var statusItem: NSStatusItem?
+    private var panelWindow: NSWindow?
+
+    init(outputPath: String) {
+        self.outputPath = outputPath
     }
 
-    let rootView = DemoMockupView()
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApplication.shared.activate()
+
+        do {
+            try installStatusItem()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                self?.captureAndExit()
+            }
+        } catch {
+            fail(error)
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        cleanup()
+    }
+
+    private func installStatusItem() throws {
+        guard let usageText = menuBarUsageText(from: demoAccounts()) else {
+            throw DemoRenderError.missingUsageText
+        }
+
+        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        configureStatusItem(statusItem, usageText: usageText)
+        self.statusItem = statusItem
+    }
+
+    private func captureAndExit() {
+        do {
+            let image = try renderDemoImage()
+            try writePNG(image, to: URL(fileURLWithPath: outputPath))
+            print("Wrote \(outputPath)")
+            cleanup()
+            NSApplication.shared.terminate(nil)
+        } catch {
+            fail(error)
+        }
+    }
+
+    private func renderDemoImage() throws -> NSImage {
+        guard let screen = NSScreen.main else {
+            throw DemoRenderError.missingScreen
+        }
+
+        let menuBarItemImage = try nativeStatusItemImage()
+        panelWindow = makeMockupWindow(menuBarItemImage: menuBarItemImage, screen: screen)
+        panelWindow?.orderFrontRegardless()
+
+        for _ in 0..<8 {
+            RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.05))
+            panelWindow?.displayIfNeeded()
+        }
+
+        guard let captureWindow = dynamicWindowCaptureFunction() else {
+            throw DemoRenderError.missingWindowCaptureSymbol
+        }
+
+        let imageOptions: CGWindowImageOption = [.bestResolution, .boundsIgnoreFraming]
+        guard let windowNumber = panelWindow.flatMap({ CGWindowID(exactly: $0.windowNumber) }) else {
+            throw DemoRenderError.missingWindowID
+        }
+
+        guard let capturedImage = captureWindow(
+            .null,
+            CGWindowListOption.optionIncludingWindow.rawValue,
+            windowNumber,
+            imageOptions.rawValue
+        )?.takeRetainedValue() else {
+            throw DemoRenderError.captureFailed
+        }
+
+        return NSImage(
+            cgImage: capturedImage,
+            size: NSSize(width: capturedImage.width, height: capturedImage.height)
+        )
+    }
+
+    private func nativeStatusItemImage() throws -> NSImage {
+        guard let button = statusItem?.button else {
+            throw DemoRenderError.missingStatusButton
+        }
+
+        let intrinsicSize = button.intrinsicContentSize
+        let buttonSize = NSSize(
+            width: max(ceil(intrinsicSize.width), 76),
+            height: menuBarHeight
+        )
+        button.frame = CGRect(origin: .zero, size: buttonSize)
+        button.layoutSubtreeIfNeeded()
+        button.highlight(true)
+        defer { button.highlight(false) }
+
+        guard let representation = button.bitmapImageRepForCachingDisplay(in: button.bounds) else {
+            throw DemoRenderError.missingStatusSnapshot
+        }
+
+        representation.size = button.bounds.size
+        button.cacheDisplay(in: button.bounds, to: representation)
+
+        let image = NSImage(size: button.bounds.size)
+        image.addRepresentation(representation)
+        return image
+    }
+
+    private func cleanup() {
+        panelWindow?.orderOut(nil)
+
+        if let statusItem {
+            NSStatusBar.system.removeStatusItem(statusItem)
+        }
+
+        statusItem = nil
+        panelWindow = nil
+    }
+
+    private func fail(_ error: Error) -> Never {
+        cleanup()
+        fputs("Demo mockup failed: \(error)\n", stderr)
+        exit(1)
+    }
+}
+
+private func configureStatusItem(_ statusItem: NSStatusItem, usageText: String) {
+    guard let button = statusItem.button else {
+        return
+    }
+
+    statusItem.length = NSStatusItem.variableLength
+    button.appearance = NSAppearance(named: .aqua)
+    button.image = statusIcon()
+    button.imagePosition = .imageLeft
+    button.imageScaling = .scaleProportionallyDown
+    button.imageHugsTitle = true
+    button.title = usageText
+    button.font = .menuBarFont(ofSize: 0)
+}
+
+private func statusIcon() -> NSImage? {
+    let image = NSImage(contentsOfFile: iconPath)
+        ?? NSImage(systemSymbolName: "gauge.with.needle", accessibilityDescription: "Comux")
+    image?.size = NSSize(width: 16, height: 16)
+    image?.isTemplate = true
+    return image
+}
+
+private func makeMockupWindow(menuBarItemImage: NSImage, screen: NSScreen) -> NSWindow {
+    let rootView = DemoMockupView(menuBarItemImage: menuBarItemImage)
         .scaleEffect(windowRenderScale, anchor: .topLeading)
         .frame(width: windowSize.width, height: windowSize.height, alignment: .topLeading)
     let hostingView = NSHostingView(rootView: rootView)
@@ -193,36 +298,8 @@ private func renderDemoImage() throws -> NSImage {
             y: screen.visibleFrame.midY - (windowSize.height / 2)
         )
     )
-    window.orderFrontRegardless()
-    window.displayIfNeeded()
     hostingView.layoutSubtreeIfNeeded()
-
-    for _ in 0..<3 {
-        RunLoop.main.run(mode: .default, before: Date().addingTimeInterval(0.05))
-        window.displayIfNeeded()
-    }
-
-    guard let windowNumber = CGWindowID(exactly: window.windowNumber) else {
-        throw DemoRenderError.missingWindowID
-    }
-
-    guard let captureWindow = dynamicWindowCaptureFunction() else {
-        throw DemoRenderError.missingWindowCaptureSymbol
-    }
-
-    let imageOptions: CGWindowImageOption = [.bestResolution, .boundsIgnoreFraming]
-    guard let capturedImage = captureWindow(
-        .null,
-        CGWindowListOption.optionIncludingWindow.rawValue,
-        windowNumber,
-        imageOptions.rawValue
-    )?.takeRetainedValue() else {
-        throw DemoRenderError.captureFailed
-    }
-
-    window.orderOut(nil)
-    let image = NSImage(cgImage: capturedImage, size: NSSize(width: capturedImage.width, height: capturedImage.height))
-    return image
+    return window
 }
 
 private func dynamicWindowCaptureFunction() -> CGWindowListCreateImageFunction? {
