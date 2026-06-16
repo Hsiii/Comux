@@ -331,9 +331,9 @@ private func demoAccounts() -> [AccountSnapshot] {
 
     return [
         makeAccount(
-            id: "alex-main",
-            label: "Alex",
-            workspaceLabel: "Main",
+            id: "hsi-work-main",
+            label: "Hsi",
+            workspaceLabel: "Work",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 0,
@@ -343,8 +343,8 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "alex-work",
-            label: "Alex",
+            id: "hsi-sub-work",
+            label: "Hsi Sub",
             workspaceLabel: "Work",
             plan: "Codex Team",
             isCurrent: true,
@@ -355,9 +355,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "jamie-work",
-            label: "Jamie",
-            workspaceLabel: "Work",
+            id: "hsi-school",
+            label: "Hsi",
+            workspaceLabel: "School",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 32,
@@ -367,8 +367,8 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "alex-plus",
-            label: "Alex",
+            id: "hsi-plus",
+            label: "Hsi",
             workspaceLabel: "Personal",
             plan: "Codex Plus",
             isCurrent: false,
@@ -379,8 +379,8 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "jamie-free",
-            label: "Jamie",
+            id: "hsi-sub-free",
+            label: "Hsi Sub",
             workspaceLabel: "Personal",
             plan: "Codex Free",
             isCurrent: false,
@@ -391,9 +391,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "morgan-side",
-            label: "Morgan",
-            workspaceLabel: "Side",
+            id: "hsi-sub-school",
+            label: "Hsi Sub",
+            workspaceLabel: "School",
             plan: "Codex Team",
             isCurrent: false,
             weeklyUsedPercentage: 100,
@@ -403,8 +403,8 @@ private func demoAccounts() -> [AccountSnapshot] {
             now: now
         ),
         makeAccount(
-            id: "morgan-sub",
-            label: "Morgan",
+            id: "hsi-sub-plus",
+            label: "Hsi Sub",
             workspaceLabel: "Sub",
             plan: "Codex Plus",
             isCurrent: false,
