@@ -14,6 +14,10 @@ private let panelLeading = (canvasSize.width - panelWidth) / 2
 private let panelTopOffset = menuBarHeight
 private let panelCornerRadius: CGFloat = 12
 private let iconPath = "assets/icon.png"
+private let day: TimeInterval = 24 * 60 * 60
+private let hour: TimeInterval = 60 * 60
+private let weeklyWindowDuration: TimeInterval = 7 * day
+private let freeWindowDuration: TimeInterval = 30 * day
 
 @main
 @MainActor
@@ -384,8 +388,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             workspaceLabel: "Personal",
             plan: "Codex Free",
             isCurrent: false,
+            weeklyWindowLabel: "30-day",
             weeklyUsedPercentage: 20,
-            weeklyResetOffset: 30 * 24 * 60 * 60 + 60 * 60,
+            weeklyResetOffset: alignedResetOffset(usedPercentage: 20, duration: freeWindowDuration),
             rollingUsedPercentage: 100,
             rollingResetOffset: 2 * 60 * 60 + 56 * 60,
             now: now
@@ -408,8 +413,9 @@ private func demoAccounts() -> [AccountSnapshot] {
             workspaceLabel: "Personal",
             plan: "Codex Free",
             isCurrent: false,
+            weeklyWindowLabel: "30-day",
             weeklyUsedPercentage: 100,
-            weeklyResetOffset: 30 * 24 * 60 * 60 + 60 * 60,
+            weeklyResetOffset: freeWindowDuration + hour,
             rollingUsedPercentage: 65,
             rollingResetOffset: 2 * 60 * 60,
             now: now
@@ -424,6 +430,7 @@ private func makeAccount(
     plan: String,
     isCurrent: Bool,
     weeklyAvailable: Bool = true,
+    weeklyWindowLabel: String = "weekly",
     weeklyUsedPercentage: Double,
     weeklyResetOffset: TimeInterval,
     rollingAvailable: Bool = true,
@@ -443,9 +450,9 @@ private func makeAccount(
         isCurrentSystemAccount: isCurrent,
         lastSyncedAt: isoString(now),
         weeklyWindow: makeWindow(
-            label: "weekly",
+            label: weeklyWindowLabel,
             available: weeklyAvailable,
-            limitMinutes: 10_080,
+            limitMinutes: Int(round(windowDuration(forLabel: weeklyWindowLabel) / 60)),
             usedPercentage: weeklyUsedPercentage,
             resetOffset: weeklyResetOffset,
             now: now
@@ -459,6 +466,21 @@ private func makeAccount(
             now: now
         )
     )
+}
+
+private func alignedResetOffset(usedPercentage: Double, duration: TimeInterval) -> TimeInterval {
+    let remaining = (100 - clampPercentage(usedPercentage)) / 100
+    return max(hour, duration * remaining)
+}
+
+private func windowDuration(forLabel label: String) -> TimeInterval {
+    let normalized = label.lowercased()
+
+    if normalized.contains("30-day") || normalized.contains("30d") || normalized.contains("monthly") {
+        return freeWindowDuration
+    }
+
+    return weeklyWindowDuration
 }
 
 private func makeWindow(

@@ -136,6 +136,10 @@ func currentExpectationDelta(for window: UsageWindow) -> Int {
 func displayWindowLabel(for window: UsageWindow) -> String {
     let label = window.label.lowercased()
 
+    if label.contains("30-day") || label.contains("30d") || label.contains("monthly") {
+        return "30d"
+    }
+
     if label.contains("week") {
         return "Weekly"
     }
@@ -239,6 +243,10 @@ func compactAccountTag(for account: AccountSnapshot) -> String? {
 
 func windowDuration(for window: UsageWindow) -> TimeInterval? {
     let label = window.label.lowercased()
+
+    if label.contains("30-day") || label.contains("30d") || label.contains("monthly") {
+        return 30 * 24 * 60 * 60
+    }
 
     if label.contains("week") {
         return 7 * 24 * 60 * 60

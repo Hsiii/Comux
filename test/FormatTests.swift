@@ -32,6 +32,22 @@ final class FormatTests: XCTestCase {
         XCTAssertFalse(resetPaceText(for: window).contains("-100%"))
     }
 
+    func testThirtyDayUsageWindowAlignsPaceWithMonthlyReset() {
+        let resetDate = Date().addingTimeInterval(24 * 24 * 60 * 60)
+        let window = UsageWindow(
+            available: true,
+            label: "30-day window",
+            usedMinutes: 8_640,
+            limitMinutes: 43_200,
+            usedPercentage: 20,
+            resetsAt: ISO8601DateFormatter().string(from: resetDate)
+        )
+
+        XCTAssertEqual(displayWindowLabel(for: window), "30d")
+        XCTAssertEqual(percentageText(for: window), "80%")
+        XCTAssertEqual(currentExpectationDelta(for: window), 0)
+    }
+
     func testWeeklyExhaustedAccountHidesRollingLockCountdown() {
         let account = AccountSnapshot(
             accountId: "used-up",
