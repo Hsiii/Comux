@@ -11,6 +11,8 @@ LOCAL_PACKAGE=0
 ALLOW_EXISTING=0
 TAP_DIR=""
 SKIP_TAP=0
+LOCAL_NOTARY_MODE="submit"
+FINALIZE_NOTARIZATION_ID=""
 
 usage() {
     cat <<'EOF'
@@ -20,7 +22,10 @@ Options:
   --repo <owner/name>     GitHub repository to release. Defaults to the current repo.
   --target <ref>          Release target branch or SHA. Defaults to main.
   --notes <text>          Release notes. Defaults to "Comux <version>".
-  --local-package         Build, sign, notarize, package, and upload assets locally.
+  --local-package         Build, sign, submit notarization locally, and print the resume command.
+  --wait-notarization     With --local-package, wait for Apple and publish in one command.
+  --finalize-notarization [id]
+                          Check an accepted submission, staple, package, upload, and update tap.
   --allow-existing        Upload local assets to an existing release instead of failing.
   --tap-dir <path>        Local Homebrew tap checkout. Defaults to ../homebrew-tap when present.
   --skip-tap              Do not update the local Homebrew tap checkout.
@@ -66,6 +71,21 @@ while [[ $# -gt 0 ]]; do
         --local-package)
             LOCAL_PACKAGE=1
             shift
+            ;;
+        --wait-notarization)
+            LOCAL_PACKAGE=1
+            LOCAL_NOTARY_MODE="wait"
+            shift
+            ;;
+        --finalize-notarization)
+            LOCAL_PACKAGE=1
+            LOCAL_NOTARY_MODE="finalize"
+            if [[ $# -gt 1 && "${2:-}" != --* ]]; then
+                FINALIZE_NOTARIZATION_ID="$2"
+                shift 2
+            else
+                shift
+            fi
             ;;
         --allow-existing)
             ALLOW_EXISTING=1
@@ -213,28 +233,30 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     }
     trap cleanup_local_release EXIT
 
-    required_local_env=(
-        COMUX_NOTARY_APPLE_ID
-        COMUX_NOTARY_TEAM_ID
-        COMUX_NOTARY_PASSWORD
-    )
-    missing_local_env=()
-    for env_name in "${required_local_env[@]}"; do
-        if [[ -z "${!env_name:-}" ]]; then
-            missing_local_env+=("$env_name")
-        fi
-    done
+    if [[ "$LOCAL_NOTARY_MODE" != "finalize" ]]; then
+        required_local_env=(
+            COMUX_NOTARY_APPLE_ID
+            COMUX_NOTARY_TEAM_ID
+            COMUX_NOTARY_PASSWORD
+        )
+        missing_local_env=()
+        for env_name in "${required_local_env[@]}"; do
+            if [[ -z "${!env_name:-}" ]]; then
+                missing_local_env+=("$env_name")
+            fi
+        done
 
-    if [[ "${#missing_local_env[@]}" -gt 0 ]]; then
-        echo "Missing required local notarization environment variables:" >&2
-        printf '  %s\n' "${missing_local_env[@]}" >&2
-        exit 1
+        if [[ "${#missing_local_env[@]}" -gt 0 ]]; then
+            echo "Missing required local notarization environment variables:" >&2
+            printf '  %s\n' "${missing_local_env[@]}" >&2
+            exit 1
+        fi
     fi
 
     release_keychain_dir="$(mktemp -d)"
     release_keychain_path="$release_keychain_dir/comux-release.keychain-db"
     release_keychain_password="$(uuidgen)-$(uuidgen)"
-    notary_profile="comux-release-${TAG}-$$"
+    notary_profile="${COMUX_RELEASE_NOTARY_PROFILE:-comux-release}"
     original_keychains_for_search=()
     while IFS= read -r keychain_path; do
         original_keychains_for_search+=("$keychain_path")
@@ -245,7 +267,7 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     security unlock-keychain -p "$release_keychain_password" "$release_keychain_path"
     security list-keychains -d user -s "$release_keychain_path" "${original_keychains_for_search[@]}"
 
-    if [[ -z "${COMUX_CODE_SIGN_IDENTITY:-}" ]]; then
+    if [[ "$LOCAL_NOTARY_MODE" != "finalize" && -z "${COMUX_CODE_SIGN_IDENTITY:-}" ]]; then
         certificate_path="${COMUX_DEVELOPER_CERTIFICATE_P12_PATH:-$HOME/.comux-release-cert/developer-id-application.p12}"
         certificate_password_file="${COMUX_DEVELOPER_CERTIFICATE_PASSWORD_FILE:-$HOME/.comux-release-cert/p12-password.txt}"
         certificate_password="${COMUX_DEVELOPER_CERTIFICATE_PASSWORD:-}"
@@ -270,7 +292,7 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
         export COMUX_CODE_SIGN_IDENTITY
     fi
 
-    if [[ -z "${COMUX_CODE_SIGN_IDENTITY:-}" ]]; then
+    if [[ "$LOCAL_NOTARY_MODE" != "finalize" && -z "${COMUX_CODE_SIGN_IDENTITY:-}" ]]; then
         echo "No Developer ID Application signing identity found." >&2
         security find-identity -v -p codesigning >&2
         exit 1
@@ -278,22 +300,55 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
 
     output_file="$(mktemp)"
 
-    xcrun notarytool store-credentials "$notary_profile" \
-        --apple-id "$COMUX_NOTARY_APPLE_ID" \
-        --team-id "$COMUX_NOTARY_TEAM_ID" \
-        --password "$COMUX_NOTARY_PASSWORD" \
-        --keychain "$release_keychain_path"
+    if [[ -n "${COMUX_NOTARY_APPLE_ID:-}" && -n "${COMUX_NOTARY_TEAM_ID:-}" && -n "${COMUX_NOTARY_PASSWORD:-}" ]]; then
+        xcrun notarytool store-credentials "$notary_profile" \
+            --apple-id "$COMUX_NOTARY_APPLE_ID" \
+            --team-id "$COMUX_NOTARY_TEAM_ID" \
+            --password "$COMUX_NOTARY_PASSWORD"
+    fi
 
-    echo "Building, signing, and notarizing $TAG locally."
+    brew_args=(
+        --version "$VERSION"
+        --repo "$REPO"
+    )
+    case "$LOCAL_NOTARY_MODE" in
+        submit)
+            brew_args+=(--submit-notarization)
+            ;;
+        wait)
+            brew_args+=(--notarize)
+            ;;
+        finalize)
+            if [[ -z "$FINALIZE_NOTARIZATION_ID" ]]; then
+                notary_state_path="$ROOT_DIR/.build/dist/comux-${VERSION}.notary-submission"
+                if [[ -f "$notary_state_path" ]]; then
+                    FINALIZE_NOTARIZATION_ID="$(
+                        sed -n 's/^SUBMISSION_ID=//p' "$notary_state_path" | head -n1
+                    )"
+                fi
+            fi
+            if [[ -z "$FINALIZE_NOTARIZATION_ID" ]]; then
+                echo "No notarization submission ID found." >&2
+                echo "Pass --finalize-notarization <submission-id> or run --local-package first." >&2
+                exit 1
+            fi
+            brew_args+=(--finalize-notarization "$FINALIZE_NOTARIZATION_ID")
+            ;;
+        *)
+            echo "Unknown local notarization mode: $LOCAL_NOTARY_MODE" >&2
+            exit 1
+            ;;
+    esac
+
+    echo "Running local release packaging for $TAG (${LOCAL_NOTARY_MODE})."
     COMUX_NOTARY_KEYCHAIN_PROFILE="$notary_profile" \
-    COMUX_NOTARY_KEYCHAIN="$release_keychain_path" \
-    "$ROOT_DIR/scripts/brew.sh" \
-        --version "$VERSION" \
-        --repo "$REPO" \
-        --notarize | tee "$output_file"
+    "$ROOT_DIR/scripts/brew.sh" "${brew_args[@]}" | tee "$output_file"
 
     archive_path=""
     cask_path=""
+    notary_submission_id=""
+    notary_status=""
+    notary_state=""
     while IFS= read -r line; do
         case "$line" in
             archive=*)
@@ -302,10 +357,28 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
             cask=*)
                 cask_path="${line#cask=}"
                 ;;
+            notary_submission_id=*)
+                notary_submission_id="${line#notary_submission_id=}"
+                ;;
+            notary_status=*)
+                notary_status="${line#notary_status=}"
+                ;;
+            notary_state=*)
+                notary_state="${line#notary_state=}"
+                ;;
         esac
     done < "$output_file"
 
     if [[ -z "$archive_path" || -z "$cask_path" ]]; then
+        if [[ -n "$notary_submission_id" ]]; then
+            echo "Notarization submission $notary_submission_id is ${notary_status:-submitted}."
+            if [[ -n "$notary_state" ]]; then
+                echo "Saved notarization state: $notary_state"
+            fi
+            echo "Finalize later with:"
+            echo "  scripts/release.sh $VERSION --finalize-notarization $notary_submission_id --allow-existing --no-watch"
+            exit 0
+        fi
         echo "Failed to generate release archive or cask." >&2
         exit 1
     fi

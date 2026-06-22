@@ -13,6 +13,8 @@ BUILD_NUMBER=""
 REPOSITORY=""
 HOMEPAGE=""
 NOTARIZE=0
+NOTARY_MODE="wait"
+FINALIZE_NOTARIZATION_ID=""
 APPLE_ID="${COMUX_NOTARY_APPLE_ID:-${APPLE_ID:-}}"
 APPLE_TEAM_ID="${COMUX_NOTARY_TEAM_ID:-${APPLE_TEAM_ID:-}}"
 APPLE_PASSWORD="${COMUX_NOTARY_PASSWORD:-${APPLE_APP_SPECIFIC_PASSWORD:-}}"
@@ -29,6 +31,9 @@ Options:
   --repo <owner/name>     GitHub repository that hosts release archives.
   --homepage <url>        Homepage for the generated cask. Defaults to the repo URL.
   --notarize              Submit the signed app to Apple notary service before packaging.
+  --submit-notarization   Submit the signed app and exit after saving the submission ID.
+  --finalize-notarization <id>
+                          Check an accepted submission, staple, package, and write the cask.
 
 Environment fallbacks:
   GITHUB_REPOSITORY, GITHUB_SERVER_URL, COMUX_VERSION, COMUX_BUILD_NUMBER,
@@ -58,7 +63,19 @@ while [[ $# -gt 0 ]]; do
             ;;
         --notarize)
             NOTARIZE=1
+            NOTARY_MODE="wait"
             shift
+            ;;
+        --submit-notarization)
+            NOTARIZE=1
+            NOTARY_MODE="submit"
+            shift
+            ;;
+        --finalize-notarization)
+            NOTARIZE=1
+            NOTARY_MODE="finalize"
+            FINALIZE_NOTARIZATION_ID="${2:-}"
+            shift 2
             ;;
         --help|-h)
             usage
@@ -110,17 +127,28 @@ fi
 archive_name="${APP_NAME}-${VERSION}.zip"
 archive_path="${DIST_DIR}/${archive_name}"
 cask_path="${DIST_DIR}/${CASK_TOKEN}.rb"
+notary_state_path="${DIST_DIR}/${APP_NAME}-${VERSION}.notary-submission"
 download_url="${server_url}/${REPOSITORY}/releases/download/v${VERSION}/${archive_name}"
 
 mkdir -p "$DIST_DIR"
 
-COMUX_VERSION="$VERSION" \
-COMUX_BUILD_NUMBER="$BUILD_NUMBER" \
-"$ROOT_DIR/scripts/build.sh" >/dev/null
+if [[ "$NOTARY_MODE" != "finalize" ]]; then
+    COMUX_VERSION="$VERSION" \
+    COMUX_BUILD_NUMBER="$BUILD_NUMBER" \
+    "$ROOT_DIR/scripts/build.sh" >/dev/null
+elif [[ ! -d "$ROOT_DIR/.build/apple/${APP_FILENAME}" ]]; then
+    echo "Missing built app at $ROOT_DIR/.build/apple/${APP_FILENAME}. Run --submit-notarization first." >&2
+    exit 1
+fi
 
 rm -f "$archive_path"
 
 if [[ "$NOTARIZE" == "1" ]]; then
+    if [[ "$NOTARY_MODE" == "finalize" && -z "$FINALIZE_NOTARIZATION_ID" ]]; then
+        echo "--finalize-notarization requires a submission ID." >&2
+        exit 1
+    fi
+
     if [[ -z "$NOTARY_KEYCHAIN_PROFILE" && ( -z "$APPLE_ID" || -z "$APPLE_TEAM_ID" || -z "$APPLE_PASSWORD" ) ]]; then
         echo "Notarization requires either COMUX_NOTARY_KEYCHAIN_PROFILE or COMUX_NOTARY_APPLE_ID, COMUX_NOTARY_TEAM_ID, and COMUX_NOTARY_PASSWORD." >&2
         exit 1
@@ -130,10 +158,6 @@ if [[ "$NOTARIZE" == "1" ]]; then
         echo "COMUX_NOTARY_TIMEOUT_SECONDS must be a positive integer." >&2
         exit 1
     fi
-
-    notary_archive_path="${DIST_DIR}/${APP_NAME}-${VERSION}-notary.zip"
-    rm -f "$notary_archive_path"
-    ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$notary_archive_path"
 
     notary_auth_args=()
     if [[ -n "$NOTARY_KEYCHAIN_PROFILE" ]]; then
@@ -149,14 +173,71 @@ if [[ "$NOTARIZE" == "1" ]]; then
         )
     fi
 
-    echo "Submitting ${notary_archive_path} for notarization with a ${NOTARY_TIMEOUT_SECONDS}s timeout." >&2
-    xcrun notarytool submit "$notary_archive_path" \
-        "${notary_auth_args[@]}" \
-        --wait \
-        --timeout "${NOTARY_TIMEOUT_SECONDS}s"
+    if [[ "$NOTARY_MODE" == "submit" || "$NOTARY_MODE" == "wait" ]]; then
+        notary_archive_path="${DIST_DIR}/${APP_NAME}-${VERSION}-notary.zip"
+        submit_output_path="${DIST_DIR}/${APP_NAME}-${VERSION}.notary-submit.json"
+        rm -f "$notary_archive_path" "$submit_output_path"
+        ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$notary_archive_path"
+    fi
+
+    if [[ "$NOTARY_MODE" == "submit" ]]; then
+        echo "Submitting ${notary_archive_path} for notarization without waiting." >&2
+        xcrun notarytool submit "$notary_archive_path" \
+            "${notary_auth_args[@]}" \
+            --no-progress \
+            --output-format json > "$submit_output_path"
+
+        submission_id="$(plutil -extract id raw -o - "$submit_output_path")"
+        status="$(plutil -extract status raw -o - "$submit_output_path" 2>/dev/null || printf 'Submitted')"
+        cat > "$notary_state_path" <<EOF
+VERSION=${VERSION}
+REPOSITORY=${REPOSITORY}
+SUBMISSION_ID=${submission_id}
+NOTARY_ARCHIVE=${notary_archive_path}
+APP_PATH=$ROOT_DIR/.build/apple/${APP_FILENAME}
+EOF
+        printf 'notary_submission_id=%s\n' "$submission_id"
+        printf 'notary_status=%s\n' "$status"
+        printf 'notary_state=%s\n' "$notary_state_path"
+        exit 0
+    fi
+
+    if [[ "$NOTARY_MODE" == "wait" ]]; then
+        echo "Submitting ${notary_archive_path} for notarization with a ${NOTARY_TIMEOUT_SECONDS}s timeout." >&2
+        xcrun notarytool submit "$notary_archive_path" \
+            "${notary_auth_args[@]}" \
+            --wait \
+            --timeout "${NOTARY_TIMEOUT_SECONDS}s"
+    fi
+
+    if [[ "$NOTARY_MODE" == "finalize" ]]; then
+        info_output_path="${DIST_DIR}/${APP_NAME}-${VERSION}.notary-info.json"
+        log_output_path="${DIST_DIR}/${APP_NAME}-${VERSION}.notary-log.json"
+
+        xcrun notarytool info "$FINALIZE_NOTARIZATION_ID" \
+            "${notary_auth_args[@]}" \
+            --no-progress \
+            --output-format json > "$info_output_path"
+        status="$(plutil -extract status raw -o - "$info_output_path")"
+        printf 'notary_submission_id=%s\n' "$FINALIZE_NOTARIZATION_ID"
+        printf 'notary_status=%s\n' "$status"
+
+        if [[ "$status" != "Accepted" ]]; then
+            if [[ "$status" == "Invalid" || "$status" == "Rejected" ]]; then
+                xcrun notarytool log "$FINALIZE_NOTARIZATION_ID" "$log_output_path" \
+                    "${notary_auth_args[@]}" || true
+                echo "Notarization failed with status ${status}. Log: ${log_output_path}" >&2
+                exit 1
+            fi
+            echo "Notarization is ${status}; rerun finalization later." >&2
+            exit 0
+        fi
+    fi
 
     xcrun stapler staple "$ROOT_DIR/.build/apple/${APP_FILENAME}"
-    rm -f "$notary_archive_path"
+    if [[ -n "${notary_archive_path:-}" ]]; then
+        rm -f "$notary_archive_path"
+    fi
 fi
 
 ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$archive_path"
