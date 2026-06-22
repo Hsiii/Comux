@@ -52,8 +52,59 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve prebuilt release assets
+        id: prebuilt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          archive_name="comux-${{ steps.meta.outputs.version }}.zip"
+          cask_name="comux.rb"
+          cask_path="$RUNNER_TEMP/$cask_name"
+
+          has_asset() {
+            local asset_name="$1"
+            grep -Fx "$asset_name" "$RUNNER_TEMP/comux-release-assets.txt" >/dev/null
+          }
+
+          : > "$RUNNER_TEMP/comux-release-assets.txt"
+          has_prebuilt=false
+          for attempt in {1..12}; do
+            gh release view "${{ steps.meta.outputs.tag }}" \
+              --repo "$RELEASE_REPOSITORY" \
+              --json assets \
+              --jq '.assets[].name' > "$RUNNER_TEMP/comux-release-assets.txt" || true
+
+            if has_asset "$archive_name" && has_asset "$cask_name"; then
+              has_prebuilt=true
+              break
+            fi
+
+            if [[ "$EVENT_NAME" != "release" ]]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [[ "$has_prebuilt" == "true" ]]; then
+            gh release download "${{ steps.meta.outputs.tag }}" \
+              --repo "$RELEASE_REPOSITORY" \
+              --pattern "$cask_name" \
+              --dir "$RUNNER_TEMP" \
+              --clobber
+            echo "Using prebuilt release assets: $archive_name, $cask_name"
+          else
+            echo "No complete prebuilt release asset set found; building in CI."
+          fi
+
+          echo "has_prebuilt=$has_prebuilt" >> "$GITHUB_OUTPUT"
+          echo "cask=$cask_path" >> "$GITHUB_OUTPUT"
+
       - name: Import Developer ID certificate
-        if: env.APPLE_CERTIFICATE_CONFIGURED == 'true'
+        if: env.APPLE_CERTIFICATE_CONFIGURED == 'true' && steps.prebuilt.outputs.has_prebuilt != 'true'
         env:
           APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           APPLE_DEVELOPER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
@@ -77,6 +128,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$keychain_path"
 
       - name: Build macOS app archive and cask
+        if: steps.prebuilt.outputs.has_prebuilt != 'true'
         id: package
         env:
           APPLE_CODE_SIGN_IDENTITY: ${{ vars.APPLE_CODE_SIGN_IDENTITY }}
@@ -128,7 +180,7 @@ jobs:
           done < "$output_file"
 
       - name: Upload release assets
-        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && steps.prebuilt.outputs.has_prebuilt != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -141,7 +193,7 @@ jobs:
             --clobber
 
       - name: Upload workflow artifacts
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' && steps.prebuilt.outputs.has_prebuilt != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: codexmux-release-${{ steps.meta.outputs.version }}
@@ -154,6 +206,7 @@ jobs:
         env:
           HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          CASK_PATH: ${{ steps.prebuilt.outputs.has_prebuilt == 'true' && steps.prebuilt.outputs.cask || steps.package.outputs.cask }}
         shell: bash
         run: |
           set -euo pipefail
@@ -168,7 +221,7 @@ jobs:
 
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${HOMEBREW_TAP_REPOSITORY}.git" "$tap_dir"
           mkdir -p "$tap_dir/Casks"
-          cp "${{ steps.package.outputs.cask }}" "$tap_dir/Casks/comux.rb"
+          cp "$CASK_PATH" "$tap_dir/Casks/comux.rb"
 
           git -C "$tap_dir" config user.name "github-actions[bot]"
           git -C "$tap_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"

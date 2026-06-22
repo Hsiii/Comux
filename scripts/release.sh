@@ -7,6 +7,10 @@ REPO=""
 TARGET="main"
 WATCH=1
 NOTES=""
+LOCAL_PACKAGE=0
+ALLOW_EXISTING=0
+TAP_DIR=""
+SKIP_TAP=0
 
 usage() {
     cat <<'EOF'
@@ -16,11 +20,16 @@ Options:
   --repo <owner/name>     GitHub repository to release. Defaults to the current repo.
   --target <ref>          Release target branch or SHA. Defaults to main.
   --notes <text>          Release notes. Defaults to "Comux <version>".
+  --local-package         Build, sign, notarize, package, and upload assets locally.
+  --allow-existing        Upload local assets to an existing release instead of failing.
+  --tap-dir <path>        Local Homebrew tap checkout. Defaults to ../homebrew-tap when present.
+  --skip-tap              Do not update the local Homebrew tap checkout.
   --no-watch              Create the release without waiting for the workflow.
   --help, -h              Show this help.
 
 Examples:
   scripts/release.sh 0.1.0
+  scripts/release.sh 0.1.0 --local-package
   scripts/release.sh v0.1.0 --notes "Initial signed and notarized release"
 EOF
 }
@@ -53,6 +62,22 @@ while [[ $# -gt 0 ]]; do
         --notes)
             NOTES="${2:-}"
             shift 2
+            ;;
+        --local-package)
+            LOCAL_PACKAGE=1
+            shift
+            ;;
+        --allow-existing)
+            ALLOW_EXISTING=1
+            shift
+            ;;
+        --tap-dir)
+            TAP_DIR="${2:-}"
+            shift 2
+            ;;
+        --skip-tap)
+            SKIP_TAP=1
+            shift
             ;;
         --no-watch)
             WATCH=0
@@ -96,6 +121,10 @@ if [[ -z "$NOTES" ]]; then
     NOTES="Comux ${VERSION}"
 fi
 
+if [[ -z "$TAP_DIR" && -d "$ROOT_DIR/../homebrew-tap/.git" ]]; then
+    TAP_DIR="$ROOT_DIR/../homebrew-tap"
+fi
+
 dirty_paths=()
 while IFS= read -r status_line; do
     path="${status_line:3}"
@@ -114,7 +143,168 @@ if [[ "${#dirty_paths[@]}" -gt 0 ]]; then
     exit 1
 fi
 
+release_exists=0
 if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+    release_exists=1
+fi
+
+publish_local_tap() {
+    local cask_path="$1"
+
+    if [[ "$SKIP_TAP" == "1" ]]; then
+        return
+    fi
+
+    if [[ -z "$TAP_DIR" ]]; then
+        echo "No local Homebrew tap checkout found; skipping local tap update." >&2
+        return
+    fi
+
+    if [[ ! -d "$TAP_DIR/.git" ]]; then
+        echo "Homebrew tap path is not a git checkout: $TAP_DIR" >&2
+        exit 1
+    fi
+
+    if [[ -n "$(git -C "$TAP_DIR" status --porcelain)" ]]; then
+        echo "Refusing to update dirty Homebrew tap checkout: $TAP_DIR" >&2
+        git -C "$TAP_DIR" status --short >&2
+        exit 1
+    fi
+
+    mkdir -p "$TAP_DIR/Casks"
+    cp "$cask_path" "$TAP_DIR/Casks/comux.rb"
+
+    if git -C "$TAP_DIR" diff --quiet -- Casks/comux.rb; then
+        echo "Homebrew tap is already up to date."
+        return
+    fi
+
+    git -C "$TAP_DIR" add Casks/comux.rb
+    git -C "$TAP_DIR" commit -m "chore: update comux to $TAG"
+    git -C "$TAP_DIR" push origin HEAD
+}
+
+if [[ "$LOCAL_PACKAGE" == "1" ]]; then
+    required_local_env=(
+        COMUX_NOTARY_APPLE_ID
+        COMUX_NOTARY_TEAM_ID
+        COMUX_NOTARY_PASSWORD
+    )
+    missing_local_env=()
+    for env_name in "${required_local_env[@]}"; do
+        if [[ -z "${!env_name:-}" ]]; then
+            missing_local_env+=("$env_name")
+        fi
+    done
+
+    if [[ "${#missing_local_env[@]}" -gt 0 ]]; then
+        echo "Missing required local notarization environment variables:" >&2
+        printf '  %s\n' "${missing_local_env[@]}" >&2
+        exit 1
+    fi
+
+    if [[ -z "${COMUX_CODE_SIGN_IDENTITY:-}" ]]; then
+        COMUX_CODE_SIGN_IDENTITY="$(
+            security find-identity -v -p codesigning \
+                | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' \
+                | head -n1
+        )"
+        export COMUX_CODE_SIGN_IDENTITY
+    fi
+
+    if [[ -z "${COMUX_CODE_SIGN_IDENTITY:-}" ]]; then
+        echo "No Developer ID Application signing identity found." >&2
+        security find-identity -v -p codesigning >&2
+        exit 1
+    fi
+
+    output_file="$(mktemp)"
+    trap 'rm -f "$output_file"' EXIT
+
+    echo "Building, signing, and notarizing $TAG locally."
+    "$ROOT_DIR/scripts/brew.sh" \
+        --version "$VERSION" \
+        --repo "$REPO" \
+        --notarize | tee "$output_file"
+
+    archive_path=""
+    cask_path=""
+    while IFS= read -r line; do
+        case "$line" in
+            archive=*)
+                archive_path="${line#archive=}"
+                ;;
+            cask=*)
+                cask_path="${line#cask=}"
+                ;;
+        esac
+    done < "$output_file"
+
+    if [[ -z "$archive_path" || -z "$cask_path" ]]; then
+        echo "Failed to generate release archive or cask." >&2
+        exit 1
+    fi
+
+    if [[ "$release_exists" == "1" ]]; then
+        if [[ "$ALLOW_EXISTING" != "1" ]]; then
+            echo "Release already exists: $TAG" >&2
+            echo "Pass --allow-existing to upload local assets to it." >&2
+            exit 1
+        fi
+        echo "Uploading local assets to existing release $TAG."
+        gh release upload "$TAG" \
+            --repo "$REPO" \
+            "$archive_path" \
+            "$cask_path" \
+            --clobber
+    else
+        echo "Creating release $TAG for $REPO at $TARGET with local assets."
+        release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        gh release create "$TAG" \
+            --repo "$REPO" \
+            --target "$TARGET" \
+            --title "$TAG" \
+            --notes "$NOTES" \
+            "$archive_path" \
+            "$cask_path"
+    fi
+
+    publish_local_tap "$cask_path"
+
+    if [[ "$WATCH" != "1" || "$release_exists" == "1" ]]; then
+        exit 0
+    fi
+
+    echo "Waiting for Release workflow to start."
+    run_id=""
+    for _ in {1..30}; do
+        run_id="$(
+            gh run list \
+                --repo "$REPO" \
+                --workflow Release \
+                --event release \
+                --limit 10 \
+                --json databaseId,headBranch,createdAt \
+                --jq ".[] | select(.headBranch == \"$TAG\" and .createdAt >= \"$release_started_at\") | .databaseId" \
+                | head -n1
+        )"
+        if [[ -n "$run_id" ]]; then
+            break
+        fi
+        sleep 5
+    done
+
+    if [[ -z "$run_id" ]]; then
+        echo "Timed out waiting for the Release workflow to start for $TAG." >&2
+        exit 1
+    fi
+
+    gh run watch "$run_id" --repo "$REPO" --exit-status
+    echo "Release workflow completed for $TAG."
+    exit 0
+fi
+
+if [[ "$release_exists" == "1" ]]; then
     echo "Release already exists: $TAG" >&2
     exit 1
 fi
