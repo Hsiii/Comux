@@ -188,6 +188,8 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     output_file=""
     release_keychain_dir=""
     release_keychain_path=""
+    original_keychains_file="$(mktemp)"
+    security list-keychains -d user > "$original_keychains_file"
     cleanup_local_release() {
         if [[ -n "$output_file" ]]; then
             rm -f "$output_file"
@@ -195,6 +197,16 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
         if [[ -n "$release_keychain_path" ]]; then
             security delete-keychain "$release_keychain_path" >/dev/null 2>&1 || true
         fi
+        if [[ -s "$original_keychains_file" ]]; then
+            original_keychains=()
+            while IFS= read -r keychain_path; do
+                original_keychains+=("$keychain_path")
+            done < <(sed 's/^ *"//; s/"$//' "$original_keychains_file")
+            if [[ "${#original_keychains[@]}" -gt 0 ]]; then
+                security list-keychains -d user -s "${original_keychains[@]}" >/dev/null 2>&1 || true
+            fi
+        fi
+        rm -f "$original_keychains_file"
         if [[ -n "$release_keychain_dir" ]]; then
             rm -rf "$release_keychain_dir"
         fi
@@ -219,6 +231,20 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
         exit 1
     fi
 
+    release_keychain_dir="$(mktemp -d)"
+    release_keychain_path="$release_keychain_dir/comux-release.keychain-db"
+    release_keychain_password="$(uuidgen)-$(uuidgen)"
+    notary_profile="comux-release-${TAG}-$$"
+    original_keychains_for_search=()
+    while IFS= read -r keychain_path; do
+        original_keychains_for_search+=("$keychain_path")
+    done < <(sed 's/^ *"//; s/"$//' "$original_keychains_file")
+
+    security create-keychain -p "$release_keychain_password" "$release_keychain_path"
+    security set-keychain-settings -lut 21600 "$release_keychain_path"
+    security unlock-keychain -p "$release_keychain_password" "$release_keychain_path"
+    security list-keychains -d user -s "$release_keychain_path" "${original_keychains_for_search[@]}"
+
     if [[ -z "${COMUX_CODE_SIGN_IDENTITY:-}" ]]; then
         certificate_path="${COMUX_DEVELOPER_CERTIFICATE_P12_PATH:-$HOME/.comux-release-cert/developer-id-application.p12}"
         certificate_password_file="${COMUX_DEVELOPER_CERTIFICATE_PASSWORD_FILE:-$HOME/.comux-release-cert/p12-password.txt}"
@@ -229,18 +255,10 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
         fi
 
         if [[ -f "$certificate_path" && -n "$certificate_password" ]]; then
-            release_keychain_dir="$(mktemp -d)"
-            release_keychain_path="$release_keychain_dir/comux-release.keychain-db"
-            release_keychain_password="$(uuidgen)-$(uuidgen)"
-
-            security create-keychain -p "$release_keychain_password" "$release_keychain_path"
-            security set-keychain-settings -lut 21600 "$release_keychain_path"
-            security unlock-keychain -p "$release_keychain_password" "$release_keychain_path"
             security import "$certificate_path" \
                 -P "$certificate_password" \
                 -A \
                 -k "$release_keychain_path"
-            security list-keychains -d user -s "$release_keychain_path"
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$release_keychain_password" "$release_keychain_path"
         fi
 
@@ -260,7 +278,15 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
 
     output_file="$(mktemp)"
 
+    xcrun notarytool store-credentials "$notary_profile" \
+        --apple-id "$COMUX_NOTARY_APPLE_ID" \
+        --team-id "$COMUX_NOTARY_TEAM_ID" \
+        --password "$COMUX_NOTARY_PASSWORD" \
+        --keychain "$release_keychain_path"
+
     echo "Building, signing, and notarizing $TAG locally."
+    COMUX_NOTARY_KEYCHAIN_PROFILE="$notary_profile" \
+    COMUX_NOTARY_KEYCHAIN="$release_keychain_path" \
     "$ROOT_DIR/scripts/brew.sh" \
         --version "$VERSION" \
         --repo "$REPO" \

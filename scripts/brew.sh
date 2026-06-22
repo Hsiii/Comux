@@ -16,6 +16,8 @@ NOTARIZE=0
 APPLE_ID="${COMUX_NOTARY_APPLE_ID:-${APPLE_ID:-}}"
 APPLE_TEAM_ID="${COMUX_NOTARY_TEAM_ID:-${APPLE_TEAM_ID:-}}"
 APPLE_PASSWORD="${COMUX_NOTARY_PASSWORD:-${APPLE_APP_SPECIFIC_PASSWORD:-}}"
+NOTARY_KEYCHAIN_PROFILE="${COMUX_NOTARY_KEYCHAIN_PROFILE:-}"
+NOTARY_KEYCHAIN="${COMUX_NOTARY_KEYCHAIN:-}"
 NOTARY_TIMEOUT_SECONDS="${COMUX_NOTARY_TIMEOUT_SECONDS:-2700}"
 
 usage() {
@@ -31,6 +33,7 @@ Options:
 Environment fallbacks:
   GITHUB_REPOSITORY, GITHUB_SERVER_URL, COMUX_VERSION, COMUX_BUILD_NUMBER,
   COMUX_NOTARY_APPLE_ID, COMUX_NOTARY_TEAM_ID, COMUX_NOTARY_PASSWORD,
+  COMUX_NOTARY_KEYCHAIN_PROFILE, COMUX_NOTARY_KEYCHAIN,
   COMUX_NOTARY_TIMEOUT_SECONDS
 EOF
 }
@@ -118,8 +121,8 @@ COMUX_BUILD_NUMBER="$BUILD_NUMBER" \
 rm -f "$archive_path"
 
 if [[ "$NOTARIZE" == "1" ]]; then
-    if [[ -z "$APPLE_ID" || -z "$APPLE_TEAM_ID" || -z "$APPLE_PASSWORD" ]]; then
-        echo "Notarization requires COMUX_NOTARY_APPLE_ID, COMUX_NOTARY_TEAM_ID, and COMUX_NOTARY_PASSWORD." >&2
+    if [[ -z "$NOTARY_KEYCHAIN_PROFILE" && ( -z "$APPLE_ID" || -z "$APPLE_TEAM_ID" || -z "$APPLE_PASSWORD" ) ]]; then
+        echo "Notarization requires either COMUX_NOTARY_KEYCHAIN_PROFILE or COMUX_NOTARY_APPLE_ID, COMUX_NOTARY_TEAM_ID, and COMUX_NOTARY_PASSWORD." >&2
         exit 1
     fi
 
@@ -132,27 +135,25 @@ if [[ "$NOTARIZE" == "1" ]]; then
     rm -f "$notary_archive_path"
     ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$notary_archive_path"
 
+    notary_auth_args=()
+    if [[ -n "$NOTARY_KEYCHAIN_PROFILE" ]]; then
+        notary_auth_args+=(--keychain-profile "$NOTARY_KEYCHAIN_PROFILE")
+        if [[ -n "$NOTARY_KEYCHAIN" ]]; then
+            notary_auth_args+=(--keychain "$NOTARY_KEYCHAIN")
+        fi
+    else
+        notary_auth_args=(
+            --apple-id "$APPLE_ID"
+            --team-id "$APPLE_TEAM_ID"
+            --password "$APPLE_PASSWORD"
+        )
+    fi
+
     echo "Submitting ${notary_archive_path} for notarization with a ${NOTARY_TIMEOUT_SECONDS}s timeout." >&2
     xcrun notarytool submit "$notary_archive_path" \
-        --apple-id "$APPLE_ID" \
-        --team-id "$APPLE_TEAM_ID" \
-        --password "$APPLE_PASSWORD" \
-        --wait &
-    notary_pid="$!"
-
-    notary_deadline=$((SECONDS + NOTARY_TIMEOUT_SECONDS))
-    while kill -0 "$notary_pid" 2>/dev/null; do
-        if [[ "$SECONDS" -ge "$notary_deadline" ]]; then
-            echo "Timed out waiting for notarization after ${NOTARY_TIMEOUT_SECONDS}s." >&2
-            echo "Set COMUX_NOTARY_TIMEOUT_SECONDS to a larger value if Apple notary service is delayed." >&2
-            kill "$notary_pid" 2>/dev/null || true
-            wait "$notary_pid" 2>/dev/null || true
-            exit 1
-        fi
-        sleep 15
-    done
-
-    wait "$notary_pid"
+        "${notary_auth_args[@]}" \
+        --wait \
+        --timeout "${NOTARY_TIMEOUT_SECONDS}s"
 
     xcrun stapler staple "$ROOT_DIR/.build/apple/${APP_FILENAME}"
     rm -f "$notary_archive_path"
