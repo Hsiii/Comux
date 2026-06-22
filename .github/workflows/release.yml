@@ -150,16 +150,16 @@ jobs:
 
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${HOMEBREW_TAP_REPOSITORY}.git" "$tap_dir"
           mkdir -p "$tap_dir/Casks"
-          cp "${{ steps.package.outputs.cask }}" "$tap_dir/Casks/codexmux.rb"
+          cp "${{ steps.package.outputs.cask }}" "$tap_dir/Casks/comux.rb"
 
           git -C "$tap_dir" config user.name "github-actions[bot]"
           git -C "$tap_dir" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git -C "$tap_dir" diff --quiet -- Casks/codexmux.rb; then
+          if git -C "$tap_dir" diff --quiet -- Casks/comux.rb; then
             echo "Tap is already up to date."
             exit 0
           fi
 
-          git -C "$tap_dir" add Casks/codexmux.rb
-          git -C "$tap_dir" commit -m "chore: update codexmux to v${{ steps.meta.outputs.version }}"
+          git -C "$tap_dir" add Casks/comux.rb
+          git -C "$tap_dir" commit -m "chore: update comux to v${{ steps.meta.outputs.version }}"
           git -C "$tap_dir" push origin HEAD

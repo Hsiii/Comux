@@ -50,7 +50,13 @@ Build a DMG for distribution:
 
 ## Release
 
-Publishing a GitHub release builds `comux-<version>.zip`, notarizes it when Apple credentials are configured, uploads the generated cask, and updates the Homebrew tap configured by `HOMEBREW_TAP_REPOSITORY`.
+Run the release wrapper:
+
+```bash
+./scripts/release.sh 0.1.0
+```
+
+It publishes a GitHub release, waits for the `Release` workflow, builds `comux-<version>.zip`, notarizes it when Apple credentials are configured, uploads the generated cask, and updates the Homebrew tap configured by `HOMEBREW_TAP_REPOSITORY`.
 
 Required repository secrets for signed and notarized releases:
 
