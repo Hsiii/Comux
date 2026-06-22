@@ -81,7 +81,7 @@ jobs:
       - name: Build macOS app archive and cask
         id: package
         env:
-          APPLE_CODE_SIGN_IDENTITY: ${{ vars.APPLE_CODE_SIGN_IDENTITY || 'Developer ID Application' }}
+          APPLE_CODE_SIGN_IDENTITY: ${{ vars.APPLE_CODE_SIGN_IDENTITY }}
           COMUX_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
           COMUX_NOTARY_TEAM_ID: ${{ secrets.APPLE_NOTARY_TEAM_ID }}
           COMUX_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
@@ -98,7 +98,21 @@ jobs:
           )
 
           if [[ "$APPLE_CERTIFICATE_CONFIGURED" == "true" ]]; then
-            export COMUX_CODE_SIGN_IDENTITY="$APPLE_CODE_SIGN_IDENTITY"
+            if [[ -n "${APPLE_CODE_SIGN_IDENTITY:-}" ]]; then
+              export COMUX_CODE_SIGN_IDENTITY="$APPLE_CODE_SIGN_IDENTITY"
+            else
+              export COMUX_CODE_SIGN_IDENTITY="$(
+                security find-identity -v -p codesigning \
+                  | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' \
+                  | head -n1
+              )"
+            fi
+
+            if [[ -z "${COMUX_CODE_SIGN_IDENTITY:-}" ]]; then
+              echo "No Developer ID Application signing identity found." >&2
+              security find-identity -v -p codesigning >&2
+              exit 1
+            fi
           fi
 
           if [[ "$APPLE_CERTIFICATE_CONFIGURED" == "true" && -n "${COMUX_NOTARY_APPLE_ID:-}" && -n "${COMUX_NOTARY_TEAM_ID:-}" && -n "${COMUX_NOTARY_PASSWORD:-}" ]]; then

@@ -152,6 +152,7 @@ if [[ -z "$tap_repository" ]]; then
 fi
 
 echo "Creating release $TAG for $REPO at $TARGET."
+release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 gh release create "$TAG" \
     --repo "$REPO" \
     --target "$TARGET" \
@@ -172,8 +173,8 @@ for _ in {1..30}; do
             --workflow Release \
             --event release \
             --limit 10 \
-            --json databaseId,headBranch \
-            --jq ".[] | select(.headBranch == \"$TAG\") | .databaseId" \
+            --json databaseId,headBranch,createdAt \
+            --jq ".[] | select(.headBranch == \"$TAG\" and .createdAt >= \"$release_started_at\") | .databaseId" \
             | head -n1
     )"
     if [[ -n "$run_id" ]]; then
