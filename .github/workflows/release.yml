@@ -31,6 +31,12 @@ jobs:
         with:
           xcode-version: "16.4"
 
+      - name: Install packaging tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+
       - name: Resolve release metadata
         id: meta
         shell: bash
