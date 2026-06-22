@@ -72,8 +72,6 @@ jobs:
           security import "$certificate_path" \
             -P "$APPLE_DEVELOPER_CERTIFICATE_PASSWORD" \
             -A \
-            -t cert \
-            -f pkcs12 \
             -k "$keychain_path"
           security list-keychains -d user -s "$keychain_path"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$keychain_path"
