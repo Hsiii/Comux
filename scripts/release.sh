@@ -185,6 +185,22 @@ publish_local_tap() {
 }
 
 if [[ "$LOCAL_PACKAGE" == "1" ]]; then
+    output_file=""
+    release_keychain_dir=""
+    release_keychain_path=""
+    cleanup_local_release() {
+        if [[ -n "$output_file" ]]; then
+            rm -f "$output_file"
+        fi
+        if [[ -n "$release_keychain_path" ]]; then
+            security delete-keychain "$release_keychain_path" >/dev/null 2>&1 || true
+        fi
+        if [[ -n "$release_keychain_dir" ]]; then
+            rm -rf "$release_keychain_dir"
+        fi
+    }
+    trap cleanup_local_release EXIT
+
     required_local_env=(
         COMUX_NOTARY_APPLE_ID
         COMUX_NOTARY_TEAM_ID
@@ -204,6 +220,30 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     fi
 
     if [[ -z "${COMUX_CODE_SIGN_IDENTITY:-}" ]]; then
+        certificate_path="${COMUX_DEVELOPER_CERTIFICATE_P12_PATH:-$HOME/.comux-release-cert/developer-id-application.p12}"
+        certificate_password_file="${COMUX_DEVELOPER_CERTIFICATE_PASSWORD_FILE:-$HOME/.comux-release-cert/p12-password.txt}"
+        certificate_password="${COMUX_DEVELOPER_CERTIFICATE_PASSWORD:-}"
+
+        if [[ -z "$certificate_password" && -f "$certificate_password_file" ]]; then
+            certificate_password="$(<"$certificate_password_file")"
+        fi
+
+        if [[ -f "$certificate_path" && -n "$certificate_password" ]]; then
+            release_keychain_dir="$(mktemp -d)"
+            release_keychain_path="$release_keychain_dir/comux-release.keychain-db"
+            release_keychain_password="$(uuidgen)-$(uuidgen)"
+
+            security create-keychain -p "$release_keychain_password" "$release_keychain_path"
+            security set-keychain-settings -lut 21600 "$release_keychain_path"
+            security unlock-keychain -p "$release_keychain_password" "$release_keychain_path"
+            security import "$certificate_path" \
+                -P "$certificate_password" \
+                -A \
+                -k "$release_keychain_path"
+            security list-keychains -d user -s "$release_keychain_path"
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$release_keychain_password" "$release_keychain_path"
+        fi
+
         COMUX_CODE_SIGN_IDENTITY="$(
             security find-identity -v -p codesigning \
                 | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' \
@@ -219,7 +259,6 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     fi
 
     output_file="$(mktemp)"
-    trap 'rm -f "$output_file"' EXIT
 
     echo "Building, signing, and notarizing $TAG locally."
     "$ROOT_DIR/scripts/brew.sh" \
