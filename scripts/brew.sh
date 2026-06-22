@@ -16,6 +16,7 @@ NOTARIZE=0
 APPLE_ID="${COMUX_NOTARY_APPLE_ID:-${APPLE_ID:-}}"
 APPLE_TEAM_ID="${COMUX_NOTARY_TEAM_ID:-${APPLE_TEAM_ID:-}}"
 APPLE_PASSWORD="${COMUX_NOTARY_PASSWORD:-${APPLE_APP_SPECIFIC_PASSWORD:-}}"
+NOTARY_TIMEOUT_SECONDS="${COMUX_NOTARY_TIMEOUT_SECONDS:-2700}"
 
 usage() {
     cat <<'EOF'
@@ -29,7 +30,8 @@ Options:
 
 Environment fallbacks:
   GITHUB_REPOSITORY, GITHUB_SERVER_URL, COMUX_VERSION, COMUX_BUILD_NUMBER,
-  COMUX_NOTARY_APPLE_ID, COMUX_NOTARY_TEAM_ID, COMUX_NOTARY_PASSWORD
+  COMUX_NOTARY_APPLE_ID, COMUX_NOTARY_TEAM_ID, COMUX_NOTARY_PASSWORD,
+  COMUX_NOTARY_TIMEOUT_SECONDS
 EOF
 }
 
@@ -121,15 +123,36 @@ if [[ "$NOTARIZE" == "1" ]]; then
         exit 1
     fi
 
+    if ! [[ "$NOTARY_TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] || [[ "$NOTARY_TIMEOUT_SECONDS" -lt 1 ]]; then
+        echo "COMUX_NOTARY_TIMEOUT_SECONDS must be a positive integer." >&2
+        exit 1
+    fi
+
     notary_archive_path="${DIST_DIR}/${APP_NAME}-${VERSION}-notary.zip"
     rm -f "$notary_archive_path"
     ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$notary_archive_path"
 
+    echo "Submitting ${notary_archive_path} for notarization with a ${NOTARY_TIMEOUT_SECONDS}s timeout." >&2
     xcrun notarytool submit "$notary_archive_path" \
         --apple-id "$APPLE_ID" \
         --team-id "$APPLE_TEAM_ID" \
         --password "$APPLE_PASSWORD" \
-        --wait
+        --wait &
+    notary_pid="$!"
+
+    notary_deadline=$((SECONDS + NOTARY_TIMEOUT_SECONDS))
+    while kill -0 "$notary_pid" 2>/dev/null; do
+        if [[ "$SECONDS" -ge "$notary_deadline" ]]; then
+            echo "Timed out waiting for notarization after ${NOTARY_TIMEOUT_SECONDS}s." >&2
+            echo "Set COMUX_NOTARY_TIMEOUT_SECONDS to a larger value if Apple notary service is delayed." >&2
+            kill "$notary_pid" 2>/dev/null || true
+            wait "$notary_pid" 2>/dev/null || true
+            exit 1
+        fi
+        sleep 15
+    done
+
+    wait "$notary_pid"
 
     xcrun stapler staple "$ROOT_DIR/.build/apple/${APP_FILENAME}"
     rm -f "$notary_archive_path"
