@@ -1,5 +1,6 @@
 .build
+.swiftpm
 .DS_Store
-CodexMux.xcodeproj
+*.xcodeproj
 run.log
 CodexMux-*.dmg
