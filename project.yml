@@ -23,6 +23,8 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Comux
         INFOPLIST_KEY_CFBundleName: Comux
         INFOPLIST_KEY_CFBundleIconFile: comux
+        INFOPLIST_KEY_CFBundleShortVersionString: $(MARKETING_VERSION)
+        INFOPLIST_KEY_CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         INFOPLIST_KEY_NSHighResolutionCapable: true
         INFOPLIST_KEY_LSMinimumSystemVersion: "14.0"
         GENERATE_INFOPLIST_FILE: true

@@ -18,7 +18,7 @@ A macOS menu bar app to track and sort your Codex account limits at a glance.
 
 ## Install
 
-Comux does not currently ship notarized macOS builds. To build a local DMG:
+To build a local DMG:
 
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
@@ -26,7 +26,7 @@ brew install xcodegen
 ./scripts/dmg.sh
 ```
 
-The resulting DMG is ad-hoc signed for local use, not Developer ID signed for redistribution.
+Local builds are ad-hoc signed unless `COMUX_CODE_SIGN_IDENTITY` is set to a Developer ID Application identity.
 
 ## Development
 
@@ -47,3 +47,21 @@ Build a DMG for distribution:
 ```bash
 ./scripts/dmg.sh
 ```
+
+## Release
+
+Publishing a GitHub release builds `comux-<version>.zip`, notarizes it when Apple credentials are configured, uploads the generated cask, and updates the Homebrew tap configured by `HOMEBREW_TAP_REPOSITORY`.
+
+Required repository secrets for signed and notarized releases:
+
+- `APPLE_DEVELOPER_CERTIFICATE_P12_BASE64`
+- `APPLE_DEVELOPER_CERTIFICATE_PASSWORD`
+- `APPLE_KEYCHAIN_PASSWORD`
+- `APPLE_NOTARY_APPLE_ID`
+- `APPLE_NOTARY_TEAM_ID`
+- `APPLE_NOTARY_PASSWORD`
+- `HOMEBREW_TAP_TOKEN`
+
+Required repository variable:
+
+- `HOMEBREW_TAP_REPOSITORY`, for example `Hsiii/homebrew-tap`

@@ -12,6 +12,10 @@ VERSION=""
 BUILD_NUMBER=""
 REPOSITORY=""
 HOMEPAGE=""
+NOTARIZE=0
+APPLE_ID="${COMUX_NOTARY_APPLE_ID:-${APPLE_ID:-}}"
+APPLE_TEAM_ID="${COMUX_NOTARY_TEAM_ID:-${APPLE_TEAM_ID:-}}"
+APPLE_PASSWORD="${COMUX_NOTARY_PASSWORD:-${APPLE_APP_SPECIFIC_PASSWORD:-}}"
 
 usage() {
     cat <<'EOF'
@@ -21,9 +25,11 @@ Options:
   --build-number <value>  CFBundleVersion value. Defaults to the version string.
   --repo <owner/name>     GitHub repository that hosts release archives.
   --homepage <url>        Homepage for the generated cask. Defaults to the repo URL.
+  --notarize              Submit the signed app to Apple notary service before packaging.
 
 Environment fallbacks:
-  GITHUB_REPOSITORY, GITHUB_SERVER_URL, COMUX_VERSION, COMUX_BUILD_NUMBER
+  GITHUB_REPOSITORY, GITHUB_SERVER_URL, COMUX_VERSION, COMUX_BUILD_NUMBER,
+  COMUX_NOTARY_APPLE_ID, COMUX_NOTARY_TEAM_ID, COMUX_NOTARY_PASSWORD
 EOF
 }
 
@@ -44,6 +50,10 @@ while [[ $# -gt 0 ]]; do
         --homepage)
             HOMEPAGE="${2:-}"
             shift 2
+            ;;
+        --notarize)
+            NOTARIZE=1
+            shift
             ;;
         --help|-h)
             usage
@@ -104,6 +114,27 @@ COMUX_BUILD_NUMBER="$BUILD_NUMBER" \
 "$ROOT_DIR/scripts/build.sh" >/dev/null
 
 rm -f "$archive_path"
+
+if [[ "$NOTARIZE" == "1" ]]; then
+    if [[ -z "$APPLE_ID" || -z "$APPLE_TEAM_ID" || -z "$APPLE_PASSWORD" ]]; then
+        echo "Notarization requires COMUX_NOTARY_APPLE_ID, COMUX_NOTARY_TEAM_ID, and COMUX_NOTARY_PASSWORD." >&2
+        exit 1
+    fi
+
+    notary_archive_path="${DIST_DIR}/${APP_NAME}-${VERSION}-notary.zip"
+    rm -f "$notary_archive_path"
+    ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$notary_archive_path"
+
+    xcrun notarytool submit "$notary_archive_path" \
+        --apple-id "$APPLE_ID" \
+        --team-id "$APPLE_TEAM_ID" \
+        --password "$APPLE_PASSWORD" \
+        --wait
+
+    xcrun stapler staple "$ROOT_DIR/.build/apple/${APP_FILENAME}"
+    rm -f "$notary_archive_path"
+fi
+
 ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$archive_path"
 
 sha256_value="$(shasum -a 256 "$archive_path" | awk '{print $1}')"

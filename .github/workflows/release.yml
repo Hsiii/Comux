@@ -21,6 +21,7 @@ jobs:
     env:
       RELEASE_VERSION: ${{ github.event.release.tag_name != '' && github.event.release.tag_name || inputs.version }}
       RELEASE_REPOSITORY: ${{ inputs.repository != '' && inputs.repository || github.repository }}
+      APPLE_CERTIFICATE_CONFIGURED: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 != '' && 'true' || 'false' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,8 +46,39 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
+      - name: Import Developer ID certificate
+        if: env.APPLE_CERTIFICATE_CONFIGURED == 'true'
+        env:
+          APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+          APPLE_DEVELOPER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          keychain_path="$RUNNER_TEMP/comux-signing.keychain-db"
+          certificate_path="$RUNNER_TEMP/developer-id.p12"
+
+          echo "$APPLE_DEVELOPER_CERTIFICATE_P12_BASE64" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" \
+            -P "$APPLE_DEVELOPER_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$keychain_path"
+
       - name: Build macOS app archive and cask
         id: package
+        env:
+          APPLE_CODE_SIGN_IDENTITY: ${{ vars.APPLE_CODE_SIGN_IDENTITY || 'Developer ID Application' }}
+          COMUX_NOTARY_APPLE_ID: ${{ secrets.APPLE_NOTARY_APPLE_ID }}
+          COMUX_NOTARY_TEAM_ID: ${{ secrets.APPLE_NOTARY_TEAM_ID }}
+          COMUX_NOTARY_PASSWORD: ${{ secrets.APPLE_NOTARY_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
@@ -54,9 +86,20 @@ jobs:
           output_file="$(mktemp)"
           trap 'rm -f "$output_file"' EXIT
 
-          ./scripts/brew.sh \
+          args=(
             --version "${{ steps.meta.outputs.version }}" \
-            --repo "${RELEASE_REPOSITORY}" | tee "$output_file"
+            --repo "${RELEASE_REPOSITORY}"
+          )
+
+          if [[ "$APPLE_CERTIFICATE_CONFIGURED" == "true" ]]; then
+            export COMUX_CODE_SIGN_IDENTITY="$APPLE_CODE_SIGN_IDENTITY"
+          fi
+
+          if [[ "$APPLE_CERTIFICATE_CONFIGURED" == "true" && -n "${COMUX_NOTARY_APPLE_ID:-}" && -n "${COMUX_NOTARY_TEAM_ID:-}" && -n "${COMUX_NOTARY_PASSWORD:-}" ]]; then
+            args+=(--notarize)
+          fi
+
+          ./scripts/brew.sh "${args[@]}" | tee "$output_file"
 
           while IFS= read -r line; do
             case "$line" in
