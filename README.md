@@ -18,7 +18,25 @@ A macOS menu bar app to track and sort your Codex account limits at a glance.
 
 ## Install
 
-To build a local DMG:
+### Requirements
+- macOS 14+ (Sonoma)
+
+### GitHub Releases
+Download: <https://github.com/Hsiii/Comux/releases>
+
+### Homebrew
+```bash
+brew install --cask Hsiii/tap/comux
+```
+
+### First run
+- Keep Codex signed in locally; Comux reads existing Codex session state.
+- Open Comux from Applications and use the menu bar item to review accounts and workspaces.
+- Optional: rename accounts in Comux when you want private or easier-to-scan labels.
+
+## Development
+
+Build a local DMG:
 
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
@@ -27,8 +45,6 @@ brew install xcodegen
 ```
 
 Local builds are ad-hoc signed unless `COMUX_CODE_SIGN_IDENTITY` is set to a Developer ID Application identity.
-
-## Development
 
 Run directly:
 
