@@ -128,7 +128,7 @@ jobs:
           done < "$output_file"
 
       - name: Upload release assets
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -150,7 +150,7 @@ jobs:
             ${{ steps.package.outputs.cask }}
 
       - name: Publish cask to tap
-        if: github.event_name == 'release' && vars.HOMEBREW_TAP_REPOSITORY != ''
+        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && vars.HOMEBREW_TAP_REPOSITORY != ''
         env:
           HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
