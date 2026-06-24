@@ -12,22 +12,24 @@ private struct ViewHeightKey: PreferenceKey {
 // Layout constants and helpers for the menu panel
 private let minPanelHeight: CGFloat = 88
 private let panelWidth: CGFloat = 360
-private let panelCornerRadius: CGFloat = 12
-private let panelOuterPadding: CGFloat = 12
-private let controlHeight: CGFloat = 28
-private let controlDividerSpacing: CGFloat = 6
+let dashboardPanelCornerRadius: CGFloat = 32
+private let panelOuterPadding: CGFloat = 16
+private let controlHeight: CGFloat = 40
+private let controlDividerSpacing: CGFloat = 8
 private let cardBlockEdgePadding: CGFloat = 16
 private let cardBlockHorizontalPadding: CGFloat = 16
 private let cardStackSpacing: CGFloat = 16
 private let controlDividerHorizontalInset: CGFloat = 16
 private let controlRowHorizontalInset: CGFloat = 12
-private let controlTextLeadingInset: CGFloat = 14
-private let controlHoverInset: CGFloat = 6
+private let controlCheckmarkColumnWidth: CGFloat = 16
+private let controlIconTextSpacing: CGFloat = 8
+private let controlHoverInset: CGFloat = 8
 private let controlHoverCornerRadius: CGFloat = 8
 private let editDialogWidth: CGFloat = 328
 private let editDialogOuterPadding: CGFloat = 20
 private let editDialogContentSpacing: CGFloat = 16
 private let editDialogButtonSpacing: CGFloat = 12
+private let accountDialogCornerRadius: CGFloat = 20
 
 private var controlSectionBottomPadding: CGFloat {
     controlHoverInset
@@ -126,9 +128,32 @@ private struct LiquidGlassMaterialView: NSViewRepresentable {
     }
 }
 
+struct DashboardPanelChrome: View {
+    private var panelShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: dashboardPanelCornerRadius, style: .continuous)
+    }
+
+    var body: some View {
+        panelShape
+            .fill(Color(red: 0.12, green: 0.16, blue: 0.2).opacity(0.9))
+            .background {
+                panelShape
+                    .fill(.ultraThinMaterial)
+            }
+            .clipShape(panelShape)
+            .overlay {
+                panelShape
+                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
+            }
+            .shadow(color: Color.black.opacity(0.32), radius: 24, x: 0, y: 12)
+            .shadow(color: Color.black.opacity(0.16), radius: 4, x: 0, y: 1)
+    }
+}
+
 private struct ControlRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
@@ -204,13 +229,13 @@ private struct ControlRowContent: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: controlIconTextSpacing) {
             Image(systemName: "checkmark")
                 .font(.system(size: 13, weight: .semibold))
                 .symbolRenderingMode(.monochrome)
                 .foregroundStyle(.primary)
                 .opacity(showsCheckmark ? 1 : 0)
-                .frame(width: controlTextLeadingInset, alignment: .center)
+                .frame(width: controlCheckmarkColumnWidth, height: controlHeight, alignment: .center)
 
             Text(title)
                 .font(.system(size: 12.5, weight: .regular))
@@ -264,6 +289,7 @@ private struct EditDisplayNameSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Edit Display Name")
                     .font(.title3.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text("Choose the name shown for \(account.email).")
                     .font(.callout)
@@ -305,6 +331,7 @@ private struct RemoveAccountSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Remove Account")
                     .font(.title3.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text("Remove the saved account for \(account.email) from Comux?")
                     .font(.callout)
@@ -330,6 +357,10 @@ private struct RemoveAccountSheet: View {
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+            }
 
             Text("This only removes the saved account from Comux. It does not change the underlying ChatGPT account.")
                 .font(.caption)
@@ -522,46 +553,56 @@ struct PulseMenuView: View {
 
     var body: some View {
         ZStack {
-            SlimDashboardPanelView(
-                coordinator: coordinator,
-                displayNameStore: displayNameStore,
-                launchAtLoginStore: launchAtLoginStore,
-                measuredContentHeight: self.$dashboardContentHeight,
-                panelHeight: self.panelHeight,
-                onEditDisplayNameRequested: { account in
-                    self.promptForDisplayName(account)
-                },
-                onRemoveRequested: { account in
-                    self.promptForRemoval(account)
-                }
-            )
+            DashboardPanelChrome()
 
-            if let route = self.activeDialog {
-                Color.black.opacity(0.28)
-                    .ignoresSafeArea()
-
-                self.accountDialog(for: route)
-                    .background(
-                        LiquidGlassMaterialView(material: .hudWindow)
-                            .overlay {
-                                LinearGradient(
-                                    colors: [
-                                        Color.white.opacity(0.14),
-                                        Color.white.opacity(0.04),
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    )
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+            ZStack {
+                SlimDashboardPanelView(
+                    coordinator: coordinator,
+                    displayNameStore: displayNameStore,
+                    launchAtLoginStore: launchAtLoginStore,
+                    measuredContentHeight: self.$dashboardContentHeight,
+                    panelHeight: self.panelHeight,
+                    onEditDisplayNameRequested: { account in
+                        self.promptForDisplayName(account)
+                    },
+                    onRemoveRequested: { account in
+                        self.promptForRemoval(account)
                     }
-                    .shadow(color: Color.black.opacity(0.28), radius: 20, y: 10)
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                )
+
+                if let route = self.activeDialog {
+                    Color.black.opacity(0.28)
+                        .ignoresSafeArea()
+
+                    self.accountDialog(for: route)
+                        .background(
+                            LiquidGlassMaterialView(material: .hudWindow)
+                                .overlay {
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0.14),
+                                            Color.white.opacity(0.04),
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                }
+                                .clipShape(RoundedRectangle(cornerRadius: accountDialogCornerRadius, style: .continuous))
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: accountDialogCornerRadius, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                        }
+                        .shadow(color: Color.black.opacity(0.28), radius: 20, y: 10)
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity.combined(with: .scale(scale: 0.96)),
+                                removal: .opacity.combined(with: .offset(y: -12))
+                            )
+                        )
+                }
             }
+            .clipShape(RoundedRectangle(cornerRadius: dashboardPanelCornerRadius, style: .continuous))
         }
         .frame(width: panelWidth, height: self.panelHeight)
         .background(.clear)
