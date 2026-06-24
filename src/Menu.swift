@@ -12,10 +12,9 @@ private struct ViewHeightKey: PreferenceKey {
 // Layout constants and helpers for the menu panel
 private let minPanelHeight: CGFloat = 88
 private let panelWidth: CGFloat = 360
-let dashboardPanelCornerRadius: CGFloat = 32
-private let panelOuterPadding: CGFloat = 16
-private let controlHeight: CGFloat = 40
-private let controlDividerSpacing: CGFloat = 8
+private let panelOuterPadding: CGFloat = 12
+private let controlHeight: CGFloat = 28
+private let controlDividerSpacing: CGFloat = 6
 private let cardBlockEdgePadding: CGFloat = 16
 private let cardBlockHorizontalPadding: CGFloat = 16
 private let cardStackSpacing: CGFloat = 16
@@ -23,13 +22,13 @@ private let controlDividerHorizontalInset: CGFloat = 16
 private let controlRowHorizontalInset: CGFloat = 12
 private let controlCheckmarkColumnWidth: CGFloat = 16
 private let controlIconTextSpacing: CGFloat = 8
-private let controlHoverInset: CGFloat = 8
+private let controlHoverInset: CGFloat = 6
 private let controlHoverCornerRadius: CGFloat = 8
 private let editDialogWidth: CGFloat = 328
 private let editDialogOuterPadding: CGFloat = 20
 private let editDialogContentSpacing: CGFloat = 16
 private let editDialogButtonSpacing: CGFloat = 12
-private let accountDialogCornerRadius: CGFloat = 20
+private let accountDialogCornerRadius: CGFloat = 16
 
 private var controlSectionBottomPadding: CGFloat {
     controlHoverInset
@@ -128,33 +127,9 @@ private struct LiquidGlassMaterialView: NSViewRepresentable {
     }
 }
 
-struct DashboardPanelChrome: View {
-    private var panelShape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: dashboardPanelCornerRadius, style: .continuous)
-    }
-
-    var body: some View {
-        panelShape
-            .fill(Color(red: 0.12, green: 0.16, blue: 0.2).opacity(0.9))
-            .background {
-                panelShape
-                    .fill(.ultraThinMaterial)
-            }
-            .clipShape(panelShape)
-            .overlay {
-                panelShape
-                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 0.5)
-            }
-            .shadow(color: Color.black.opacity(0.32), radius: 24, x: 0, y: 12)
-            .shadow(color: Color.black.opacity(0.16), radius: 4, x: 0, y: 1)
-    }
-}
-
 private struct ControlRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -553,56 +528,46 @@ struct PulseMenuView: View {
 
     var body: some View {
         ZStack {
-            DashboardPanelChrome()
-
-            ZStack {
-                SlimDashboardPanelView(
-                    coordinator: coordinator,
-                    displayNameStore: displayNameStore,
-                    launchAtLoginStore: launchAtLoginStore,
-                    measuredContentHeight: self.$dashboardContentHeight,
-                    panelHeight: self.panelHeight,
-                    onEditDisplayNameRequested: { account in
-                        self.promptForDisplayName(account)
-                    },
-                    onRemoveRequested: { account in
-                        self.promptForRemoval(account)
-                    }
-                )
-
-                if let route = self.activeDialog {
-                    Color.black.opacity(0.28)
-                        .ignoresSafeArea()
-
-                    self.accountDialog(for: route)
-                        .background(
-                            LiquidGlassMaterialView(material: .hudWindow)
-                                .overlay {
-                                    LinearGradient(
-                                        colors: [
-                                            Color.white.opacity(0.14),
-                                            Color.white.opacity(0.04),
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                }
-                                .clipShape(RoundedRectangle(cornerRadius: accountDialogCornerRadius, style: .continuous))
-                        )
-                        .overlay {
-                            RoundedRectangle(cornerRadius: accountDialogCornerRadius, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
-                        }
-                        .shadow(color: Color.black.opacity(0.28), radius: 20, y: 10)
-                        .transition(
-                            .asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.96)),
-                                removal: .opacity.combined(with: .offset(y: -12))
-                            )
-                        )
+            SlimDashboardPanelView(
+                coordinator: coordinator,
+                displayNameStore: displayNameStore,
+                launchAtLoginStore: launchAtLoginStore,
+                measuredContentHeight: self.$dashboardContentHeight,
+                panelHeight: self.panelHeight,
+                onEditDisplayNameRequested: { account in
+                    self.promptForDisplayName(account)
+                },
+                onRemoveRequested: { account in
+                    self.promptForRemoval(account)
                 }
+            )
+
+            if let route = self.activeDialog {
+                Color.black.opacity(0.28)
+                    .ignoresSafeArea()
+
+                self.accountDialog(for: route)
+                    .background(
+                        LiquidGlassMaterialView(material: .hudWindow)
+                            .overlay {
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.14),
+                                        Color.white.opacity(0.04),
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: accountDialogCornerRadius, style: .continuous))
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: accountDialogCornerRadius, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                    }
+                    .shadow(color: Color.black.opacity(0.28), radius: 20, y: 10)
+                    .transition(.opacity)
             }
-            .clipShape(RoundedRectangle(cornerRadius: dashboardPanelCornerRadius, style: .continuous))
         }
         .frame(width: panelWidth, height: self.panelHeight)
         .background(.clear)

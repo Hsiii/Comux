@@ -3,9 +3,6 @@ import SwiftUI
 
 private let accountCardHeight: CGFloat = 56
 private let accountCardCornerRadius: CGFloat = 16
-private let accountCardSurfaceRingWidth: CGFloat = 1
-private let accountCardActiveRingWidth: CGFloat = 2
-private let accountCardHoverAnimationDuration: TimeInterval = 0.16
 
 enum WindowHeaderPlacement {
     case above
@@ -373,34 +370,6 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
         isHovered ? 0.056 : 0.04
     }
 
-    private var surfaceRingOpacity: Double {
-        if isActive {
-            return 0.64
-        }
-
-        return isHovered ? 0.16 : 0.1
-    }
-
-    private var surfaceRingWidth: CGFloat {
-        isActive ? accountCardActiveRingWidth : accountCardSurfaceRingWidth
-    }
-
-    private var surfaceShadowOpacity: Double {
-        if isActive {
-            return 0.18
-        }
-
-        return isHovered ? 0.14 : 0.08
-    }
-
-    private var surfaceShadowRadius: CGFloat {
-        isHovered || isActive ? 12 : 8
-    }
-
-    private var surfaceShadowYOffset: CGFloat {
-        isHovered || isActive ? 4 : 2
-    }
-
     var body: some View {
         content
             .padding(contentInsets)
@@ -442,17 +411,11 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
             }
             .clipShape(surfaceShape)
             .overlay {
-                surfaceShape
-                    .strokeBorder(Color.white.opacity(surfaceRingOpacity), lineWidth: surfaceRingWidth)
+                if isActive {
+                    surfaceShape
+                        .stroke(Color.white.opacity(0.7), lineWidth: 2)
+                }
             }
-            .shadow(
-                color: Color.black.opacity(surfaceShadowOpacity),
-                radius: surfaceShadowRadius,
-                x: 0,
-                y: surfaceShadowYOffset
-            )
-            .animation(.easeOut(duration: accountCardHoverAnimationDuration), value: isHovered)
-            .animation(.easeOut(duration: accountCardHoverAnimationDuration), value: isActive)
     }
 }
 

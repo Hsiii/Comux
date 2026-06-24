@@ -9,9 +9,10 @@ private let windowSize = CGSize(
 )
 private let menuBarHeight: CGFloat = 35
 private let panelWidth: CGFloat = 360
-private let panelHeight: CGFloat = 640
+private let panelHeight: CGFloat = 602
 private let panelLeading = (canvasSize.width - panelWidth) / 2
 private let panelTopOffset = menuBarHeight
+private let panelCornerRadius: CGFloat = 12
 private let iconPath = "assets/icon.png"
 private let day: TimeInterval = 24 * 60 * 60
 private let hour: TimeInterval = 60 * 60
@@ -75,10 +76,20 @@ private struct DemoMockupView: View {
             onRemoveRequested: { _ in }
         )
         .frame(width: panelWidth, height: panelHeight)
-        .clipShape(RoundedRectangle(cornerRadius: dashboardPanelCornerRadius, style: .continuous))
-        .background {
-            DashboardPanelChrome()
+        .background(
+            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                .fill(Color(red: 0.12, green: 0.16, blue: 0.2).opacity(0.9))
+                .background(
+                    RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
         }
+        .shadow(color: .black.opacity(0.34), radius: 16, x: 0, y: 8)
     }
 }
 
