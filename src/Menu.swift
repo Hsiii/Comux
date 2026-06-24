@@ -21,7 +21,7 @@ private let cardStackSpacing: CGFloat = 16
 private let controlDividerHorizontalInset: CGFloat = 16
 private let controlRowHorizontalInset: CGFloat = 12
 private let controlCheckmarkColumnWidth: CGFloat = 16
-private let controlIconTextSpacing: CGFloat = 8
+private let controlTextLeadingInset: CGFloat = 28
 private let controlHoverInset: CGFloat = 6
 private let controlHoverCornerRadius: CGFloat = 8
 private let editDialogWidth: CGFloat = 328
@@ -204,7 +204,7 @@ private struct ControlRowContent: View {
     }
 
     var body: some View {
-        HStack(spacing: controlIconTextSpacing) {
+        ZStack(alignment: .leading) {
             Image(systemName: "checkmark")
                 .font(.system(size: 13, weight: .semibold))
                 .symbolRenderingMode(.monochrome)
@@ -216,6 +216,7 @@ private struct ControlRowContent: View {
                 .font(.system(size: 12.5, weight: .regular))
                 .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
                 .foregroundStyle(self.titleColor)
+                .padding(.leading, controlTextLeadingInset)
         }
             .contentShape(Rectangle())
             .padding(.horizontal, controlRowHorizontalInset)
