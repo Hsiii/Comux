@@ -177,7 +177,9 @@ if [[ "$NOTARIZE" == "1" ]]; then
         notary_archive_path="${DIST_DIR}/${APP_NAME}-${VERSION}-notary.zip"
         submit_output_path="${DIST_DIR}/${APP_NAME}-${VERSION}.notary-submit.json"
         rm -f "$notary_archive_path" "$submit_output_path"
-        ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$notary_archive_path"
+        xattr -cr "$ROOT_DIR/.build/apple/${APP_FILENAME}"
+        find "$ROOT_DIR/.build/apple/${APP_FILENAME}" -name '._*' -delete
+        ditto --norsrc -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$notary_archive_path"
     fi
 
     if [[ "$NOTARY_MODE" == "submit" ]]; then
@@ -240,7 +242,9 @@ EOF
     fi
 fi
 
-ditto -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$archive_path"
+xattr -cr "$ROOT_DIR/.build/apple/${APP_FILENAME}"
+find "$ROOT_DIR/.build/apple/${APP_FILENAME}" -name '._*' -delete
+ditto --norsrc -c -k --keepParent "$ROOT_DIR/.build/apple/${APP_FILENAME}" "$archive_path"
 
 sha256_value="$(shasum -a 256 "$archive_path" | awk '{print $1}')"
 
