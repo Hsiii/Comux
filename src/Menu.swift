@@ -19,9 +19,10 @@ private let cardBlockEdgePadding: CGFloat = 16
 private let cardBlockHorizontalPadding: CGFloat = 16
 private let cardStackSpacing: CGFloat = 16
 private let controlDividerHorizontalInset: CGFloat = 16
-private let controlRowHorizontalInset: CGFloat = 12
 private let controlCheckmarkColumnWidth: CGFloat = 16
+private let controlCheckmarkLeadingInset: CGFloat = 6
 private let controlTextLeadingInset: CGFloat = 28
+private let controlTextTrailingInset: CGFloat = 12
 private let controlHoverInset: CGFloat = 6
 private let controlHoverCornerRadius: CGFloat = 8
 private let editDialogWidth: CGFloat = 328
@@ -211,15 +212,16 @@ private struct ControlRowContent: View {
                 .foregroundStyle(.primary)
                 .opacity(showsCheckmark ? 1 : 0)
                 .frame(width: controlCheckmarkColumnWidth, height: controlHeight, alignment: .center)
+                .padding(.leading, controlCheckmarkLeadingInset)
 
             Text(title)
                 .font(.system(size: 12.5, weight: .regular))
                 .frame(maxWidth: .infinity, minHeight: controlHeight, alignment: .leading)
                 .foregroundStyle(self.titleColor)
                 .padding(.leading, controlTextLeadingInset)
+                .padding(.trailing, controlTextTrailingInset)
         }
             .contentShape(Rectangle())
-            .padding(.horizontal, controlRowHorizontalInset)
             .background {
                 RoundedRectangle(cornerRadius: controlHoverCornerRadius, style: .continuous)
                     .fill(self.backgroundColor)
