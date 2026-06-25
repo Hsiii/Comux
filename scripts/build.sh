@@ -15,11 +15,6 @@ GENERATED_ICON_PATH="$ROOT_DIR/.build/comux.icns"
 ASSETS_SOURCE_DIR="$ROOT_DIR/assets"
 APP_ASSETS_DIR="$APP_DIR/Contents/Resources/assets"
 CODE_SIGN_IDENTITY="${COMUX_CODE_SIGN_IDENTITY:-${CODE_SIGN_IDENTITY:--}}"
-CODE_SIGN_OPTIONS=()
-
-if [[ "$CODE_SIGN_IDENTITY" != "-" ]]; then
-  CODE_SIGN_OPTIONS+=(--options runtime --timestamp)
-fi
 
 if ! command -v sips >/dev/null 2>&1; then
     echo "error: sips is required to render icon assets from $ICON_SOURCE_PATH" >&2
@@ -77,7 +72,12 @@ if [[ -f "$APP_ICON_PATH" ]]; then
   cp "$APP_ICON_PATH" "$APP_DIR/Contents/Resources/comux.icns"
   /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFile" "$APP_DIR/Contents/Info.plist" >/dev/null 2>&1 || true
   /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string comux" "$APP_DIR/Contents/Info.plist"
-  codesign --force "${CODE_SIGN_OPTIONS[@]}" --sign "$CODE_SIGN_IDENTITY" "$APP_DIR"
+
+  if [[ "$CODE_SIGN_IDENTITY" == "-" ]]; then
+    codesign --force --sign "$CODE_SIGN_IDENTITY" "$APP_DIR"
+  else
+    codesign --force --options runtime --timestamp --sign "$CODE_SIGN_IDENTITY" "$APP_DIR"
+  fi
 fi
 rm -rf "$ROOT_DIR/Comux.xcodeproj"
 rm -rf "$TRACKED_DIST_DIR/comux.app"
