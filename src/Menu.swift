@@ -20,6 +20,7 @@ private let cardBlockHorizontalPadding: CGFloat = 16
 private let cardStackSpacing: CGFloat = 16
 private let controlDividerHorizontalInset: CGFloat = 16
 private let controlCheckmarkColumnWidth: CGFloat = 16
+private let controlCheckmarkOpticalOffset: CGFloat = 2
 private let controlTextLeadingInset: CGFloat = 32
 private let controlTextTrailingInset: CGFloat = 12
 private let controlHoverInset: CGFloat = 6
@@ -35,7 +36,7 @@ private var controlSectionBottomPadding: CGFloat {
 }
 
 private var controlCheckmarkLeadingInset: CGFloat {
-    (controlTextLeadingInset - controlCheckmarkColumnWidth) / 2
+    ((controlTextLeadingInset - controlCheckmarkColumnWidth) / 2) + controlCheckmarkOpticalOffset
 }
 
 private struct AccountRowModel: Identifiable {
