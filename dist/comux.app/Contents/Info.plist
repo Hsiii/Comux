@@ -9,7 +9,7 @@
 	<key>CFBundleDisplayName</key>
 	<string>Comux</string>
 	<key>CFBundleExecutable</key>
-	<string>comux</string>
+	<string>Comux</string>
 	<key>CFBundleIconFile</key>
 	<string>comux</string>
 	<key>CFBundleIdentifier</key>
@@ -20,10 +20,14 @@
 	<string>Comux</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.0.0</string>
 	<key>CFBundleSupportedPlatforms</key>
 	<array>
 		<string>MacOSX</string>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>0</string>
 	<key>DTCompiler</key>
 	<string>com.apple.compilers.llvm.clang.1_0</string>
 	<key>DTPlatformBuild</key>
