@@ -41,7 +41,7 @@ Build a local DMG:
 ```bash
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 brew install xcodegen
-./scripts/dmg.sh
+make dmg
 ```
 
 Local builds are ad-hoc signed unless `COMUX_CODE_SIGN_IDENTITY` is set to a Developer ID Application identity.
@@ -55,13 +55,13 @@ swift run comux
 Build the native macOS app bundle:
 
 ```bash
-./scripts/build.sh
+make build
 ```
 
 Build a DMG for distribution:
 
 ```bash
-./scripts/dmg.sh
+make dmg
 ```
 
 ## Release
