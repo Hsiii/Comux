@@ -46,8 +46,9 @@ private struct DemoMockupView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Color(white: 0.3)
-                .ignoresSafeArea()
+            TahoeDesktopWallpaperMock()
+                .frame(width: canvasSize.width, height: canvasSize.height)
+                .clipped()
 
             Image(nsImage: menuBarItemImage)
                 .resizable()
@@ -90,6 +91,70 @@ private struct DemoMockupView: View {
                 .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.34), radius: 16, x: 0, y: 8)
+    }
+}
+
+private struct TahoeDesktopWallpaperMock: View {
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.05, green: 0.14, blue: 0.22),
+                    Color(red: 0.10, green: 0.28, blue: 0.40),
+                    Color(red: 0.34, green: 0.14, blue: 0.45),
+                    Color(red: 0.88, green: 0.28, blue: 0.18),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            RadialGradient(
+                colors: [
+                    Color(red: 0.54, green: 0.92, blue: 0.96).opacity(0.85),
+                    Color(red: 0.20, green: 0.58, blue: 0.84).opacity(0.28),
+                    .clear,
+                ],
+                center: UnitPoint(x: 0.22, y: 0.18),
+                startRadius: 8,
+                endRadius: 320
+            )
+
+            RadialGradient(
+                colors: [
+                    Color(red: 1.00, green: 0.68, blue: 0.36).opacity(0.82),
+                    Color(red: 0.88, green: 0.18, blue: 0.48).opacity(0.34),
+                    .clear,
+                ],
+                center: UnitPoint(x: 0.86, y: 0.74),
+                startRadius: 12,
+                endRadius: 360
+            )
+
+            RadialGradient(
+                colors: [
+                    Color(red: 0.72, green: 0.52, blue: 1.00).opacity(0.68),
+                    Color(red: 0.24, green: 0.12, blue: 0.44).opacity(0.42),
+                    .clear,
+                ],
+                center: UnitPoint(x: 0.62, y: 0.34),
+                startRadius: 12,
+                endRadius: 260
+            )
+
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.18),
+                    .clear,
+                    Color.black.opacity(0.30),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .opacity(0.22)
+        }
     }
 }
 
