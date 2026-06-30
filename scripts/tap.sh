@@ -153,7 +153,7 @@ brew install --cask ${owner}/${tap_short_name}/${CASK_TOKEN}
 This tap is intended to track GitHub release assets published from:
 
 - Source repo: \`${SOURCE_REPOSITORY}\`
-- Release archive: \`$(basename "$archive_path")\`
+- Release archive pattern: \`${APP_NAME}-<version>.zip\`
 
 The cask lives at [Casks/${CASK_TOKEN}.rb](./Casks/${CASK_TOKEN}.rb).
 EOF
