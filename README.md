@@ -3,7 +3,7 @@
   
   See your Codex account limits from the macOS menu bar.  
   
-  <img src="assets/demo.png" alt="Comux menu bar usage demo" width="420" />
+  <img src="https://raw.githubusercontent.com/Hsiii/Comux/main/assets/demo.png" alt="Comux menu bar usage demo" width="420" />
   
   <a href="https://github.com/Hsiii/Comux/releases/latest">Download latest release</a>
    ·
