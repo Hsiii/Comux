@@ -74,6 +74,8 @@ Run the release wrapper:
 
 It publishes a GitHub release, waits for the `Release` workflow, builds `comux-<version>.zip`, notarizes it when Apple credentials are configured, uploads the generated cask, and updates the Homebrew tap configured by `HOMEBREW_TAP_REPOSITORY`.
 
+When Apple notarization is delayed, the workflow submits the signed app and saves the exact notarization artifact instead of waiting indefinitely. After Apple reports the submission as accepted, run the finalize command printed in the workflow summary or by `scripts/release.sh`; it staples the notarization ticket, uploads the release assets, and updates the tap.
+
 Required repository secrets for signed and notarized releases:
 
 - `APPLE_DEVELOPER_CERTIFICATE_P12_BASE64`

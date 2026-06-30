@@ -11,8 +11,15 @@ on:
       repository:
         description: GitHub repository that will host the release assets
         required: false
+      notarization_submission_id:
+        description: Apple notarization submission ID to finalize
+        required: false
+      notarization_run_id:
+        description: Release workflow run ID that uploaded the notarization artifact
+        required: false
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
@@ -22,6 +29,9 @@ jobs:
       RELEASE_VERSION: ${{ github.event.release.tag_name != '' && github.event.release.tag_name || inputs.version }}
       RELEASE_REPOSITORY: ${{ inputs.repository != '' && inputs.repository || github.repository }}
       APPLE_CERTIFICATE_CONFIGURED: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 != '' && 'true' || 'false' }}
+      FINALIZE_NOTARIZATION: ${{ inputs.notarization_submission_id != '' && 'true' || 'false' }}
+      NOTARIZATION_SUBMISSION_ID: ${{ inputs.notarization_submission_id }}
+      NOTARIZATION_RUN_ID: ${{ inputs.notarization_run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,6 +61,7 @@ jobs:
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "notarization_artifact=comux-notarization-$version" >> "$GITHUB_OUTPUT"
 
       - name: Resolve prebuilt release assets
         id: prebuilt
@@ -104,7 +115,7 @@ jobs:
           echo "cask=$cask_path" >> "$GITHUB_OUTPUT"
 
       - name: Import Developer ID certificate
-        if: env.APPLE_CERTIFICATE_CONFIGURED == 'true' && steps.prebuilt.outputs.has_prebuilt != 'true'
+        if: env.APPLE_CERTIFICATE_CONFIGURED == 'true' && steps.prebuilt.outputs.has_prebuilt != 'true' && env.FINALIZE_NOTARIZATION != 'true'
         env:
           APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           APPLE_DEVELOPER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
@@ -127,6 +138,42 @@ jobs:
           security list-keychains -d user -s "$keychain_path"
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$keychain_path"
 
+      - name: Download notarized app candidate
+        if: env.FINALIZE_NOTARIZATION == 'true' && env.NOTARIZATION_RUN_ID != '' && steps.prebuilt.outputs.has_prebuilt != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.notarization_artifact }}
+          path: ${{ runner.temp }}/comux-notarization
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.NOTARIZATION_RUN_ID }}
+
+      - name: Restore notarized app candidate
+        if: env.FINALIZE_NOTARIZATION == 'true' && steps.prebuilt.outputs.has_prebuilt != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${NOTARIZATION_RUN_ID:-}" ]]; then
+            echo "notarization_run_id is required when finalizing notarization." >&2
+            exit 1
+          fi
+
+          app_archive="$RUNNER_TEMP/comux-notarization/comux-app.zip"
+          if [[ ! -f "$app_archive" ]]; then
+            echo "Missing notarization artifact app archive: $app_archive" >&2
+            exit 1
+          fi
+
+          mkdir -p .build/apple
+          rm -rf .build/apple/comux.app
+          ditto -x -k "$app_archive" .build/apple
+
+          if [[ ! -d .build/apple/comux.app ]]; then
+            echo "Notarization artifact did not contain comux.app." >&2
+            exit 1
+          fi
+
       - name: Build macOS app archive and cask
         if: steps.prebuilt.outputs.has_prebuilt != 'true'
         id: package
@@ -147,7 +194,9 @@ jobs:
             --repo "${RELEASE_REPOSITORY}"
           )
 
-          if [[ "$APPLE_CERTIFICATE_CONFIGURED" == "true" ]]; then
+          if [[ "$FINALIZE_NOTARIZATION" == "true" ]]; then
+            args+=(--finalize-notarization "$NOTARIZATION_SUBMISSION_ID")
+          elif [[ "$APPLE_CERTIFICATE_CONFIGURED" == "true" ]]; then
             if [[ -n "${APPLE_CODE_SIGN_IDENTITY:-}" ]]; then
               export COMUX_CODE_SIGN_IDENTITY="$APPLE_CODE_SIGN_IDENTITY"
             else
@@ -165,22 +214,73 @@ jobs:
             fi
           fi
 
-          if [[ "$APPLE_CERTIFICATE_CONFIGURED" == "true" && -n "${COMUX_NOTARY_APPLE_ID:-}" && -n "${COMUX_NOTARY_TEAM_ID:-}" && -n "${COMUX_NOTARY_PASSWORD:-}" ]]; then
-            args+=(--notarize)
+          if [[ "$FINALIZE_NOTARIZATION" != "true" && "$APPLE_CERTIFICATE_CONFIGURED" == "true" && -n "${COMUX_NOTARY_APPLE_ID:-}" && -n "${COMUX_NOTARY_TEAM_ID:-}" && -n "${COMUX_NOTARY_PASSWORD:-}" ]]; then
+            args+=(--submit-notarization)
           fi
 
           ./scripts/brew.sh "${args[@]}" | tee "$output_file"
 
           while IFS= read -r line; do
             case "$line" in
-              archive=*|sha256=*|cask=*)
+              archive=*|sha256=*|cask=*|notary_submission_id=*|notary_status=*|notary_state=*)
                 echo "$line" >> "$GITHUB_OUTPUT"
                 ;;
             esac
           done < "$output_file"
 
+      - name: Prepare notarization artifact
+        if: steps.package.outputs.notary_submission_id != '' && steps.package.outputs.archive == ''
+        id: notarization_artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          app_archive="$RUNNER_TEMP/comux-app.zip"
+          state_path="$RUNNER_TEMP/comux-notarization.txt"
+
+          ditto --norsrc -c -k --keepParent ".build/apple/comux.app" "$app_archive"
+          cat > "$state_path" <<EOF
+          VERSION=${{ steps.meta.outputs.version }}
+          REPOSITORY=${RELEASE_REPOSITORY}
+          SUBMISSION_ID=${{ steps.package.outputs.notary_submission_id }}
+          STATUS=${{ steps.package.outputs.notary_status }}
+          RUN_ID=${{ github.run_id }}
+          EOF
+
+          echo "app_archive=$app_archive" >> "$GITHUB_OUTPUT"
+          echo "state=$state_path" >> "$GITHUB_OUTPUT"
+
+      - name: Upload notarization artifact
+        if: steps.notarization_artifact.outputs.app_archive != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.notarization_artifact }}
+          retention-days: 14
+          path: |
+            ${{ steps.notarization_artifact.outputs.app_archive }}
+            ${{ steps.notarization_artifact.outputs.state }}
+
+      - name: Report pending notarization
+        if: steps.package.outputs.notary_submission_id != '' && steps.package.outputs.archive == ''
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          {
+            echo "## Apple notarization pending"
+            echo
+            echo "Submission ID: \`${{ steps.package.outputs.notary_submission_id }}\`"
+            echo "Status: \`${{ steps.package.outputs.notary_status }}\`"
+            echo
+            echo "After Apple reports \`Accepted\`, finalize this release with:"
+            echo
+            echo "\`\`\`bash"
+            echo "gh workflow run Release -f version=${{ steps.meta.outputs.version }} -f notarization_submission_id=${{ steps.package.outputs.notary_submission_id }} -f notarization_run_id=${{ github.run_id }}"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload release assets
-        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && steps.prebuilt.outputs.has_prebuilt != 'true'
+        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && steps.prebuilt.outputs.has_prebuilt != 'true' && steps.package.outputs.archive != '' && steps.package.outputs.cask != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -193,16 +293,16 @@ jobs:
             --clobber
 
       - name: Upload workflow artifacts
-        if: github.event_name != 'release' && steps.prebuilt.outputs.has_prebuilt != 'true'
+        if: github.event_name != 'release' && steps.prebuilt.outputs.has_prebuilt != 'true' && steps.package.outputs.archive != '' && steps.package.outputs.cask != ''
         uses: actions/upload-artifact@v4
         with:
-          name: codexmux-release-${{ steps.meta.outputs.version }}
+          name: comux-release-${{ steps.meta.outputs.version }}
           path: |
             ${{ steps.package.outputs.archive }}
             ${{ steps.package.outputs.cask }}
 
       - name: Publish cask to tap
-        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && vars.HOMEBREW_TAP_REPOSITORY != ''
+        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && vars.HOMEBREW_TAP_REPOSITORY != '' && (steps.prebuilt.outputs.has_prebuilt == 'true' || steps.package.outputs.cask != '')
         env:
           HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

@@ -204,6 +204,39 @@ publish_local_tap() {
     git -C "$TAP_DIR" push origin HEAD
 }
 
+report_remote_release_result() {
+    local run_id="$1"
+    local asset_count
+    local notary_submission_id
+
+    asset_count="$(
+        gh release view "$TAG" \
+            --repo "$REPO" \
+            --json assets \
+            --jq "[.assets[].name] | map(select(. == \"comux-${VERSION}.zip\" or . == \"comux.rb\")) | length"
+    )"
+
+    if [[ "$asset_count" == "2" ]]; then
+        echo "Release workflow completed for $TAG."
+        return
+    fi
+
+    notary_submission_id="$(
+        gh run view "$run_id" --repo "$REPO" --log 2>/dev/null \
+            | sed -n 's/^.*notary_submission_id=\([^[:space:]]*\).*$/\1/p' \
+            | tail -n1 || true
+    )"
+
+    echo "Release workflow completed for $TAG, but release assets are not published yet."
+    if [[ -n "$notary_submission_id" ]]; then
+        echo "Notarization submission $notary_submission_id is pending or not finalized."
+        echo "After Apple reports Accepted, finalize with:"
+        echo "  gh workflow run Release -f version=$VERSION -f notarization_submission_id=$notary_submission_id -f notarization_run_id=$run_id"
+    else
+        echo "Check the Release workflow summary for notarization finalization details."
+    fi
+}
+
 if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     output_file=""
     release_keychain_dir=""
@@ -438,7 +471,7 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     fi
 
     gh run watch "$run_id" --repo "$REPO" --exit-status
-    echo "Release workflow completed for $TAG."
+    report_remote_release_result "$run_id"
     exit 0
 fi
 
@@ -517,4 +550,4 @@ if [[ -z "$run_id" ]]; then
 fi
 
 gh run watch "$run_id" --repo "$REPO" --exit-status
-echo "Release workflow completed for $TAG."
+report_remote_release_result "$run_id"
