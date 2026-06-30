@@ -1,17 +1,16 @@
+<h1 align="center">Comux</h1>
 <div align="center">
-
-  <h1>Comux</h1>
   
   See your Codex account limits from the macOS menu bar.  
+  
+  <img src="assets/demo.png" alt="Comux menu bar usage demo" width="420" />
+  
   <a href="https://github.com/Hsiii/Comux/releases/latest">Download latest release</a>
    ·
   <a href="#install">Install with Homebrew</a>
-  
-  <img src="assets/demo.png" alt="Comux menu bar usage demo" width="420" />
-
 </div>
 
-## Why Comux
+## Why
 
 - **Zero setup:** Picks up local Codex sessions automatically.
 - **5h usage in your menu bar:** Check your active account's 5h usage frictionless.
