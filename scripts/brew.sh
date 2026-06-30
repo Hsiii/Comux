@@ -128,7 +128,7 @@ archive_name="${APP_NAME}-${VERSION}.zip"
 archive_path="${DIST_DIR}/${archive_name}"
 cask_path="${DIST_DIR}/${CASK_TOKEN}.rb"
 notary_state_path="${DIST_DIR}/${APP_NAME}-${VERSION}.notary-submission"
-download_url="${server_url}/${REPOSITORY}/releases/download/v${VERSION}/${archive_name}"
+download_url="${server_url}/${REPOSITORY}/releases/download/v#{version}/${APP_NAME}-#{version}.zip"
 
 mkdir -p "$DIST_DIR"
 
@@ -257,7 +257,7 @@ cask "${CASK_TOKEN}" do
   name "${APP_NAME}"
   desc "macOS menu bar app to track and sort Codex account limits"
   homepage "${HOMEPAGE}"
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "${APP_FILENAME}"
 
