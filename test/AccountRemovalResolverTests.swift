@@ -91,6 +91,40 @@ final class AccountRemovalResolverTests: XCTestCase {
         XCTAssertTrue(result.config.accounts.isEmpty)
     }
 
+    func testSystemAccountRemovalSuppressesRefreshUntilSystemAuthLoss() {
+        let account = self.makeSnapshot(
+            accountId: "person@example.com::workspace-a",
+            email: "person@example.com",
+            workspaceId: "workspace-a",
+            workspaceLabel: "Workspace A",
+            source: "live system auth"
+        )
+        var suppressions = AccountRemovalSuppressions()
+
+        suppressions.suppressRemoval(of: account)
+
+        XCTAssertTrue(suppressions.shouldSuppress(account))
+
+        suppressions.clearSystemAuthSuppressions()
+
+        XCTAssertFalse(suppressions.shouldSuppress(account))
+    }
+
+    func testCookieAccountRemovalDoesNotSuppressLaterRefresh() {
+        let account = self.makeSnapshot(
+            accountId: "person@example.com::workspace-a",
+            email: "person@example.com",
+            workspaceId: "workspace-a",
+            workspaceLabel: "Workspace A",
+            source: "native cookie sync"
+        )
+        var suppressions = AccountRemovalSuppressions()
+
+        suppressions.suppressRemoval(of: account)
+
+        XCTAssertFalse(suppressions.shouldSuppress(account))
+    }
+
     private func makeSnapshot(
         accountId: String,
         email: String,

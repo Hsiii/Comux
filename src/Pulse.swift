@@ -23,7 +23,7 @@ final class PulseCoordinator: ObservableObject {
     private var lastObservedAuthSignature: AuthFileSignature?
     private var hasPendingAuthRetry = false
     private var needsSyncAfterCurrent = false
-    private var suppressedAccountIdentities = Set<String>()
+    private var removalSuppressions = AccountRemovalSuppressions()
 
     var accountCount: Int {
         self.cache.accounts.count
@@ -90,6 +90,7 @@ final class PulseCoordinator: ObservableObject {
         } catch {
             if SystemRefreshErrorPolicy.shouldTreatAsRefreshedSystemState(error) {
                 didRefreshSystemState = true
+                self.removalSuppressions.clearSystemAuthSuppressions()
             } else {
                 self.lastObservedAuthSignature = self.currentAuthFileSignature()
                 self.scheduleAuthRefreshRetryIfNeeded()
@@ -145,7 +146,7 @@ final class PulseCoordinator: ObservableObject {
             event: "account.remove"
         )
 
-        self.suppressedAccountIdentities.insert(AccountRemovalResolver.identity(for: account))
+        self.removalSuppressions.suppressRemoval(of: account)
         self.cache = removal.cache
         self.removableAccountIDs = AccountRemovalResolver.removableAccountIDs(
             for: removal.cache.accounts
@@ -158,6 +159,7 @@ final class PulseCoordinator: ObservableObject {
 
     private func buildSystemSnapshotRefresh() async throws -> SystemSnapshotRefresh {
         guard let identity = try self.loadSystemIdentity() else {
+            self.removalSuppressions.clearSystemAuthSuppressions()
             return SystemSnapshotRefresh(snapshots: [])
         }
 
@@ -676,7 +678,7 @@ final class PulseCoordinator: ObservableObject {
         systemStateWasRefreshed: Bool = false
     ) {
         let unsuppressedSnapshots = snapshots.filter {
-            !self.suppressedAccountIdentities.contains(AccountRemovalResolver.identity(for: $0))
+            !self.removalSuppressions.shouldSuppress($0)
         }
         let merged = self.snapshotMerger.merge(
             existing: self.cache,
@@ -778,9 +780,36 @@ private struct AuthFileSignature: Equatable {
     let size: Int64
 }
 
+struct AccountRemovalSuppressions {
+    private var systemAuthIdentities = Set<String>()
+
+    mutating func suppressRemoval(of account: AccountSnapshot) {
+        guard AccountRemovalResolver.shouldSuppressRefreshAfterRemoval(account) else {
+            return
+        }
+
+        self.systemAuthIdentities.insert(AccountRemovalResolver.identity(for: account))
+    }
+
+    mutating func clearSystemAuthSuppressions() {
+        self.systemAuthIdentities.removeAll()
+    }
+
+    func shouldSuppress(_ account: AccountSnapshot) -> Bool {
+        AccountRemovalResolver.shouldSuppressRefreshAfterRemoval(account)
+            && self.systemAuthIdentities.contains(AccountRemovalResolver.identity(for: account))
+    }
+}
+
 enum AccountRemovalResolver {
+    private static let liveSystemAuthSource = "live system auth"
+
     static func identity(for account: AccountSnapshot) -> String {
         AccountIdentity.key(for: account).storageKey
+    }
+
+    static func shouldSuppressRefreshAfterRemoval(_ account: AccountSnapshot) -> Bool {
+        account.source == self.liveSystemAuthSource
     }
 
     static func configAccountID(for account: AccountSnapshot, in config: PulseConfig) -> String? {
