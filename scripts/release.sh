@@ -28,7 +28,8 @@ Options:
   --wait-notarization     With --local-package, wait for Apple and publish in one command.
   --finalize-notarization [id]
                           Check an accepted submission, staple, package, upload, and update tap.
-  --allow-existing        Upload local assets to an existing release instead of failing.
+  --allow-existing        Replace local assets on an existing published release, or rerun
+                          the Release workflow for a published release missing assets.
   --tap-dir <path>        Local Homebrew tap checkout. Defaults to ../homebrew-tap when present.
   --skip-tap              Do not update the local Homebrew tap checkout.
   --no-watch              Create the release without waiting for the workflow.
@@ -169,10 +170,214 @@ if [[ "${#dirty_paths[@]}" -gt 0 ]]; then
     exit 1
 fi
 
-release_exists=0
-if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-    release_exists=1
-fi
+RELEASE_EXISTS=0
+RELEASE_IS_DRAFT=0
+RELEASE_IS_IMMUTABLE=0
+RELEASE_URL=""
+REMOTE_TAG_EXISTS=0
+REPO_GIT_URL=""
+
+refresh_release_state() {
+    local release_metadata
+
+    RELEASE_EXISTS=0
+    RELEASE_IS_DRAFT=0
+    RELEASE_IS_IMMUTABLE=0
+    RELEASE_URL=""
+
+    if release_metadata="$(
+        gh release view "$TAG" \
+            --repo "$REPO" \
+            --json isDraft,isImmutable,url \
+            --jq '[.isDraft, .isImmutable, .url] | @tsv' \
+            2>/dev/null
+    )"; then
+        RELEASE_EXISTS=1
+        IFS=$'\t' read -r RELEASE_IS_DRAFT RELEASE_IS_IMMUTABLE RELEASE_URL <<<"$release_metadata"
+    else
+        release_metadata="$(
+            gh release list \
+                --repo "$REPO" \
+                --limit 200 \
+                --json tagName,isDraft,isImmutable \
+                --jq ".[] | select(.tagName == \"$TAG\") | [.isDraft, .isImmutable, \"\"] | @tsv" \
+                2>/dev/null || true
+        )"
+        if [[ -n "$release_metadata" ]]; then
+            RELEASE_EXISTS=1
+            IFS=$'\t' read -r RELEASE_IS_DRAFT RELEASE_IS_IMMUTABLE RELEASE_URL <<<"$release_metadata"
+        fi
+    fi
+}
+
+release_asset_count() {
+    gh release view "$TAG" \
+        --repo "$REPO" \
+        --json assets \
+        --jq "[.assets[].name] | map(select(. == \"comux-${VERSION}.zip\" or . == \"comux.rb\")) | length" \
+        2>/dev/null || printf '0\n'
+}
+
+resolve_repo_git_url() {
+    if [[ -z "$REPO_GIT_URL" ]]; then
+        REPO_GIT_URL="$(gh repo view "$REPO" --json url --jq .url)"
+    fi
+}
+
+refresh_tag_state() {
+    local remote_tag_output
+
+    resolve_repo_git_url
+    REMOTE_TAG_EXISTS=0
+
+    remote_tag_output="$(
+        git ls-remote --tags "$REPO_GIT_URL" "refs/tags/$TAG" 2>/dev/null \
+            | awk -v ref="refs/tags/$TAG" '$2 == ref { print $1; exit }'
+    )"
+    if [[ -n "$remote_tag_output" ]]; then
+        REMOTE_TAG_EXISTS=1
+    fi
+}
+
+ensure_release_tag_ready() {
+    local local_tag_target_sha
+    local target_sha
+
+    refresh_tag_state
+
+    if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+        local_tag_target_sha="$(git rev-parse -q --verify "refs/tags/$TAG^{}" 2>/dev/null || true)"
+
+        if [[ "$REMOTE_TAG_EXISTS" == "1" ]]; then
+            echo "Using existing remote tag $TAG."
+            return
+        fi
+
+        target_sha="$(git rev-parse -q --verify "$TARGET^{commit}" 2>/dev/null || true)"
+        if [[ -n "$target_sha" && -n "$local_tag_target_sha" && "$TARGET" != "main" && "$target_sha" != "$local_tag_target_sha" ]]; then
+            echo "Local tag $TAG points at $local_tag_target_sha, but --target resolves to $target_sha." >&2
+            echo "Push the intended tag manually or pass the matching --target." >&2
+            exit 1
+        fi
+
+        echo "Pushing existing local tag $TAG to $REPO."
+        git push "$REPO_GIT_URL" "refs/tags/$TAG:refs/tags/$TAG"
+        REMOTE_TAG_EXISTS=1
+        return
+    fi
+
+    if [[ "$REMOTE_TAG_EXISTS" == "1" ]]; then
+        echo "Using existing remote tag $TAG."
+    fi
+}
+
+release_target_args() {
+    if [[ "$REMOTE_TAG_EXISTS" == "1" ]]; then
+        printf '%s\n' "--verify-tag"
+    else
+        printf '%s\n' "--target"
+        printf '%s\n' "$TARGET"
+    fi
+}
+
+create_release() {
+    local -a release_create_command
+
+    ensure_release_tag_ready
+
+    release_create_command=(
+        gh release create "$TAG"
+        --repo "$REPO"
+        --title "$TAG"
+        --notes "$NOTES"
+    )
+    while IFS= read -r arg; do
+        release_create_command+=("$arg")
+    done < <(release_target_args)
+    if [[ "$DRAFT" == "1" ]]; then
+        release_create_command+=(--draft)
+    fi
+    release_create_command+=("$@")
+
+    "${release_create_command[@]}"
+    refresh_release_state
+}
+
+edit_existing_draft_release() {
+    local publish="$1"
+    local -a release_edit_command
+
+    ensure_release_tag_ready
+
+    release_edit_command=(
+        gh release edit "$TAG"
+        --repo "$REPO"
+        --title "$TAG"
+        --notes "$NOTES"
+    )
+    while IFS= read -r arg; do
+        release_edit_command+=("$arg")
+    done < <(release_target_args)
+
+    if [[ "$publish" == "1" ]]; then
+        release_edit_command+=(--draft=false)
+    else
+        release_edit_command+=(--draft)
+    fi
+
+    "${release_edit_command[@]}"
+    refresh_release_state
+}
+
+wait_for_release_workflow() {
+    local release_started_at="$1"
+    local event_name="$2"
+    local run_id=""
+
+    if [[ "$WATCH" != "1" ]]; then
+        echo "Release action completed. Not watching workflow because --no-watch was passed."
+        return
+    fi
+
+    echo "Waiting for Release workflow to start."
+    for _ in {1..30}; do
+        run_id="$(
+            gh run list \
+                --repo "$REPO" \
+                --workflow Release \
+                --event "$event_name" \
+                --limit 10 \
+                --json databaseId,headBranch,createdAt \
+                --jq ".[] | select(.createdAt >= \"$release_started_at\" and (.headBranch == \"$TAG\" or \"$event_name\" == \"workflow_dispatch\")) | .databaseId" \
+                | head -n1
+        )"
+        if [[ -n "$run_id" ]]; then
+            break
+        fi
+        sleep 5
+    done
+
+    if [[ -z "$run_id" ]]; then
+        echo "Timed out waiting for the Release workflow to start for $TAG." >&2
+        exit 1
+    fi
+
+    gh run watch "$run_id" --repo "$REPO" --exit-status
+    report_remote_release_result "$run_id"
+}
+
+dispatch_existing_release_workflow() {
+    local release_started_at
+
+    release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    gh workflow run Release \
+        --repo "$REPO" \
+        -f version="$VERSION" \
+        -f repository="$REPO"
+    wait_for_release_workflow "$release_started_at" "workflow_dispatch"
+}
+
+refresh_release_state
 
 publish_local_tap() {
     local cask_path="$1"
@@ -208,6 +413,45 @@ publish_local_tap() {
     git -C "$TAP_DIR" add Casks/comux.rb
     git -C "$TAP_DIR" commit -m "chore: update comux to $TAG"
     git -C "$TAP_DIR" push origin HEAD
+}
+
+validate_remote_release_configuration() {
+    local secret_names
+    local tap_repository
+    local -a required_secrets
+    local -a missing_secrets
+
+    required_secrets=(
+        APPLE_DEVELOPER_CERTIFICATE_P12_BASE64
+        APPLE_DEVELOPER_CERTIFICATE_PASSWORD
+        APPLE_KEYCHAIN_PASSWORD
+        APPLE_NOTARY_APPLE_ID
+        APPLE_NOTARY_TEAM_ID
+        APPLE_NOTARY_PASSWORD
+        HOMEBREW_TAP_TOKEN
+    )
+
+    secret_names="$(gh secret list --repo "$REPO" | awk '{print $1}')"
+    missing_secrets=()
+    for secret_name in "${required_secrets[@]}"; do
+        if ! grep -qx "$secret_name" <<<"$secret_names"; then
+            missing_secrets+=("$secret_name")
+        fi
+    done
+
+    if [[ "${#missing_secrets[@]}" -gt 0 ]]; then
+        echo "Missing required GitHub secrets on $REPO:" >&2
+        printf '  %s\n' "${missing_secrets[@]}" >&2
+        exit 1
+    fi
+
+    tap_repository="$(
+        gh variable list --repo "$REPO" | awk '$1 == "HOMEBREW_TAP_REPOSITORY" { print $2 }'
+    )"
+    if [[ -z "$tap_repository" ]]; then
+        echo "Missing required GitHub variable on $REPO: HOMEBREW_TAP_REPOSITORY" >&2
+        exit 1
+    fi
 }
 
 report_remote_release_result() {
@@ -422,158 +666,118 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
         exit 1
     fi
 
-    if [[ "$release_exists" == "1" ]]; then
-        if [[ "$ALLOW_EXISTING" != "1" ]]; then
-            echo "Release already exists: $TAG" >&2
-            echo "Pass --allow-existing to upload local assets to it." >&2
-            exit 1
+    refresh_release_state
+    should_wait_for_release_event=0
+    release_started_at=""
+
+    if [[ "$RELEASE_EXISTS" == "1" ]]; then
+        if [[ "$RELEASE_IS_DRAFT" == "true" ]]; then
+            echo "Updating existing draft release $TAG with local assets."
+            edit_existing_draft_release 0
+            gh release upload "$TAG" \
+                --repo "$REPO" \
+                "$archive_path" \
+                "$cask_path" \
+                --clobber
+
+            if [[ "$DRAFT" != "1" ]]; then
+                echo "Publishing existing draft release $TAG."
+                release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                edit_existing_draft_release 1
+                should_wait_for_release_event=1
+            fi
+        else
+            if [[ "$RELEASE_IS_IMMUTABLE" == "true" ]]; then
+                echo "Release $TAG is immutable; assets cannot be replaced." >&2
+                exit 1
+            fi
+
+            if [[ "$ALLOW_EXISTING" != "1" ]]; then
+                echo "Published release already exists: $TAG" >&2
+                echo "Pass --allow-existing to replace its local release assets." >&2
+                exit 1
+            fi
+
+            echo "Uploading local assets to existing published release $TAG."
+            gh release upload "$TAG" \
+                --repo "$REPO" \
+                "$archive_path" \
+                "$cask_path" \
+                --clobber
         fi
-        echo "Uploading local assets to existing release $TAG."
-        gh release upload "$TAG" \
-            --repo "$REPO" \
-            "$archive_path" \
-            "$cask_path" \
-            --clobber
     else
         echo "Creating release $TAG for $REPO at $TARGET with local assets."
         release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        release_create_command=(
-            gh release create "$TAG"
-            --repo "$REPO"
-            --target "$TARGET"
-            --title "$TAG"
-            --notes "$NOTES"
-        )
-        if [[ "$DRAFT" == "1" ]]; then
-            release_create_command+=(--draft)
+        create_release "$archive_path" "$cask_path"
+        if [[ "$DRAFT" != "1" ]]; then
+            should_wait_for_release_event=1
         fi
-        release_create_command+=("$archive_path" "$cask_path")
-        "${release_create_command[@]}"
     fi
 
     if [[ "$DRAFT" == "1" ]]; then
-        echo "Draft release created. Publish $TAG on GitHub to trigger the Release workflow."
-    else
-        publish_local_tap "$cask_path"
-    fi
-
-    if [[ "$DRAFT" == "1" || "$WATCH" != "1" || "$release_exists" == "1" ]]; then
+        echo "Draft release is ready. Publish $TAG on GitHub to trigger the Release workflow."
         exit 0
     fi
 
-    echo "Waiting for Release workflow to start."
-    run_id=""
-    for _ in {1..30}; do
-        run_id="$(
-            gh run list \
-                --repo "$REPO" \
-                --workflow Release \
-                --event release \
-                --limit 10 \
-                --json databaseId,headBranch,createdAt \
-                --jq ".[] | select(.headBranch == \"$TAG\" and .createdAt >= \"$release_started_at\") | .databaseId" \
-                | head -n1
-        )"
-        if [[ -n "$run_id" ]]; then
-            break
-        fi
-        sleep 5
-    done
+    publish_local_tap "$cask_path"
 
-    if [[ -z "$run_id" ]]; then
-        echo "Timed out waiting for the Release workflow to start for $TAG." >&2
-        exit 1
+    if [[ "$should_wait_for_release_event" == "1" ]]; then
+        wait_for_release_workflow "$release_started_at" "release"
     fi
-
-    gh run watch "$run_id" --repo "$REPO" --exit-status
-    report_remote_release_result "$run_id"
     exit 0
 fi
 
-if [[ "$release_exists" == "1" ]]; then
-    echo "Release already exists: $TAG" >&2
-    exit 1
-fi
+if [[ "$RELEASE_EXISTS" == "1" ]]; then
+    if [[ "$RELEASE_IS_DRAFT" == "true" ]]; then
+        if [[ "$DRAFT" == "1" ]]; then
+            echo "Draft release already exists for $TAG; updating title, notes, and target."
+            edit_existing_draft_release 0
+            echo "Draft release is ready. Publish $TAG on GitHub to trigger the Release workflow."
+            exit 0
+        fi
 
-required_secrets=(
-    APPLE_DEVELOPER_CERTIFICATE_P12_BASE64
-    APPLE_DEVELOPER_CERTIFICATE_PASSWORD
-    APPLE_KEYCHAIN_PASSWORD
-    APPLE_NOTARY_APPLE_ID
-    APPLE_NOTARY_TEAM_ID
-    APPLE_NOTARY_PASSWORD
-    HOMEBREW_TAP_TOKEN
-)
+        validate_remote_release_configuration
 
-secret_names="$(gh secret list --repo "$REPO" | awk '{print $1}')"
-missing_secrets=()
-for secret_name in "${required_secrets[@]}"; do
-    if ! grep -qx "$secret_name" <<<"$secret_names"; then
-        missing_secrets+=("$secret_name")
+        echo "Publishing existing draft release $TAG."
+        release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        edit_existing_draft_release 1
+        wait_for_release_workflow "$release_started_at" "release"
+        exit 0
     fi
-done
 
-if [[ "${#missing_secrets[@]}" -gt 0 ]]; then
-    echo "Missing required GitHub secrets on $REPO:" >&2
-    printf '  %s\n' "${missing_secrets[@]}" >&2
-    exit 1
+    if [[ "$DRAFT" == "1" ]]; then
+        echo "Published release already exists for $TAG; cannot recreate it as a draft." >&2
+        exit 1
+    fi
+
+    asset_count="$(release_asset_count)"
+    if [[ "$asset_count" == "2" ]]; then
+        echo "Published release $TAG already has release assets."
+        exit 0
+    fi
+
+    if [[ "$ALLOW_EXISTING" != "1" ]]; then
+        echo "Published release $TAG exists but is missing release assets." >&2
+        echo "Pass --allow-existing to rerun the Release workflow for this version." >&2
+        exit 1
+    fi
+
+    validate_remote_release_configuration
+
+    echo "Published release $TAG exists but is missing assets; dispatching Release workflow."
+    dispatch_existing_release_workflow
+    exit 0
 fi
 
-tap_repository="$(
-    gh variable list --repo "$REPO" | awk '$1 == "HOMEBREW_TAP_REPOSITORY" { print $2 }'
-)"
-if [[ -z "$tap_repository" ]]; then
-    echo "Missing required GitHub variable on $REPO: HOMEBREW_TAP_REPOSITORY" >&2
-    exit 1
-fi
+validate_remote_release_configuration
 
 echo "Creating release $TAG for $REPO at $TARGET."
 release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-release_create_command=(
-    gh release create "$TAG"
-    --repo "$REPO"
-    --target "$TARGET"
-    --title "$TAG"
-    --notes "$NOTES"
-)
-if [[ "$DRAFT" == "1" ]]; then
-    release_create_command+=(--draft)
-fi
-"${release_create_command[@]}"
+create_release
 
 if [[ "$DRAFT" == "1" ]]; then
     echo "Draft release created. Publish $TAG on GitHub to trigger the Release workflow."
     exit 0
 fi
 
-if [[ "$WATCH" != "1" ]]; then
-    echo "Release created. Not watching workflow because --no-watch was passed."
-    exit 0
-fi
-
-echo "Waiting for Release workflow to start."
-run_id=""
-for _ in {1..30}; do
-    run_id="$(
-        gh run list \
-            --repo "$REPO" \
-            --workflow Release \
-            --event release \
-            --limit 10 \
-            --json databaseId,headBranch,createdAt \
-            --jq ".[] | select(.headBranch == \"$TAG\" and .createdAt >= \"$release_started_at\") | .databaseId" \
-            | head -n1
-    )"
-    if [[ -n "$run_id" ]]; then
-        break
-    fi
-    sleep 5
-done
-
-if [[ -z "$run_id" ]]; then
-    echo "Timed out waiting for the Release workflow to start for $TAG." >&2
-    exit 1
-fi
-
-gh run watch "$run_id" --repo "$REPO" --exit-status
-report_remote_release_result "$run_id"
+wait_for_release_workflow "$release_started_at" "release"
