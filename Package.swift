@@ -29,6 +29,7 @@ let package = Package(
                 "Menu.swift",
                 "LaunchAtLogin.swift",
                 "Resources.swift",
+                "AutoUpdate.swift",
             ],
             resources: [
                 .process("../assets")

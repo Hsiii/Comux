@@ -16,6 +16,7 @@
 - **5h usage in your menu bar:** Check your active account's 5h usage frictionless.
 - **Track all at once:** See usage and reset info across accounts and workspace in one panel.
 - **Smart planing:** Accounts are ranked by remaining headroom so you can pick the right account to burn.
+- **Auto updates:** Comux checks GitHub Releases daily and can install updates from the menu bar.
 - **Privacy first:** Comux supports custom display names and stores account metadata locally in `~/.comux`.
 
 ## Install
@@ -45,7 +46,7 @@ Comux uses your existing local Codex session state to refresh usage. Account met
 
 ## Troubleshooting
 
-If Comux does not show an account, open Codex and confirm that account is signed in locally, then reopen the Comux menu. If Homebrew installs an older version, run `brew update` and then `brew upgrade --cask Hsiii/tap/comux`.
+If Comux does not show an account, open Codex and confirm that account is signed in locally, then reopen the Comux menu. If Homebrew installs an older version, use **Check for Updates** from the Comux menu or run `brew update` and then `brew upgrade --cask Hsiii/tap/comux`.
 
 ## Development
 ### Run directly

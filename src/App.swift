@@ -17,16 +17,23 @@ final class ComuxLifecycleDelegate: NSObject, NSApplicationDelegate {
 struct ComuxApp: App {
     @NSApplicationDelegateAdaptor(ComuxLifecycleDelegate.self) private var lifecycleDelegate
     @StateObject private var coordinator: PulseCoordinator
+    @StateObject private var autoUpdateStore: AutoUpdateStore
 
     init() {
         let coordinator = PulseCoordinator()
+        let autoUpdateStore = AutoUpdateStore()
         _coordinator = StateObject(wrappedValue: coordinator)
+        _autoUpdateStore = StateObject(wrappedValue: autoUpdateStore)
         coordinator.start()
+        autoUpdateStore.checkAutomatically()
     }
 
     var body: some Scene {
         MenuBarExtra {
-            PulseMenuView(coordinator: self.coordinator)
+            PulseMenuView(
+                coordinator: self.coordinator,
+                autoUpdateStore: self.autoUpdateStore
+            )
                 .task {
                     await self.coordinator.syncNow()
                 }

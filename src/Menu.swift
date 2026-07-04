@@ -382,6 +382,7 @@ struct SlimDashboardPanelView: View {
     @ObservedObject var displayNameStore: DisplayNameStore
     @ObservedObject var codexLoginStore: CodexLoginStore
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
+    @ObservedObject var autoUpdateStore: AutoUpdateStore
     @Binding var measuredContentHeight: CGFloat
     let panelHeight: CGFloat
     let onAddAccountRequested: () -> Void
@@ -492,6 +493,16 @@ struct SlimDashboardPanelView: View {
             ) {
                 launchAtLoginStore.setEnabled(!launchAtLoginStore.opensAtLogin)
             }
+
+            self.controlRow(
+                autoUpdateStore.menuTitle,
+                isEnabled: autoUpdateStore.canActivatePrimaryAction
+            ) {
+                Task {
+                    await autoUpdateStore.activatePrimaryAction()
+                }
+            }
+
             Divider()
                 .padding(.vertical, controlDividerSpacing)
                 .padding(.horizontal, controlDividerHorizontalInset)
@@ -542,6 +553,7 @@ struct SlimDashboardPanelView: View {
 
 struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
+    @ObservedObject var autoUpdateStore: AutoUpdateStore
     @StateObject private var displayNameStore = DisplayNameStore()
     @StateObject private var codexLoginStore = CodexLoginStore()
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
@@ -556,6 +568,7 @@ struct PulseMenuView: View {
                 displayNameStore: displayNameStore,
                 codexLoginStore: codexLoginStore,
                 launchAtLoginStore: launchAtLoginStore,
+                autoUpdateStore: autoUpdateStore,
                 measuredContentHeight: self.$dashboardContentHeight,
                 panelHeight: self.panelHeight,
                 onAddAccountRequested: {
@@ -617,6 +630,13 @@ struct PulseMenuView: View {
             }
         } message: {
             Text(self.codexLoginStore.errorMessage ?? "")
+        }
+        .alert("Couldn’t Update Comux", isPresented: self.isShowingAutoUpdateError) {
+            Button("OK") {
+                self.autoUpdateStore.clearError()
+            }
+        } message: {
+            Text(self.autoUpdateStore.errorMessage ?? "")
         }
     }
 
@@ -712,7 +732,7 @@ struct PulseMenuView: View {
         let accountCount = max(self.coordinator.accountCount, 1)
         let cardsHeight = CGFloat(accountCount) * AccountCardView.height
         let cardGapsHeight = CGFloat(max(accountCount - 1, 0)) * cardStackSpacing
-        let controlSectionHeight = controlHeight * 3 + controlDividerSpacing * 4 + controlSectionBottomPadding + 1
+        let controlSectionHeight = controlHeight * 4 + controlDividerSpacing * 4 + controlSectionBottomPadding + 1
         let contentHeight =
             cardBlockEdgePadding +
             cardsHeight +
@@ -744,6 +764,19 @@ struct PulseMenuView: View {
             set: { isPresented in
                 if !isPresented {
                     self.codexLoginStore.clearError()
+                }
+            }
+        )
+    }
+
+    private var isShowingAutoUpdateError: Binding<Bool> {
+        Binding(
+            get: {
+                self.autoUpdateStore.errorMessage != nil
+            },
+            set: { isPresented in
+                if !isPresented {
+                    self.autoUpdateStore.clearError()
                 }
             }
         )
