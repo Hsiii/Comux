@@ -1,4 +1,4 @@
-.PHONY: all build run dmg clean
+.PHONY: all build run dmg release clean
 
 all: build
 
@@ -10,6 +10,9 @@ run:
 
 dmg:
 	./scripts/dmg.sh
+
+release:
+	./scripts/release-cli.sh $(ARGS)
 
 clean:
 	rm -rf .build build dist

@@ -9,6 +9,7 @@ WATCH=1
 NOTES=""
 LOCAL_PACKAGE=0
 ALLOW_EXISTING=0
+DRAFT=0
 TAP_DIR=""
 SKIP_TAP=0
 LOCAL_NOTARY_MODE="submit"
@@ -22,6 +23,7 @@ Options:
   --repo <owner/name>     GitHub repository to release. Defaults to the current repo.
   --target <ref>          Release target branch or SHA. Defaults to main.
   --notes <text>          Release notes. Defaults to "Comux <version>".
+  --draft                 Create a draft GitHub release.
   --local-package         Build, sign, submit notarization locally, and print the resume command.
   --wait-notarization     With --local-package, wait for Apple and publish in one command.
   --finalize-notarization [id]
@@ -67,6 +69,10 @@ while [[ $# -gt 0 ]]; do
         --notes)
             NOTES="${2:-}"
             shift 2
+            ;;
+        --draft)
+            DRAFT=1
+            shift
             ;;
         --local-package)
             LOCAL_PACKAGE=1
@@ -431,18 +437,27 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     else
         echo "Creating release $TAG for $REPO at $TARGET with local assets."
         release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        gh release create "$TAG" \
-            --repo "$REPO" \
-            --target "$TARGET" \
-            --title "$TAG" \
-            --notes "$NOTES" \
-            "$archive_path" \
-            "$cask_path"
+        release_create_command=(
+            gh release create "$TAG"
+            --repo "$REPO"
+            --target "$TARGET"
+            --title "$TAG"
+            --notes "$NOTES"
+        )
+        if [[ "$DRAFT" == "1" ]]; then
+            release_create_command+=(--draft)
+        fi
+        release_create_command+=("$archive_path" "$cask_path")
+        "${release_create_command[@]}"
     fi
 
-    publish_local_tap "$cask_path"
+    if [[ "$DRAFT" == "1" ]]; then
+        echo "Draft release created. Publish $TAG on GitHub to trigger the Release workflow."
+    else
+        publish_local_tap "$cask_path"
+    fi
 
-    if [[ "$WATCH" != "1" || "$release_exists" == "1" ]]; then
+    if [[ "$DRAFT" == "1" || "$WATCH" != "1" || "$release_exists" == "1" ]]; then
         exit 0
     fi
 
@@ -514,11 +529,22 @@ fi
 
 echo "Creating release $TAG for $REPO at $TARGET."
 release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-gh release create "$TAG" \
-    --repo "$REPO" \
-    --target "$TARGET" \
-    --title "$TAG" \
+release_create_command=(
+    gh release create "$TAG"
+    --repo "$REPO"
+    --target "$TARGET"
+    --title "$TAG"
     --notes "$NOTES"
+)
+if [[ "$DRAFT" == "1" ]]; then
+    release_create_command+=(--draft)
+fi
+"${release_create_command[@]}"
+
+if [[ "$DRAFT" == "1" ]]; then
+    echo "Draft release created. Publish $TAG on GitHub to trigger the Release workflow."
+    exit 0
+fi
 
 if [[ "$WATCH" != "1" ]]; then
     echo "Release created. Not watching workflow because --no-watch was passed."
