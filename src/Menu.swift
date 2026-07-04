@@ -380,9 +380,11 @@ private enum AccountDialogRoute: Identifiable {
 struct SlimDashboardPanelView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @ObservedObject var displayNameStore: DisplayNameStore
+    @ObservedObject var codexLoginStore: CodexLoginStore
     @ObservedObject var launchAtLoginStore: LaunchAtLoginStore
     @Binding var measuredContentHeight: CGFloat
     let panelHeight: CGFloat
+    let onAddAccountRequested: () -> Void
     let onEditDisplayNameRequested: (AccountSnapshot) -> Void
     let onRemoveRequested: (AccountSnapshot) -> Void
     @State private var hoveredControlRowID: String?
@@ -467,11 +469,22 @@ struct SlimDashboardPanelView: View {
         "Open at Login"
     }
 
+    private var addAccountTitle: String {
+        codexLoginStore.isAddingAccount ? "Adding Account..." : "Add Account"
+    }
+
     private var controlStrip: some View {
         VStack(alignment: .leading, spacing: 0) {
             Divider()
                 .padding(.bottom, controlDividerSpacing)
                 .padding(.horizontal, controlDividerHorizontalInset)
+
+            self.controlRow(
+                self.addAccountTitle,
+                isEnabled: !codexLoginStore.isAddingAccount
+            ) {
+                self.onAddAccountRequested()
+            }
 
             self.controlRow(
                 self.launchAtLoginTitle,
@@ -496,6 +509,7 @@ struct SlimDashboardPanelView: View {
     private func controlRow(
         _ title: String,
         showsCheckmark: Bool = false,
+        isEnabled: Bool = true,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -507,6 +521,7 @@ struct SlimDashboardPanelView: View {
             )
         }
         .buttonStyle(ControlRowButtonStyle())
+        .disabled(!isEnabled)
         .focusable(false)
     }
 
@@ -528,6 +543,7 @@ struct SlimDashboardPanelView: View {
 struct PulseMenuView: View {
     @ObservedObject var coordinator: PulseCoordinator
     @StateObject private var displayNameStore = DisplayNameStore()
+    @StateObject private var codexLoginStore = CodexLoginStore()
     @StateObject private var launchAtLoginStore = LaunchAtLoginStore()
     @State private var dashboardContentHeight: CGFloat = 0
     @State private var activeDialog: AccountDialogRoute?
@@ -538,9 +554,13 @@ struct PulseMenuView: View {
             SlimDashboardPanelView(
                 coordinator: coordinator,
                 displayNameStore: displayNameStore,
+                codexLoginStore: codexLoginStore,
                 launchAtLoginStore: launchAtLoginStore,
                 measuredContentHeight: self.$dashboardContentHeight,
                 panelHeight: self.panelHeight,
+                onAddAccountRequested: {
+                    self.addCodexAccount()
+                },
                 onEditDisplayNameRequested: { account in
                     self.promptForDisplayName(account)
                 },
@@ -590,6 +610,22 @@ struct PulseMenuView: View {
             }
         } message: {
             Text(self.launchAtLoginStore.errorMessage ?? "")
+        }
+        .alert("Couldn’t Add Account", isPresented: self.isShowingCodexLoginError) {
+            Button("OK") {
+                self.codexLoginStore.clearError()
+            }
+        } message: {
+            Text(self.codexLoginStore.errorMessage ?? "")
+        }
+    }
+
+    private func addCodexAccount() {
+        Task {
+            let didLogin = await self.codexLoginStore.addAccount()
+            if didLogin {
+                await self.coordinator.syncNow()
+            }
         }
     }
 
@@ -676,7 +712,7 @@ struct PulseMenuView: View {
         let accountCount = max(self.coordinator.accountCount, 1)
         let cardsHeight = CGFloat(accountCount) * AccountCardView.height
         let cardGapsHeight = CGFloat(max(accountCount - 1, 0)) * cardStackSpacing
-        let controlSectionHeight = controlHeight * 2 + controlDividerSpacing * 3 + controlSectionBottomPadding + 1
+        let controlSectionHeight = controlHeight * 3 + controlDividerSpacing * 4 + controlSectionBottomPadding + 1
         let contentHeight =
             cardBlockEdgePadding +
             cardsHeight +
@@ -695,6 +731,19 @@ struct PulseMenuView: View {
             set: { isPresented in
                 if !isPresented {
                     self.launchAtLoginStore.clearError()
+                }
+            }
+        )
+    }
+
+    private var isShowingCodexLoginError: Binding<Bool> {
+        Binding(
+            get: {
+                self.codexLoginStore.errorMessage != nil
+            },
+            set: { isPresented in
+                if !isPresented {
+                    self.codexLoginStore.clearError()
                 }
             }
         )

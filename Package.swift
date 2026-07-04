@@ -25,6 +25,7 @@ let package = Package(
                 "Pulse.swift",
                 "Format.swift",
                 "Card.swift",
+                "CodexLogin.swift",
                 "Menu.swift",
                 "LaunchAtLogin.swift",
                 "Resources.swift",
