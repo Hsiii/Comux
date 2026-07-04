@@ -203,15 +203,20 @@ fi
 
 if [[ "$ASSUME_YES" != "1" ]]; then
     if [[ "$DRAFT" == "1" ]]; then
-        release_mode="draft"
+        printf "Create draft release v%s? [Y/n] " "$selected_version"
     else
-        release_mode="published"
+        printf "Create published release v%s? [y/N] " "$selected_version"
     fi
 
-    printf "Create %s release v%s? [y/N] " "$release_mode" "$selected_version"
     read -r confirmation
     case "$confirmation" in
         y|Y|yes|YES)
+            ;;
+        "")
+            if [[ "$DRAFT" != "1" ]]; then
+                echo "Release canceled."
+                exit 0
+            fi
             ;;
         *)
             echo "Release canceled."
