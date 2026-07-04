@@ -12,7 +12,7 @@
 
 ## Why
 
-- **Zero setup:** Picks up local Codex sessions automatically.
+- **Zero setup:** Picks up local Codex app sessions automatically (you can also set it up manually with Codex CLI).
 - **5h usage in your menu bar:** Check your active account's 5h usage frictionless.
 - **Track all at once:** See usage and reset info across accounts and workspace in one panel.
 - **Smart planing:** Accounts are ranked by remaining headroom so you can pick the right account to burn.
