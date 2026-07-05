@@ -63,13 +63,13 @@ struct WindowCardView: View {
                     .fill(Color.white.opacity(0.08))
 
                 if showsExpectedOverlay {
-                    brightFill
+                    barFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
                             segmentMask(width: geometry.size.width * currentFraction)
                         }
 
-                    barFill
+                    expectedBehindFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
                             segmentMask(width: geometry.size.width * expectedFraction)
@@ -165,6 +165,24 @@ struct WindowCardView: View {
                 )
                 barShape
                     .fill(Color.white.opacity(0.18))
+            }
+        }
+        .clipShape(barShape)
+    }
+
+    private var expectedBehindFill: some View {
+        Group {
+            if isLocked {
+                brightFill
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.56, green: 0.66, blue: 0.98).opacity(0.78),
+                        Color(red: 0.58, green: 0.4, blue: 0.8).opacity(0.68),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
             }
         }
         .clipShape(barShape)
@@ -367,6 +385,25 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
             .fill(Color.white.opacity(isHovered ? 0.072 : 0.06))
     }
 
+    private var expectedBehindTint: some View {
+        Group {
+            if isLocked {
+                surfaceShape
+                    .fill(Color.white.opacity(isHovered ? 0.16 : 0.13))
+            } else {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.56, green: 0.66, blue: 0.98).opacity(isHovered ? 0.24 : 0.2),
+                        Color(red: 0.58, green: 0.4, blue: 0.8).opacity(isHovered ? 0.2 : 0.16),
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+        .clipShape(surfaceShape)
+    }
+
     private var baseFillOpacity: Double {
         isHovered ? 0.056 : 0.04
     }
@@ -388,7 +425,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
                                         surfaceShape.frame(width: geometry.size.width * currentFraction)
                                     }
 
-                                expectedTint
+                                expectedBehindTint
                                     .frame(width: geometry.size.width)
                                     .mask(alignment: .leading) {
                                         surfaceShape.frame(width: geometry.size.width * expectedFraction)
