@@ -90,7 +90,7 @@ struct WindowCardView: View {
                         .mask(alignment: .leading) {
                             segmentRangeMask(
                                 totalWidth: geometry.size.width,
-                                startFraction: currentFraction,
+                                startFraction: 0,
                                 endFraction: expectedFraction,
                                 roundTrailing: true
                             )
@@ -103,7 +103,7 @@ struct WindowCardView: View {
                                 totalWidth: geometry.size.width,
                                 startFraction: 0,
                                 endFraction: currentFraction,
-                                roundTrailing: expectedFraction <= currentFraction
+                                roundTrailing: true
                             )
                         }
                 }
@@ -443,7 +443,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
                                     .mask(alignment: .leading) {
                                         surfaceRangeMask(
                                             totalWidth: geometry.size.width,
-                                            startFraction: currentFraction,
+                                            startFraction: 0,
                                             endFraction: expectedFraction,
                                             roundTrailing: true
                                         )
@@ -456,7 +456,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
                                             totalWidth: geometry.size.width,
                                             startFraction: 0,
                                             endFraction: currentFraction,
-                                            roundTrailing: expectedFraction <= currentFraction
+                                            roundTrailing: true
                                         )
                                     }
                             }
