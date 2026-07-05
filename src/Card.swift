@@ -758,8 +758,15 @@ struct AccountCardView: View {
 
     @ViewBuilder
     private var resetCreditsPrimaryLine: some View {
-        if let text = resetCreditsPrimaryText {
-            Text(text)
+        if let resetCredits,
+           resetCredits.availableCount > 0 {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(resetCredits.availableCount)")
+                    .foregroundStyle(.primary)
+
+                Text(resetCredits.availableCount == 1 ? "reset available" : "resets available")
+                    .foregroundStyle(.secondary)
+            }
                 .font(.headline.weight(.semibold))
                 .lineLimit(1)
                 .monospacedDigit()
@@ -779,17 +786,6 @@ struct AccountCardView: View {
                 .minimumScaleFactor(0.75)
                 .layoutPriority(1)
         }
-    }
-
-    private var resetCreditsPrimaryText: String? {
-        guard let resetCredits,
-              resetCredits.availableCount > 0 else {
-            return nil
-        }
-
-        return resetCredits.availableCount == 1
-            ? "1 reset available"
-            : "\(resetCredits.availableCount) resets available"
     }
 
     private var resetCreditsSecondaryText: String? {
