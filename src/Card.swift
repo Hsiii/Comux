@@ -548,8 +548,8 @@ struct AccountCardView: View {
     let onRemove: () -> Void
     @State private var isHovered = false
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
-    private let expandedContentInsets = EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
-    private let expandedSectionMinGap: CGFloat = 8
+    private let expandedContentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
+    private let expandedSectionGap: CGFloat = 4
     private let identityClusterWidth: CGFloat = 188
     private let identitySpacing: CGFloat = 6
 
@@ -626,7 +626,8 @@ struct AccountCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             self.expandedWeeklySection
 
-            Spacer(minLength: expandedSectionMinGap)
+            Spacer()
+                .frame(height: expandedSectionGap)
 
             self.expandedRollingSection
         }
@@ -791,7 +792,7 @@ struct AccountCardView: View {
                 .lineLimit(1)
                 .foregroundStyle(.primary)
 
-            if shouldShowRollingLock(for: account) {
+            if !isExpanded && shouldShowRollingLock(for: account) {
                 HStack(alignment: .firstTextBaseline, spacing: lockCountdownSpacing) {
                     Image(systemName: "lock.fill")
                         .font(.headline.weight(.semibold))
