@@ -20,8 +20,10 @@ swiftc \
   src/Pulse.swift \
   src/Format.swift \
   src/Card.swift \
+  src/CodexLogin.swift \
   src/Menu.swift \
   src/LaunchAtLogin.swift \
+  src/AutoUpdate.swift \
   src/Resources.swift \
   tools/DemoMockup.swift \
   -lsqlite3 \

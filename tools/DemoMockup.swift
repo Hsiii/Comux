@@ -2,14 +2,14 @@ import AppKit
 import SwiftUI
 
 private let windowRenderScale: CGFloat = 2
-private let canvasSize = CGSize(width: 529, height: 679)
+private let canvasSize = CGSize(width: 529, height: 793)
 private let windowSize = CGSize(
     width: canvasSize.width * windowRenderScale,
     height: canvasSize.height * windowRenderScale
 )
 private let menuBarHeight: CGFloat = 35
 private let panelWidth: CGFloat = 360
-private let panelHeight: CGFloat = 602
+private let panelHeight: CGFloat = 716
 private let panelLeading = (canvasSize.width - panelWidth) / 2
 private let panelTopOffset = menuBarHeight
 private let panelCornerRadius: CGFloat = 12
@@ -41,7 +41,9 @@ private struct DemoMockupView: View {
 
     private let coordinator = demoCoordinator()
     private let displayNameStore = DisplayNameStore(displayNames: [:])
+    private let codexLoginStore = CodexLoginStore()
     private let launchAtLoginStore = LaunchAtLoginStore(opensAtLogin: true)
+    private let autoUpdateStore = AutoUpdateStore()
     @State private var measuredPanelContentHeight: CGFloat = panelHeight
 
     var body: some View {
@@ -70,9 +72,12 @@ private struct DemoMockupView: View {
         SlimDashboardPanelView(
             coordinator: coordinator,
             displayNameStore: displayNameStore,
+            codexLoginStore: codexLoginStore,
             launchAtLoginStore: launchAtLoginStore,
+            autoUpdateStore: autoUpdateStore,
             measuredContentHeight: $measuredPanelContentHeight,
             panelHeight: panelHeight,
+            onAddAccountRequested: { },
             onEditDisplayNameRequested: { _ in },
             onRemoveRequested: { _ in }
         )
@@ -417,6 +422,11 @@ private func demoAccounts() -> [AccountSnapshot] {
             workspaceLabel: "Work",
             plan: "Codex Team",
             isCurrent: true,
+            resetCredits: makeResetCredits(
+                availableCount: 2,
+                nextExpiresOffset: 2 * day + 7 * hour,
+                now: now
+            ),
             weeklyUsedPercentage: 19,
             weeklyResetOffset: 5 * 24 * 60 * 60 + 11 * 60 * 60,
             rollingUsedPercentage: 17,
@@ -494,6 +504,7 @@ private func makeAccount(
     workspaceLabel: String,
     plan: String,
     isCurrent: Bool,
+    resetCredits: CodexResetCredits? = nil,
     weeklyAvailable: Bool = true,
     weeklyWindowLabel: String = "weekly",
     weeklyUsedPercentage: Double,
@@ -529,7 +540,20 @@ private func makeAccount(
             usedPercentage: rollingUsedPercentage,
             resetOffset: rollingResetOffset,
             now: now
-        )
+        ),
+        resetCredits: resetCredits
+    )
+}
+
+private func makeResetCredits(
+    availableCount: Int,
+    nextExpiresOffset: TimeInterval?,
+    now: Date
+) -> CodexResetCredits {
+    CodexResetCredits(
+        availableCount: availableCount,
+        nextExpiresAt: nextExpiresOffset.map { isoString(now.addingTimeInterval($0)) },
+        updatedAt: isoString(now)
     )
 }
 
