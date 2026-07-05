@@ -63,28 +63,48 @@ struct WindowCardView: View {
                     .fill(Color.white.opacity(0.08))
 
                 if showsExpectedOverlay {
-                    barFill
-                        .frame(width: geometry.size.width)
-                        .mask(alignment: .leading) {
-                            segmentMask(width: geometry.size.width * currentFraction)
-                        }
-
                     expectedBehindFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
-                            segmentMask(width: geometry.size.width * expectedFraction)
+                            segmentRangeMask(
+                                totalWidth: geometry.size.width,
+                                startFraction: 0,
+                                endFraction: expectedFraction,
+                                roundTrailing: false
+                            )
+                        }
+
+                    barFill
+                        .frame(width: geometry.size.width)
+                        .mask(alignment: .leading) {
+                            segmentRangeMask(
+                                totalWidth: geometry.size.width,
+                                startFraction: expectedFraction,
+                                endFraction: currentFraction,
+                                roundTrailing: true
+                            )
                         }
                 } else {
                     expectedFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
-                            segmentMask(width: geometry.size.width * expectedFraction)
+                            segmentRangeMask(
+                                totalWidth: geometry.size.width,
+                                startFraction: currentFraction,
+                                endFraction: expectedFraction,
+                                roundTrailing: true
+                            )
                         }
 
                     barFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
-                            segmentMask(width: geometry.size.width * currentFraction)
+                            segmentRangeMask(
+                                totalWidth: geometry.size.width,
+                                startFraction: 0,
+                                endFraction: currentFraction,
+                                roundTrailing: expectedFraction <= currentFraction
+                            )
                         }
                 }
             }
@@ -137,10 +157,36 @@ struct WindowCardView: View {
         RoundedRectangle(cornerRadius: 999)
     }
 
-    @ViewBuilder
-    private func segmentMask(width: CGFloat) -> some View {
-        barShape
-            .frame(width: max(width, 0), alignment: .leading)
+    private func segmentRangeMask(
+        totalWidth: CGFloat,
+        startFraction: CGFloat,
+        endFraction: CGFloat,
+        roundTrailing: Bool
+    ) -> some View {
+        let start = min(1, max(0, startFraction))
+        let end = min(1, max(start, endFraction))
+        let startWidth = totalWidth * start
+        let segmentWidth = totalWidth * (end - start)
+        let trailingWidth = max(totalWidth - startWidth - segmentWidth, 0)
+
+        return HStack(spacing: 0) {
+            Color.clear
+                .frame(width: startWidth)
+
+            UnevenRoundedRectangle(
+                topLeadingRadius: start == 0 ? 999 : 0,
+                bottomLeadingRadius: start == 0 ? 999 : 0,
+                bottomTrailingRadius: roundTrailing ? 999 : 0,
+                topTrailingRadius: roundTrailing ? 999 : 0,
+                style: .continuous
+            )
+            .fill(Color.white)
+            .frame(width: max(segmentWidth, 0))
+
+            Color.clear
+                .frame(width: trailingWidth)
+        }
+        .frame(width: totalWidth, alignment: .leading)
     }
 
     private var expectedFill: some View {
@@ -419,28 +465,48 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 
                         if window.available {
                             if showsExpectedOverlay {
-                                tintedFill
-                                    .frame(width: geometry.size.width)
-                                    .mask(alignment: .leading) {
-                                        surfaceShape.frame(width: geometry.size.width * currentFraction)
-                                    }
-
                                 expectedBehindTint
                                     .frame(width: geometry.size.width)
                                     .mask(alignment: .leading) {
-                                        surfaceShape.frame(width: geometry.size.width * expectedFraction)
+                                        surfaceRangeMask(
+                                            totalWidth: geometry.size.width,
+                                            startFraction: 0,
+                                            endFraction: expectedFraction,
+                                            roundTrailing: false
+                                        )
+                                    }
+
+                                tintedFill
+                                    .frame(width: geometry.size.width)
+                                    .mask(alignment: .leading) {
+                                        surfaceRangeMask(
+                                            totalWidth: geometry.size.width,
+                                            startFraction: expectedFraction,
+                                            endFraction: currentFraction,
+                                            roundTrailing: true
+                                        )
                                     }
                             } else {
                                 expectedTint
                                     .frame(width: geometry.size.width)
                                     .mask(alignment: .leading) {
-                                        surfaceShape.frame(width: geometry.size.width * expectedFraction)
+                                        surfaceRangeMask(
+                                            totalWidth: geometry.size.width,
+                                            startFraction: currentFraction,
+                                            endFraction: expectedFraction,
+                                            roundTrailing: true
+                                        )
                                     }
 
                                 tintedFill
                                     .frame(width: geometry.size.width)
                                     .mask(alignment: .leading) {
-                                        surfaceShape.frame(width: geometry.size.width * currentFraction)
+                                        surfaceRangeMask(
+                                            totalWidth: geometry.size.width,
+                                            startFraction: 0,
+                                            endFraction: currentFraction,
+                                            roundTrailing: expectedFraction <= currentFraction
+                                        )
                                     }
                             }
                         }
@@ -454,6 +520,38 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
                         .stroke(Color.white.opacity(0.7), lineWidth: 2)
                 }
             }
+    }
+
+    private func surfaceRangeMask(
+        totalWidth: CGFloat,
+        startFraction: CGFloat,
+        endFraction: CGFloat,
+        roundTrailing: Bool
+    ) -> some View {
+        let start = min(1, max(0, startFraction))
+        let end = min(1, max(start, endFraction))
+        let startWidth = totalWidth * start
+        let segmentWidth = totalWidth * (end - start)
+        let trailingWidth = max(totalWidth - startWidth - segmentWidth, 0)
+
+        return HStack(spacing: 0) {
+            Color.clear
+                .frame(width: startWidth)
+
+            UnevenRoundedRectangle(
+                topLeadingRadius: start == 0 ? topCornerRadius : 0,
+                bottomLeadingRadius: start == 0 ? bottomCornerRadius : 0,
+                bottomTrailingRadius: roundTrailing ? bottomCornerRadius : 0,
+                topTrailingRadius: roundTrailing ? topCornerRadius : 0,
+                style: .continuous
+            )
+            .fill(Color.white)
+            .frame(width: max(segmentWidth, 0))
+
+            Color.clear
+                .frame(width: trailingWidth)
+        }
+        .frame(width: totalWidth, alignment: .leading)
     }
 }
 
