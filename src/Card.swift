@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 private let accountCardHeight: CGFloat = 56
+private let activeAccountCardHeight: CGFloat = 112
 private let accountCardCornerRadius: CGFloat = 16
 
 enum WindowHeaderPlacement {
@@ -533,7 +534,12 @@ private struct AccountCardMenuTrigger: NSViewRepresentable {
 }
 
 struct AccountCardView: View {
-    static let height: CGFloat = accountCardHeight
+    static let collapsedHeight: CGFloat = accountCardHeight
+    static let expandedHeight: CGFloat = activeAccountCardHeight
+
+    static func height(for account: AccountSnapshot) -> CGFloat {
+        account.isCurrentSystemAccount == true ? Self.expandedHeight : Self.collapsedHeight
+    }
 
     let account: AccountSnapshot
     let displayName: String
@@ -553,9 +559,17 @@ struct AccountCardView: View {
         String(displayName.prefix(12))
     }
 
+    private var height: CGFloat {
+        Self.height(for: account)
+    }
+
+    private var isExpanded: Bool {
+        account.isCurrentSystemAccount == true
+    }
+
     var body: some View {
         self.cardContent
-            .frame(maxWidth: .infinity, minHeight: Self.height, maxHeight: Self.height, alignment: .topLeading)
+            .frame(maxWidth: .infinity, minHeight: self.height, maxHeight: self.height, alignment: .topLeading)
         .overlay {
             self.cardMenuTrigger
         }
@@ -571,40 +585,117 @@ struct AccountCardView: View {
             bottomCornerRadius: accountCardCornerRadius,
             contentInsets: contentInsets
         ) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    self.identityCluster
+            self.usageRows
+        }
+    }
 
-                    Spacer(minLength: 12)
+    @ViewBuilder
+    private var usageRows: some View {
+        if isExpanded {
+            self.expandedUsageRows
+        } else {
+            self.compactUsageRows
+        }
+    }
 
-                    Text(percentageText(for: account.weeklyWindow))
-                        .font(.headline.weight(.semibold))
-                        .monospacedDigit()
-                        .fixedSize(horizontal: true, vertical: false)
-                }
+    private var compactUsageRows: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                self.identityCluster
 
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    if let tag = compactAccountTag(for: account) {
-                        Text(tag)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
+                Spacer(minLength: 12)
 
-                    Spacer(minLength: 12)
+                self.usagePercentageLabel(prefix: nil, window: account.weeklyWindow)
+            }
 
-                    Text(resetPaceText(for: account.weeklyWindow))
+            self.usageDetailRow(
+                leadingText: compactAccountTag(for: account),
+                window: account.weeklyWindow
+            )
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var expandedUsageRows: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                self.identityCluster
+
+                Spacer(minLength: 12)
+
+                self.usagePercentageLabel(prefix: "Weekly", window: account.weeklyWindow)
+            }
+
+            self.usageDetailRow(
+                leadingText: compactAccountTag(for: account),
+                window: account.weeklyWindow
+            )
+
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                if let resetCreditsText = resetCreditsSummaryText(for: account.resetCredits) {
+                    Text(resetCreditsText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .monospacedDigit()
                         .minimumScaleFactor(0.75)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(1)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Spacer(minLength: 12)
+
+                self.usagePercentageLabel(prefix: "5h", window: account.rollingWindow)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+
+            self.usageDetailRow(
+                leadingText: nil,
+                window: account.rollingWindow
+            )
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private func usageDetailRow(
+        leadingText: String?,
+        window: UsageWindow
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            if let leadingText {
+                Text(leadingText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 12)
+
+            Text(resetPaceText(for: window))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .monospacedDigit()
+                .minimumScaleFactor(0.75)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func usagePercentageLabel(
+        prefix: String?,
+        window: UsageWindow
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            if let prefix {
+                Text(prefix)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(percentageText(for: window))
+                .font(.headline.weight(.semibold))
+                .monospacedDigit()
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var cardMenuTrigger: some View {

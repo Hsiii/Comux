@@ -729,8 +729,13 @@ struct PulseMenuView: View {
     }
 
     private var estimatedPanelHeight: CGFloat {
-        let accountCount = max(self.coordinator.accountCount, 1)
-        let cardsHeight = CGFloat(accountCount) * AccountCardView.height
+        let accounts = self.coordinator.cache.accounts
+        let accountCount = max(accounts.count, 1)
+        let cardsHeight = accounts.isEmpty
+            ? AccountCardView.collapsedHeight
+            : accounts.reduce(0) { partialHeight, account in
+                partialHeight + AccountCardView.height(for: account)
+            }
         let cardGapsHeight = CGFloat(max(accountCount - 1, 0)) * cardStackSpacing
         let controlSectionHeight = controlHeight * 4 + controlDividerSpacing * 4 + controlSectionBottomPadding + 1
         let contentHeight =
