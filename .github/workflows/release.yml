@@ -23,10 +23,50 @@ permissions:
   contents: write
 
 jobs:
+  guard-published-release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_REPOSITORY: ${{ github.repository }}
+    steps:
+      - name: Verify release has archives
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="${RELEASE_TAG#v}"
+          archive_name="comux-${version}.zip"
+          cask_name="comux.rb"
+          assets_path="$RUNNER_TEMP/comux-release-assets.txt"
+
+          gh release view "$RELEASE_TAG" \
+            --repo "$RELEASE_REPOSITORY" \
+            --json assets \
+            --jq '.assets[].name' > "$assets_path"
+
+          has_asset() {
+            local asset_name="$1"
+            grep -Fx "$asset_name" "$assets_path" >/dev/null
+          }
+
+          missing=()
+          has_asset "$archive_name" || missing+=("$archive_name")
+          has_asset "$cask_name" || missing+=("$cask_name")
+
+          if [[ "${#missing[@]}" -gt 0 ]]; then
+            echo "::error::Public release $RELEASE_TAG is missing required archive assets: ${missing[*]}"
+            echo "Use the workflow_dispatch draft-first flow, wait for Apple notarization to be accepted, then finalize the same release before publishing."
+            exit 1
+          fi
+
   package-macos:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     env:
-      RELEASE_VERSION: ${{ github.event.release.tag_name != '' && github.event.release.tag_name || inputs.version }}
+      RELEASE_VERSION: ${{ inputs.version }}
       RELEASE_REPOSITORY: ${{ inputs.repository != '' && inputs.repository || github.repository }}
       APPLE_CERTIFICATE_CONFIGURED: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 != '' && 'true' || 'false' }}
       FINALIZE_NOTARIZATION: ${{ inputs.notarization_submission_id != '' && 'true' || 'false' }}
@@ -62,6 +102,31 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           echo "notarization_artifact=comux-notarization-$version" >> "$GITHUB_OUTPUT"
+
+      - name: Verify draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="${{ steps.meta.outputs.tag }}"
+          is_draft="$(gh release view "$tag" \
+            --repo "$RELEASE_REPOSITORY" \
+            --json isDraft \
+            --jq '.isDraft' \
+            2>/dev/null || true)"
+
+          if [[ -z "$is_draft" ]]; then
+            echo "::error::Missing draft release $tag. Create a draft release, write the release notes, then rerun this workflow."
+            exit 1
+          fi
+
+          if [[ "$is_draft" != "true" && "$FINALIZE_NOTARIZATION" != "true" ]]; then
+            echo "::error::Release $tag is already public. Start releases from workflow_dispatch so the release stays draft until archives are uploaded."
+            echo "If you are repairing an existing public release after notarization, rerun this workflow with notarization_submission_id and notarization_run_id."
+            exit 1
+          fi
 
       - name: Resolve prebuilt release assets
         id: prebuilt
@@ -277,10 +342,12 @@ jobs:
             echo "\`\`\`bash"
             echo "gh workflow run Release -f version=${{ steps.meta.outputs.version }} -f notarization_submission_id=${{ steps.package.outputs.notary_submission_id }} -f notarization_run_id=${{ github.run_id }}"
             echo "\`\`\`"
+            echo
+            echo "The GitHub release remains a draft until finalization uploads \`comux-${{ steps.meta.outputs.version }}.zip\` and \`comux.rb\`."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload release assets
-        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && steps.prebuilt.outputs.has_prebuilt != 'true' && steps.package.outputs.archive != '' && steps.package.outputs.cask != ''
+        if: steps.prebuilt.outputs.has_prebuilt != 'true' && steps.package.outputs.archive != '' && steps.package.outputs.cask != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -292,8 +359,21 @@ jobs:
             "${{ steps.package.outputs.cask }}" \
             --clobber
 
+      - name: Publish draft release
+        if: steps.prebuilt.outputs.has_prebuilt == 'true' || (steps.package.outputs.archive != '' && steps.package.outputs.cask != '')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release edit "${{ steps.meta.outputs.tag }}" \
+            --repo "$RELEASE_REPOSITORY" \
+            --draft=false \
+            --latest
+
       - name: Upload workflow artifacts
-        if: github.event_name != 'release' && steps.prebuilt.outputs.has_prebuilt != 'true' && steps.package.outputs.archive != '' && steps.package.outputs.cask != ''
+        if: steps.prebuilt.outputs.has_prebuilt != 'true' && steps.package.outputs.archive != '' && steps.package.outputs.cask != ''
         uses: actions/upload-artifact@v4
         with:
           name: comux-release-${{ steps.meta.outputs.version }}
@@ -302,7 +382,7 @@ jobs:
             ${{ steps.package.outputs.cask }}
 
       - name: Publish cask to tap
-        if: (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && vars.HOMEBREW_TAP_REPOSITORY != '' && (steps.prebuilt.outputs.has_prebuilt == 'true' || steps.package.outputs.cask != '')
+        if: vars.HOMEBREW_TAP_REPOSITORY != '' && (steps.prebuilt.outputs.has_prebuilt == 'true' || steps.package.outputs.cask != '')
         env:
           HOMEBREW_TAP_REPOSITORY: ${{ vars.HOMEBREW_TAP_REPOSITORY }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
