@@ -548,8 +548,8 @@ struct AccountCardView: View {
     let onRemove: () -> Void
     @State private var isHovered = false
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
-    private let expandedContentInsets = EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)
-    private let expandedSectionGap: CGFloat = 8
+    private let expandedContentInsets = EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
+    private let expandedSectionGap: CGFloat = 10
     private let identityClusterWidth: CGFloat = 188
     private let identitySpacing: CGFloat = 6
 
