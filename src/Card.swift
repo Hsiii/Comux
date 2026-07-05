@@ -548,6 +548,8 @@ struct AccountCardView: View {
     let onRemove: () -> Void
     @State private var isHovered = false
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
+    private let expandedContentInsets = EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
+    private let expandedSectionMinGap: CGFloat = 8
     private let identityClusterWidth: CGFloat = 188
     private let identitySpacing: CGFloat = 6
 
@@ -567,6 +569,10 @@ struct AccountCardView: View {
         account.isCurrentSystemAccount == true
     }
 
+    private var resetCredits: CodexResetCredits? {
+        account.resetCredits
+    }
+
     var body: some View {
         self.cardContent
             .frame(maxWidth: .infinity, minHeight: self.height, maxHeight: self.height, alignment: .topLeading)
@@ -583,7 +589,7 @@ struct AccountCardView: View {
             isHovered: isHovered,
             topCornerRadius: accountCardCornerRadius,
             bottomCornerRadius: accountCardCornerRadius,
-            contentInsets: contentInsets
+            contentInsets: isExpanded ? expandedContentInsets : contentInsets
         ) {
             self.usageRows
         }
@@ -617,6 +623,17 @@ struct AccountCardView: View {
     }
 
     private var expandedUsageRows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            self.expandedWeeklySection
+
+            Spacer(minLength: expandedSectionMinGap)
+
+            self.expandedRollingSection
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var expandedWeeklySection: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 self.identityCluster
@@ -630,29 +647,28 @@ struct AccountCardView: View {
                 leadingText: compactAccountTag(for: account),
                 window: account.weeklyWindow
             )
+        }
+    }
 
+    private var expandedRollingSection: some View {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                if let resetCreditsText = resetCreditsSummaryText(for: account.resetCredits) {
-                    Text(resetCreditsText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .monospacedDigit()
-                        .minimumScaleFactor(0.75)
-                        .layoutPriority(1)
-                }
+                self.resetCreditsPrimaryLine
 
                 Spacer(minLength: 12)
 
                 self.usagePercentageLabel(prefix: "5h", window: account.rollingWindow)
             }
 
-            self.usageDetailRow(
-                leadingText: nil,
-                window: account.rollingWindow
-            )
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                self.resetCreditsSecondaryLine
+
+                Spacer(minLength: 12)
+
+                self.usagePaceLabel(for: account.rollingWindow)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     private func usageDetailRow(
@@ -669,13 +685,7 @@ struct AccountCardView: View {
 
             Spacer(minLength: 12)
 
-            Text(resetPaceText(for: window))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .monospacedDigit()
-                .minimumScaleFactor(0.75)
-                .fixedSize(horizontal: false, vertical: true)
+            self.usagePaceLabel(for: window)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -687,7 +697,7 @@ struct AccountCardView: View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             if let prefix {
                 Text(prefix)
-                    .font(.caption.weight(.semibold))
+                    .font(.headline.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
 
@@ -696,6 +706,71 @@ struct AccountCardView: View {
                 .monospacedDigit()
         }
         .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func usagePaceLabel(for window: UsageWindow) -> some View {
+        Text(resetPaceText(for: window))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .monospacedDigit()
+            .minimumScaleFactor(0.75)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var resetCreditsPrimaryLine: some View {
+        if let text = resetCreditsPrimaryText {
+            Text(text)
+                .font(.headline.weight(.semibold))
+                .lineLimit(1)
+                .monospacedDigit()
+                .minimumScaleFactor(0.75)
+                .layoutPriority(1)
+        }
+    }
+
+    @ViewBuilder
+    private var resetCreditsSecondaryLine: some View {
+        if let text = resetCreditsSecondaryText {
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .monospacedDigit()
+                .minimumScaleFactor(0.75)
+                .layoutPriority(1)
+        }
+    }
+
+    private var resetCreditsPrimaryText: String? {
+        guard let resetCredits,
+              resetCredits.availableCount > 0 else {
+            return nil
+        }
+
+        return resetCredits.availableCount == 1
+            ? "1 reset available"
+            : "\(resetCredits.availableCount) resets available"
+    }
+
+    private var resetCreditsSecondaryText: String? {
+        guard let resetCredits else {
+            return nil
+        }
+
+        guard resetCredits.availableCount > 0 else {
+            return "No resets available"
+        }
+
+        guard let nextExpiresAt = resetCredits.nextExpiresAt,
+              let expiryDate = parseISO8601Date(nextExpiresAt),
+              expiryDate > Date()
+        else {
+            return "No expiry"
+        }
+
+        return "Next expires in \(formatCountdown(nextExpiresAt))"
     }
 
     private var cardMenuTrigger: some View {
