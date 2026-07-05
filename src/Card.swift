@@ -63,6 +63,17 @@ struct WindowCardView: View {
                     .fill(Color.white.opacity(0.08))
 
                 if showsExpectedOverlay {
+                    barFill
+                        .frame(width: geometry.size.width)
+                        .mask(alignment: .leading) {
+                            segmentRangeMask(
+                                totalWidth: geometry.size.width,
+                                startFraction: 0,
+                                endFraction: currentFraction,
+                                roundTrailing: true
+                            )
+                        }
+
                     expectedBehindFill
                         .frame(width: geometry.size.width)
                         .mask(alignment: .leading) {
@@ -70,17 +81,6 @@ struct WindowCardView: View {
                                 totalWidth: geometry.size.width,
                                 startFraction: 0,
                                 endFraction: expectedFraction,
-                                roundTrailing: false
-                            )
-                        }
-
-                    barFill
-                        .frame(width: geometry.size.width)
-                        .mask(alignment: .leading) {
-                            segmentRangeMask(
-                                totalWidth: geometry.size.width,
-                                startFraction: expectedFraction,
-                                endFraction: currentFraction,
                                 roundTrailing: true
                             )
                         }
@@ -127,8 +127,8 @@ struct WindowCardView: View {
             } else {
                 LinearGradient(
                     colors: [
-                        Color(red: 0.4, green: 0.49, blue: 0.92),
-                        Color(red: 0.46, green: 0.29, blue: 0.64),
+                        Color(red: 0.46, green: 0.56, blue: 0.98),
+                        Color(red: 0.54, green: 0.36, blue: 0.78),
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -194,44 +194,9 @@ struct WindowCardView: View {
             .fill(expectedBarColor)
     }
 
-    private var brightFill: some View {
-        ZStack {
-            if isLocked {
-                barFill
-                barShape
-                    .fill(Color.white.opacity(0.28))
-            } else {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.56, green: 0.66, blue: 0.98),
-                        Color(red: 0.58, green: 0.4, blue: 0.8),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                barShape
-                    .fill(Color.white.opacity(0.18))
-            }
-        }
-        .clipShape(barShape)
-    }
-
     private var expectedBehindFill: some View {
-        Group {
-            if isLocked {
-                brightFill
-            } else {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.56, green: 0.66, blue: 0.98).opacity(0.78),
-                        Color(red: 0.58, green: 0.4, blue: 0.8).opacity(0.68),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        }
-        .clipShape(barShape)
+        barShape
+            .fill(Color.white.opacity(isLocked ? 0.18 : 0.2))
     }
 }
 
@@ -416,8 +381,8 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
             } else {
                 LinearGradient(
                     colors: [
-                        Color(red: 0.4, green: 0.49, blue: 0.92).opacity(0.28),
-                        Color(red: 0.46, green: 0.29, blue: 0.64).opacity(0.2),
+                        Color(red: 0.46, green: 0.56, blue: 0.98).opacity(0.32),
+                        Color(red: 0.54, green: 0.36, blue: 0.78).opacity(0.26),
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -432,22 +397,8 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
     }
 
     private var expectedBehindTint: some View {
-        Group {
-            if isLocked {
-                surfaceShape
-                    .fill(Color.white.opacity(isHovered ? 0.16 : 0.13))
-            } else {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.56, green: 0.66, blue: 0.98).opacity(isHovered ? 0.24 : 0.2),
-                        Color(red: 0.58, green: 0.4, blue: 0.8).opacity(isHovered ? 0.2 : 0.16),
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-        }
-        .clipShape(surfaceShape)
+        surfaceShape
+            .fill(Color.white.opacity(isHovered ? 0.14 : 0.12))
     }
 
     private var baseFillOpacity: Double {
@@ -465,6 +416,17 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 
                         if window.available {
                             if showsExpectedOverlay {
+                                tintedFill
+                                    .frame(width: geometry.size.width)
+                                    .mask(alignment: .leading) {
+                                        surfaceRangeMask(
+                                            totalWidth: geometry.size.width,
+                                            startFraction: 0,
+                                            endFraction: currentFraction,
+                                            roundTrailing: true
+                                        )
+                                    }
+
                                 expectedBehindTint
                                     .frame(width: geometry.size.width)
                                     .mask(alignment: .leading) {
@@ -472,17 +434,6 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
                                             totalWidth: geometry.size.width,
                                             startFraction: 0,
                                             endFraction: expectedFraction,
-                                            roundTrailing: false
-                                        )
-                                    }
-
-                                tintedFill
-                                    .frame(width: geometry.size.width)
-                                    .mask(alignment: .leading) {
-                                        surfaceRangeMask(
-                                            totalWidth: geometry.size.width,
-                                            startFraction: expectedFraction,
-                                            endFraction: currentFraction,
                                             roundTrailing: true
                                         )
                                     }
