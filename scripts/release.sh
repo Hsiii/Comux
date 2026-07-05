@@ -36,9 +36,9 @@ Options:
   --help, -h              Show this help.
 
 Examples:
-  scripts/release.sh 0.1.0
-  scripts/release.sh 0.1.0 --local-package
-  scripts/release.sh v0.1.0 --notes "Initial signed and notarized release"
+  scripts/release.sh 1.2.3
+  scripts/release.sh 1.2.3 --local-package
+  scripts/release.sh v1.2.3 --notes "Signed and notarized release"
 EOF
 }
 
@@ -127,7 +127,7 @@ TAG="v${VERSION}"
 
 if [[ ! "$VERSION" =~ ^[0-9]+[.][0-9]+[.][0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
     echo "Invalid version: $VERSION" >&2
-    echo "Use a semantic version like 0.1.0." >&2
+    echo "Use a semantic version like 1.2.3." >&2
     exit 1
 fi
 

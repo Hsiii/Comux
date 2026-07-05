@@ -81,13 +81,44 @@ done
 cd "$ROOT_DIR"
 
 latest_version() {
-    local tag
+    local repo tag
+
+    repo="$(release_repo)"
+    if [[ -n "$repo" ]] && command -v gh >/dev/null 2>&1; then
+        tag="$(
+            gh release view \
+                --repo "$repo" \
+                --json tagName \
+                --jq .tagName 2>/dev/null \
+                | sed -nE 's/^v?([0-9]+[.][0-9]+[.][0-9]+)$/\1/p'
+        )"
+        if [[ -n "$tag" ]]; then
+            printf '%s\n' "$tag"
+            return
+        fi
+    fi
+
     tag="$(
         git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname \
             | sed -nE 's/^v([0-9]+[.][0-9]+[.][0-9]+)$/\1/p' \
             | head -n1
     )"
     printf '%s\n' "${tag:-0.0.0}"
+}
+
+release_repo() {
+    local index
+
+    for ((index = 0; index < ${#release_args[@]}; index++)); do
+        if [[ "${release_args[$index]}" == "--repo" && $((index + 1)) -lt ${#release_args[@]} ]]; then
+            printf '%s\n' "${release_args[$((index + 1))]}"
+            return
+        fi
+    done
+
+    if command -v gh >/dev/null 2>&1; then
+        gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true
+    fi
 }
 
 bump_version() {
@@ -125,7 +156,7 @@ validate_version() {
     local version="$1"
     if [[ ! "$version" =~ ^v?[0-9]+[.][0-9]+[.][0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
         echo "Invalid version: $version" >&2
-        echo "Use a semantic version like 0.1.0." >&2
+        echo "Use a semantic version like 1.2.3." >&2
         exit 1
     fi
 }
