@@ -203,6 +203,12 @@ final class PulseCoordinator: ObservableObject {
                responseWorkspaceAccountID != self.normalizeWorkspaceAccountID(workspaceAccountID) {
                 continue
             }
+            let resetCredits = try? await self.fetchRateLimitResetCredits(
+                accessToken: identity.accessToken,
+                cookieHeader: nil,
+                usageEndpoint: nil,
+                accountHeader: workspaceAccountID
+            )
 
             snapshots.append(
                 try self.normalizeUsage(
@@ -219,16 +225,24 @@ final class PulseCoordinator: ObservableObject {
                     plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
                     source: "live system auth",
                     systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
-                    isCurrentSystemAccount: self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID
+                    isCurrentSystemAccount: self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID,
+                    resetCredits: resetCredits
                 )
             )
         }
 
         if snapshots.allSatisfy({ $0.isCurrentSystemAccount != true }) {
+            let resetCredits = try? await self.fetchRateLimitResetCredits(
+                accessToken: identity.accessToken,
+                cookieHeader: nil,
+                usageEndpoint: nil,
+                accountHeader: (currentUsage["account_id"] as? String) ?? identity.accountId
+            )
             snapshots.append(
                 try self.buildCurrentSystemSnapshot(
                     currentUsage,
-                    identity: identity
+                    identity: identity,
+                    resetCredits: resetCredits
                 )
             )
         }
@@ -238,7 +252,8 @@ final class PulseCoordinator: ObservableObject {
 
     private func buildCurrentSystemSnapshot(
         _ currentUsage: [String: Any],
-        identity: SystemAuthIdentity
+        identity: SystemAuthIdentity,
+        resetCredits: CodexResetCredits?
     ) throws -> AccountSnapshot {
         let plan = self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType)
         let workspaceLabel = self.resolveWorkspaceLabel(
@@ -260,7 +275,8 @@ final class PulseCoordinator: ObservableObject {
             plan: plan,
             source: "live system auth",
             systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
-            isCurrentSystemAccount: true
+            isCurrentSystemAccount: true,
+            resetCredits: resetCredits
         )
     }
 
@@ -280,6 +296,12 @@ final class PulseCoordinator: ObservableObject {
             cookieHeader: account.chatGPTCookie,
             workspaceAccountID: workspaceAccountID
         )) ?? account.workspaceLabel
+        let resetCredits = try? await self.fetchRateLimitResetCredits(
+            accessToken: accessToken,
+            cookieHeader: account.chatGPTCookie,
+            usageEndpoint: account.usageEndpoint,
+            accountHeader: workspaceAccountID
+        )
 
         return try self.normalizeUsage(
             rawUsage,
@@ -293,7 +315,8 @@ final class PulseCoordinator: ObservableObject {
                 : self.displayPlan(rawUsage["plan_type"] as? String),
             source: account.source ?? "native cookie sync",
             systemAuthProfileID: nil,
-            isCurrentSystemAccount: false
+            isCurrentSystemAccount: false,
+            resetCredits: resetCredits
         )
     }
 
@@ -391,6 +414,57 @@ final class PulseCoordinator: ObservableObject {
         )
     }
 
+    private func fetchRateLimitResetCredits(
+        accessToken: String,
+        cookieHeader: String?,
+        usageEndpoint: String?,
+        accountHeader: String?
+    ) async throws -> CodexResetCredits {
+        var request = URLRequest(
+            url: URL(string: self.rateLimitResetCreditsEndpoint(from: usageEndpoint))!,
+            timeoutInterval: 4
+        )
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Comux", forHTTPHeaderField: "User-Agent")
+        request.setValue("codex-1", forHTTPHeaderField: "OpenAI-Beta")
+        request.setValue("Codex Desktop", forHTTPHeaderField: "originator")
+
+        if let cookieHeader, !cookieHeader.isEmpty {
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        }
+
+        if let accountHeader, !accountHeader.isEmpty {
+            request.setValue(accountHeader, forHTTPHeaderField: "ChatGPT-Account-ID")
+        }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        return try ResetCreditsPayloadParser.parse(
+            data: data,
+            response: response
+        )
+    }
+
+    private func rateLimitResetCreditsEndpoint(from usageEndpoint: String?) -> String {
+        let fallback = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
+        guard let usageEndpoint,
+              var components = URLComponents(string: usageEndpoint)
+        else {
+            return fallback
+        }
+
+        if components.path.hasSuffix("/wham/usage") {
+            components.path = components.path.replacingOccurrences(
+                of: "/wham/usage",
+                with: "/wham/rate-limit-reset-credits"
+            )
+            return components.url?.absoluteString ?? fallback
+        }
+
+        return fallback
+    }
+
     private func fetchWorkspaceItems(
         accessToken: String,
         cookieHeader: String?
@@ -445,7 +519,8 @@ final class PulseCoordinator: ObservableObject {
         plan: String,
         source: String,
         systemAuthProfileID: String?,
-        isCurrentSystemAccount: Bool
+        isCurrentSystemAccount: Bool,
+        resetCredits: CodexResetCredits?
     ) throws -> AccountSnapshot {
         let windows = self.resolveWindows(rateLimit: payload["rate_limit"] as? [String: Any])
         let now = ISO8601DateFormatter().string(from: Date())
@@ -479,7 +554,8 @@ final class PulseCoordinator: ObservableObject {
             isCurrentSystemAccount: isCurrentSystemAccount,
             lastSyncedAt: now,
             weeklyWindow: windows.weeklyWindow,
-            rollingWindow: windows.rollingWindow
+            rollingWindow: windows.rollingWindow,
+            resetCredits: resetCredits
         )
     }
 

@@ -13,6 +13,12 @@ struct UsageWindow: Codable {
     }
 }
 
+struct CodexResetCredits: Codable, Equatable {
+    let availableCount: Int
+    let nextExpiresAt: String?
+    let updatedAt: String
+}
+
 struct AccountSnapshot: Codable, Identifiable {
     let accountId: String
     let label: String
@@ -26,8 +32,39 @@ struct AccountSnapshot: Codable, Identifiable {
     let lastSyncedAt: String
     let weeklyWindow: UsageWindow
     let rollingWindow: UsageWindow
+    let resetCredits: CodexResetCredits?
 
     var id: String { self.accountId }
+
+    init(
+        accountId: String,
+        label: String,
+        email: String,
+        workspaceId: String?,
+        workspaceLabel: String,
+        plan: String,
+        source: String,
+        systemAuthProfileId: String?,
+        isCurrentSystemAccount: Bool?,
+        lastSyncedAt: String,
+        weeklyWindow: UsageWindow,
+        rollingWindow: UsageWindow,
+        resetCredits: CodexResetCredits? = nil
+    ) {
+        self.accountId = accountId
+        self.label = label
+        self.email = email
+        self.workspaceId = workspaceId
+        self.workspaceLabel = workspaceLabel
+        self.plan = plan
+        self.source = source
+        self.systemAuthProfileId = systemAuthProfileId
+        self.isCurrentSystemAccount = isCurrentSystemAccount
+        self.lastSyncedAt = lastSyncedAt
+        self.weeklyWindow = weeklyWindow
+        self.rollingWindow = rollingWindow
+        self.resetCredits = resetCredits
+    }
 }
 
 struct CacheMeta: Codable {

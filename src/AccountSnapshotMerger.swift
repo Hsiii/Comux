@@ -94,7 +94,8 @@ struct AccountSnapshotMerger {
             rollingWindow: self.preferredUsageWindow(
                 current: existing.rollingWindow,
                 candidate: incoming.rollingWindow
-            )
+            ),
+            resetCredits: incoming.resetCredits ?? existing.resetCredits
         )
     }
 
@@ -363,7 +364,8 @@ struct AccountSnapshotMerger {
             isCurrentSystemAccount: isCurrentSystemAccount,
             lastSyncedAt: account.lastSyncedAt,
             weeklyWindow: account.weeklyWindow,
-            rollingWindow: account.rollingWindow
+            rollingWindow: account.rollingWindow,
+            resetCredits: account.resetCredits
         )
     }
 }

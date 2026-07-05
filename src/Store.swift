@@ -111,7 +111,8 @@ final class CacheStore {
             isCurrentSystemAccount: account.isCurrentSystemAccount,
             lastSyncedAt: account.lastSyncedAt,
             weeklyWindow: account.weeklyWindow,
-            rollingWindow: account.rollingWindow
+            rollingWindow: account.rollingWindow,
+            resetCredits: account.resetCredits
         )
     }
 
@@ -139,7 +140,8 @@ final class CacheStore {
             isCurrentSystemAccount: newest.isCurrentSystemAccount,
             lastSyncedAt: newest.lastSyncedAt,
             weeklyWindow: newest.weeklyWindow,
-            rollingWindow: newest.rollingWindow
+            rollingWindow: newest.rollingWindow,
+            resetCredits: newest.resetCredits
         )
     }
 }

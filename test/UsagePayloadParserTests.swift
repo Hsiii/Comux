@@ -77,6 +77,71 @@ final class UsagePayloadParserTests: XCTestCase {
         XCTAssertEqual(payload["email"] as? String, "person@example.com")
     }
 
+    func testParsesAvailableResetCreditsAndNextExpiry() throws {
+        let data = try self.jsonData([
+            "credits": [
+                [
+                    "id": "expired",
+                    "reset_type": "codex_rate_limits",
+                    "status": "available",
+                    "granted_at": "2026-06-01T00:00:00Z",
+                    "expires_at": "2026-06-20T00:00:00Z",
+                ],
+                [
+                    "id": "later",
+                    "reset_type": "codex_rate_limits",
+                    "status": "available",
+                    "granted_at": "2026-06-18T00:39:53.731630Z",
+                    "expires_at": "2026-07-18T00:39:53.731630Z",
+                ],
+                [
+                    "id": "earlier",
+                    "reset_type": "codex_rate_limits",
+                    "status": "available",
+                    "granted_at": "2026-06-12T04:03:43.263391Z",
+                    "expires_at": "2026-07-12T04:03:43.263391Z",
+                ],
+                [
+                    "id": "redeemed",
+                    "reset_type": "codex_rate_limits",
+                    "status": "redeemed",
+                    "granted_at": "2026-06-12T04:03:43Z",
+                    "expires_at": "2026-07-10T04:03:43Z",
+                ],
+            ],
+            "available_count": 2,
+        ])
+        let response = HTTPURLResponse(
+            url: URL(string: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+        let now = ISO8601DateFormatter().date(from: "2026-07-01T00:00:00Z")!
+
+        let resetCredits = try ResetCreditsPayloadParser.parse(
+            data: data,
+            response: response,
+            now: now
+        )
+
+        XCTAssertEqual(resetCredits.availableCount, 2)
+        XCTAssertEqual(resetCredits.nextExpiresAt, "2026-07-12T04:03:43Z")
+    }
+
+    func testResetCreditSummaryShowsCountAndNextExpiry() {
+        let resetCredits = CodexResetCredits(
+            availableCount: 1,
+            nextExpiresAt: Date().addingTimeInterval((2 * 24 * 60 * 60) + (3 * 60 * 60)).ISO8601Format(),
+            updatedAt: Date().ISO8601Format()
+        )
+
+        XCTAssertEqual(
+            resetCreditsSummaryText(for: resetCredits),
+            "1 reset available • next expires in 2d 2h"
+        )
+    }
+
     private func jsonData(_ value: [String: Any]) throws -> Data {
         try JSONSerialization.data(withJSONObject: value)
     }

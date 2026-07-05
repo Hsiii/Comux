@@ -1,7 +1,17 @@
 import SwiftUI
 
+func parseISO8601Date(_ value: String) -> Date? {
+    let fractionalFormatter = ISO8601DateFormatter()
+    fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = fractionalFormatter.date(from: value) {
+        return date
+    }
+
+    return ISO8601DateFormatter().date(from: value)
+}
+
 func formatCountdown(_ value: String) -> String {
-    guard let date = ISO8601DateFormatter().date(from: value) else {
+    guard let date = parseISO8601Date(value) else {
         return "n/a"
     }
 
@@ -28,7 +38,7 @@ func formatCountdown(_ value: String) -> String {
 }
 
 func formatRelative(_ value: String) -> String {
-    guard let date = ISO8601DateFormatter().date(from: value) else {
+    guard let date = parseISO8601Date(value) else {
         return value
     }
 
@@ -46,7 +56,7 @@ func remainingPercentage(for window: UsageWindow) -> Int {
 }
 
 func hasJustReset(_ window: UsageWindow, now: Date = Date()) -> Bool {
-    guard let resetDate = ISO8601DateFormatter().date(from: window.resetsAt) else {
+    guard let resetDate = parseISO8601Date(window.resetsAt) else {
         return false
     }
 
@@ -127,6 +137,29 @@ func resetPaceText(for window: UsageWindow) -> String {
     let delta = currentExpectationDelta(for: window)
     let deltaText = delta > 0 ? "+\(delta)%" : "\(delta)%"
     return "\(deltaText) • Resets in \(formatCountdown(window.resetsAt))"
+}
+
+func resetCreditsSummaryText(for resetCredits: CodexResetCredits?) -> String? {
+    guard let resetCredits else {
+        return nil
+    }
+
+    guard resetCredits.availableCount > 0 else {
+        return "No resets available"
+    }
+
+    let availableText = resetCredits.availableCount == 1
+        ? "1 reset available"
+        : "\(resetCredits.availableCount) resets available"
+
+    guard let nextExpiresAt = resetCredits.nextExpiresAt,
+          let expiryDate = parseISO8601Date(nextExpiresAt),
+          expiryDate > Date()
+    else {
+        return availableText
+    }
+
+    return "\(availableText) • next expires in \(formatCountdown(nextExpiresAt))"
 }
 
 func currentExpectationDelta(for window: UsageWindow) -> Int {
@@ -262,7 +295,7 @@ func windowDuration(for window: UsageWindow) -> TimeInterval? {
 func expectedRemainingPercentage(for window: UsageWindow) -> Double {
     guard window.available,
           let duration = windowDuration(for: window),
-          let resetDate = ISO8601DateFormatter().date(from: window.resetsAt)
+          let resetDate = parseISO8601Date(window.resetsAt)
     else {
         return 0
     }
@@ -276,7 +309,7 @@ func isFreshResetWindow(_ window: UsageWindow, now: Date = Date()) -> Bool {
     guard window.available,
           window.usedMinutes == 0,
           remainingPercentage(for: window) == 100,
-          let resetDate = ISO8601DateFormatter().date(from: window.resetsAt)
+          let resetDate = parseISO8601Date(window.resetsAt)
     else {
         return false
     }
@@ -332,8 +365,8 @@ func sortedAccountsByResetTime(
             return leftCurrent > rightCurrent
         }
 
-        let leftDate = ISO8601DateFormatter().date(from: left.weeklyWindow.resetsAt)
-        let rightDate = ISO8601DateFormatter().date(from: right.weeklyWindow.resetsAt)
+        let leftDate = parseISO8601Date(left.weeklyWindow.resetsAt)
+        let rightDate = parseISO8601Date(right.weeklyWindow.resetsAt)
 
         switch (leftDate, rightDate) {
         case let (leftDate?, rightDate?) where leftDate != rightDate:

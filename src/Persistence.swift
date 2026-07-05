@@ -228,7 +228,10 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 rolling_used_minutes INTEGER NOT NULL,
                 rolling_limit_minutes INTEGER NOT NULL,
                 rolling_used_percentage REAL NOT NULL,
-                rolling_resets_at TEXT NOT NULL
+                rolling_resets_at TEXT NOT NULL,
+                reset_credits_available_count INTEGER,
+                reset_credits_next_expires_at TEXT,
+                reset_credits_updated_at TEXT
             );
             """
         )
@@ -337,19 +340,28 @@ final class DurableStoreCoordinator: @unchecked Sendable {
     }
 
     private func migrateAccountSnapshotSchemaIfNeededLocked() throws {
-        guard try !self.columnExistsLocked(
-            table: "account_snapshots",
-            column: "system_auth_profile_id"
-        ) else {
-            return
-        }
+        let optionalColumns = [
+            ("system_auth_profile_id", "TEXT"),
+            ("reset_credits_available_count", "INTEGER"),
+            ("reset_credits_next_expires_at", "TEXT"),
+            ("reset_credits_updated_at", "TEXT"),
+        ]
 
-        try self.executeLocked(
-            """
-            ALTER TABLE account_snapshots
-            ADD COLUMN system_auth_profile_id TEXT;
-            """
-        )
+        for (column, type) in optionalColumns {
+            guard try !self.columnExistsLocked(
+                table: "account_snapshots",
+                column: column
+            ) else {
+                continue
+            }
+
+            try self.executeLocked(
+                """
+                ALTER TABLE account_snapshots
+                ADD COLUMN \(column) \(type);
+                """
+            )
+        }
     }
 
     private func loadLegacyCacheLocked() -> CachePayload {
@@ -523,7 +535,10 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 rolling_used_minutes,
                 rolling_limit_minutes,
                 rolling_used_percentage,
-                rolling_resets_at
+                rolling_resets_at,
+                reset_credits_available_count,
+                reset_credits_next_expires_at,
+                reset_credits_updated_at
             FROM account_snapshots
             ORDER BY label COLLATE NOCASE ASC;
             """
@@ -549,6 +564,13 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 usedPercentage: sqlite3_column_double(statement, 20),
                 resetsAt: self.columnText(statement, index: 21) ?? ""
             )
+            let resetCredits = sqlite3_column_type(statement, 22) == SQLITE_NULL
+                ? nil
+                : CodexResetCredits(
+                    availableCount: Int(sqlite3_column_int(statement, 22)),
+                    nextExpiresAt: self.columnText(statement, index: 23),
+                    updatedAt: self.columnText(statement, index: 24) ?? ""
+                )
 
             snapshots.append(
                 AccountSnapshot(
@@ -565,7 +587,8 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                         : sqlite3_column_int(statement, 8) != 0,
                     lastSyncedAt: self.columnText(statement, index: 9) ?? "",
                     weeklyWindow: weekly,
-                    rollingWindow: rolling
+                    rollingWindow: rolling,
+                    resetCredits: resetCredits
                 )
             )
         }
@@ -600,8 +623,11 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 rolling_used_minutes,
                 rolling_limit_minutes,
                 rolling_used_percentage,
-                rolling_resets_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                rolling_resets_at,
+                reset_credits_available_count,
+                reset_credits_next_expires_at,
+                reset_credits_updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             """
         )
         defer { sqlite3_finalize(statement) }
@@ -632,6 +658,15 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             sqlite3_bind_int(statement, 20, Int32(snapshot.rollingWindow.limitMinutes))
             sqlite3_bind_double(statement, 21, snapshot.rollingWindow.usedPercentage)
             self.bindText(snapshot.rollingWindow.resetsAt, to: statement, index: 22)
+            if let resetCredits = snapshot.resetCredits {
+                sqlite3_bind_int(statement, 23, Int32(resetCredits.availableCount))
+                self.bindOptionalText(resetCredits.nextExpiresAt, to: statement, index: 24)
+                self.bindText(resetCredits.updatedAt, to: statement, index: 25)
+            } else {
+                sqlite3_bind_null(statement, 23)
+                sqlite3_bind_null(statement, 24)
+                sqlite3_bind_null(statement, 25)
+            }
 
             try self.stepDoneLocked(statement)
         }
