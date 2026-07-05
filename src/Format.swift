@@ -76,20 +76,14 @@ func percentageText(for window: UsageWindow) -> String {
 }
 
 func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot? {
-    if let currentSystemAccount = accounts
+    accounts
         .filter({ $0.isCurrentSystemAccount == true && $0.rollingWindow.available })
         .sorted(by: { left, right in
             let leftDate = ISO8601DateFormatter().date(from: left.lastSyncedAt) ?? .distantPast
             let rightDate = ISO8601DateFormatter().date(from: right.lastSyncedAt) ?? .distantPast
             return leftDate > rightDate
         })
-        .first {
-        return currentSystemAccount
-    }
-
-    return sortedAccountsByResetTime(accounts) { account in
-        account.label.isEmpty ? account.email : account.label
-    }.first
+        .first
 }
 
 func menuBarUsageText(from accounts: [AccountSnapshot]) -> String? {

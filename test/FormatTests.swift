@@ -235,4 +235,65 @@ final class FormatTests: XCTestCase {
 
         XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "28%")
     }
+
+    func testMenuBarUsageTextHidesWhenNoAccountIsCurrent() {
+        let loggedOutAccount = AccountSnapshot(
+            accountId: "logged-out",
+            label: "Logged Out",
+            email: "logged-out@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: nil,
+            isCurrentSystemAccount: false,
+            lastSyncedAt: "2026-06-13T00:00:00Z",
+            weeklyWindow: UsageWindow(
+                available: true,
+                label: "Weekly window",
+                usedMinutes: 40,
+                limitMinutes: 100,
+                usedPercentage: 40,
+                resetsAt: "2099-06-19T00:00:00Z"
+            ),
+            rollingWindow: UsageWindow(
+                available: true,
+                label: "Rolling 5-hour window",
+                usedMinutes: 25,
+                limitMinutes: 100,
+                usedPercentage: 25,
+                resetsAt: "2099-06-12T05:00:00Z"
+            )
+        )
+        let historicalAccount = AccountSnapshot(
+            accountId: "historical",
+            label: "Historical",
+            email: "historical@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: nil,
+            isCurrentSystemAccount: nil,
+            lastSyncedAt: "2026-06-12T00:00:00Z",
+            weeklyWindow: UsageWindow(
+                available: true,
+                label: "Weekly window",
+                usedMinutes: 10,
+                limitMinutes: 100,
+                usedPercentage: 10,
+                resetsAt: "2099-06-19T00:00:00Z"
+            ),
+            rollingWindow: UsageWindow(
+                available: true,
+                label: "Rolling 5-hour window",
+                usedMinutes: 5,
+                limitMinutes: 100,
+                usedPercentage: 5,
+                resetsAt: "2099-06-12T05:00:00Z"
+            )
+        )
+
+        XCTAssertNil(menuBarUsageText(from: [loggedOutAccount, historicalAccount]))
+    }
 }
