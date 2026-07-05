@@ -196,7 +196,7 @@ struct WindowCardView: View {
 
     private var expectedBehindFill: some View {
         barShape
-            .fill(Color.white.opacity(isLocked ? 0.18 : 0.2))
+            .fill(Color.white.opacity(isLocked ? 0.12 : 0.14))
     }
 }
 
@@ -398,7 +398,7 @@ struct WeeklyUsageSurfaceView<Content: View>: View {
 
     private var expectedBehindTint: some View {
         surfaceShape
-            .fill(Color.white.opacity(isHovered ? 0.14 : 0.12))
+            .fill(Color.white.opacity(isHovered ? 0.1 : 0.08))
     }
 
     private var baseFillOpacity: Double {
