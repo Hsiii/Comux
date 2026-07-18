@@ -134,6 +134,7 @@ final class UsagePayloadParserTests: XCTestCase {
         XCTAssertEqual(windows.map(\.id), ["burst_window"])
         XCTAssertEqual(windows[0].label, "1-hour window")
         XCTAssertEqual(windows[0].scope, .shortHorizon)
+        XCTAssertEqual(displayWindowLabel(for: windows[0]), "1h")
     }
 
     func testParsesAvailableResetCreditsAndNextExpiry() throws {

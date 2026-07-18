@@ -419,7 +419,7 @@ struct SlimDashboardPanelView: View {
     }
 
     private var rows: [AccountRowModel] {
-        let sortedAccounts = sortedAccountsByResetTime(coordinator.cache.accounts) { account in
+        let sortedAccounts = sortedAccountsByHeadroom(coordinator.cache.accounts) { account in
             displayNameStore.displayName(for: account)
         }
 

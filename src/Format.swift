@@ -75,17 +75,11 @@ func percentageText(for window: UsageWindow) -> String {
     return "\(displayRemainingPercentage(for: window))%"
 }
 
-func primaryMenuBarAccount(
-    from accounts: [AccountSnapshot],
-    supportsFiveHourLimit: Bool = FeatureFlags.supportsFiveHourLimit
-) -> AccountSnapshot? {
+func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot? {
     accounts
         .filter({ account in
             account.isCurrentSystemAccount == true
-                && menuBarUsageWindow(
-                    for: account,
-                    supportsFiveHourLimit: supportsFiveHourLimit
-                ).available
+                && account.primaryUsageWindow.available
         })
         .sorted(by: { left, right in
             let leftDate = ISO8601DateFormatter().date(from: left.lastSyncedAt) ?? .distantPast
@@ -95,50 +89,20 @@ func primaryMenuBarAccount(
         .first
 }
 
-func menuBarUsageText(
-    from accounts: [AccountSnapshot],
-    supportsFiveHourLimit: Bool = FeatureFlags.supportsFiveHourLimit
-) -> String? {
-    guard let account = primaryMenuBarAccount(
-        from: accounts,
-        supportsFiveHourLimit: supportsFiveHourLimit
-    ) else {
+func menuBarUsageText(from accounts: [AccountSnapshot]) -> String? {
+    guard let account = primaryMenuBarAccount(from: accounts) else {
         return nil
     }
 
-    return percentageText(
-        for: menuBarUsageWindow(
-            for: account,
-            supportsFiveHourLimit: supportsFiveHourLimit
-        )
-    )
+    return percentageText(for: account.primaryUsageWindow)
 }
 
-private func menuBarUsageWindow(
-    for account: AccountSnapshot,
-    supportsFiveHourLimit: Bool
-) -> UsageWindow {
-    supportsFiveHourLimit ? account.rollingWindow : account.weeklyWindow
-}
-
-func sessionBadgeText(for window: UsageWindow) -> String {
-    if isRollingWindowLocked(window) {
-        return "Session locked"
-    }
-
+func usageWindowResetText(for window: UsageWindow) -> String {
     if hasJustReset(window) || isFreshResetWindow(window) {
-        return "Session fresh"
+        return "Fresh window"
     }
 
-    return "Session \(percentageText(for: window))"
-}
-
-func sessionResetText(for window: UsageWindow) -> String {
-    if hasJustReset(window) || isFreshResetWindow(window) {
-        return "Fresh session"
-    }
-
-    return "Session resets in \(formatCountdown(window.resetsAt))"
+    return "Resets in \(formatCountdown(window.resetsAt))"
 }
 
 func resetPaceText(for window: UsageWindow) -> String {
@@ -187,6 +151,23 @@ func currentExpectationDelta(for window: UsageWindow) -> Int {
 }
 
 func displayWindowLabel(for window: UsageWindow) -> String {
+    if let durationSeconds = window.durationSeconds, durationSeconds > 0 {
+        let day = 24 * 60 * 60
+        let hour = 60 * 60
+
+        if durationSeconds == 7 * day {
+            return "Weekly"
+        }
+
+        if durationSeconds.isMultiple(of: day) {
+            return "\(durationSeconds / day)d"
+        }
+
+        if durationSeconds.isMultiple(of: hour) {
+            return "\(durationSeconds / hour)h"
+        }
+    }
+
     let label = window.label.lowercased()
 
     if label.contains("30-day") || label.contains("30d") || label.contains("monthly") {
@@ -294,7 +275,29 @@ func compactAccountTag(for account: AccountSnapshot) -> String? {
     accountTierText(for: account)
 }
 
+func compactAccountMetadata(for account: AccountSnapshot) -> String? {
+    let accountTag = compactAccountTag(for: account)
+    let resetCreditsTag = account.resetCredits.flatMap { resetCredits -> String? in
+        guard resetCredits.availableCount > 0 else {
+            return nil
+        }
+
+        return resetCredits.availableCount == 1
+            ? "1 reset"
+            : "\(resetCredits.availableCount) resets"
+    }
+
+    let parts = [accountTag, resetCreditsTag]
+        .compactMap { $0 }
+        .filter { !$0.isEmpty }
+    return parts.isEmpty ? nil : parts.joined(separator: " • ")
+}
+
 func windowDuration(for window: UsageWindow) -> TimeInterval? {
+    if let durationSeconds = window.durationSeconds, durationSeconds > 0 {
+        return TimeInterval(durationSeconds)
+    }
+
     let label = window.label.lowercased()
 
     if label.contains("30-day") || label.contains("30d") || label.contains("monthly") {
@@ -337,26 +340,28 @@ func isFreshResetWindow(_ window: UsageWindow, now: Date = Date()) -> Bool {
     return resetDate <= now
 }
 
-func isRollingWindowLocked(_ window: UsageWindow) -> Bool {
+func isUsageWindowLocked(_ window: UsageWindow) -> Bool {
     window.available && remainingPercentage(for: window) == 0 && !hasJustReset(window)
 }
 
-func shouldShowRollingLock(
+func shouldShowShortHorizonLock(
     for account: AccountSnapshot,
     supportsFiveHourLimit: Bool = FeatureFlags.supportsFiveHourLimit
 ) -> Bool {
     supportsFiveHourLimit
-        && isRollingWindowLocked(account.rollingWindow)
-        && displayRemainingPercentage(for: account.weeklyWindow) > 0
+        && isUsageWindowLocked(account.rollingWindow)
+        && displayRemainingPercentage(for: account.primaryUsageWindow) > 0
 }
 
-func sortedAccountsByResetTime(
+func sortedAccountsByHeadroom(
     _ accounts: [AccountSnapshot],
     displayName: (AccountSnapshot) -> String
 ) -> [AccountSnapshot] {
     return accounts.sorted { left, right in
-        let leftCurrent = displayRemainingPercentage(for: left.weeklyWindow)
-        let rightCurrent = displayRemainingPercentage(for: right.weeklyWindow)
+        let leftWindow = left.primaryUsageWindow
+        let rightWindow = right.primaryUsageWindow
+        let leftCurrent = displayRemainingPercentage(for: leftWindow)
+        let rightCurrent = displayRemainingPercentage(for: rightWindow)
         let leftIsFull = leftCurrent == 100
         let rightIsFull = rightCurrent == 100
         let leftIsEmpty = leftCurrent == 0
@@ -379,8 +384,8 @@ func sortedAccountsByResetTime(
             return !leftIsEmpty
         }
 
-        let leftDelta = currentExpectationDelta(for: left.weeklyWindow)
-        let rightDelta = currentExpectationDelta(for: right.weeklyWindow)
+        let leftDelta = currentExpectationDelta(for: leftWindow)
+        let rightDelta = currentExpectationDelta(for: rightWindow)
 
         if leftDelta != rightDelta {
             return leftDelta > rightDelta
@@ -390,8 +395,8 @@ func sortedAccountsByResetTime(
             return leftCurrent > rightCurrent
         }
 
-        let leftDate = parseISO8601Date(left.weeklyWindow.resetsAt)
-        let rightDate = parseISO8601Date(right.weeklyWindow.resetsAt)
+        let leftDate = parseISO8601Date(leftWindow.resetsAt)
+        let rightDate = parseISO8601Date(rightWindow.resetsAt)
 
         switch (leftDate, rightDate) {
         case let (leftDate?, rightDate?) where leftDate != rightDate:

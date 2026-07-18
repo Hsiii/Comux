@@ -48,7 +48,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(currentExpectationDelta(for: window), 0)
     }
 
-    func testWeeklyExhaustedAccountHidesRollingLockCountdown() {
+    func testPrimaryWindowExhaustionHidesShortHorizonLockCountdown() {
         let account = AccountSnapshot(
             accountId: "used-up",
             label: "Used Up",
@@ -78,14 +78,14 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertFalse(shouldShowRollingLock(for: account))
+        XCTAssertFalse(shouldShowShortHorizonLock(for: account))
     }
 
     @MainActor
-    func testRollingLockStillShowsWhenWeeklyUsageRemains() {
+    func testShortHorizonLockStillShowsWhenPrimaryUsageRemains() {
         let account = AccountSnapshot(
             accountId: "session-locked",
-            label: "Session Locked",
+            label: "Short Window Locked",
             email: "session-locked@example.com",
             workspaceId: nil,
             workspaceLabel: "Personal",
@@ -112,19 +112,12 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertTrue(shouldShowRollingLock(for: account, supportsFiveHourLimit: true))
-        XCTAssertFalse(shouldShowRollingLock(for: account, supportsFiveHourLimit: false))
-        XCTAssertEqual(
-            AccountCardView.height(for: account, supportsFiveHourLimit: true),
-            AccountCardView.expandedHeight
-        )
-        XCTAssertEqual(
-            AccountCardView.height(for: account, supportsFiveHourLimit: false),
-            AccountCardView.collapsedHeight
-        )
+        XCTAssertTrue(shouldShowShortHorizonLock(for: account, supportsFiveHourLimit: true))
+        XCTAssertFalse(shouldShowShortHorizonLock(for: account, supportsFiveHourLimit: false))
+        XCTAssertEqual(AccountCardView.height(for: account), AccountCardView.collapsedHeight)
     }
 
-    func testMenuBarUsageTextUsesTopRankedRollingWindowPercentage() {
+    func testMenuBarUsageTextUsesCurrentAccountLongHorizonPercentage() {
         let topAccount = AccountSnapshot(
             accountId: "top",
             label: "Top",
@@ -182,23 +175,14 @@ final class FormatTests: XCTestCase {
             )
         )
 
+        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "30%")
         XCTAssertEqual(
-            menuBarUsageText(
-                from: [lowerRankedAccount, topAccount],
-                supportsFiveHourLimit: true
-            ),
-            "65%"
-        )
-        XCTAssertEqual(
-            menuBarUsageText(
-                from: [lowerRankedAccount, topAccount],
-                supportsFiveHourLimit: false
-            ),
-            "30%"
+            sortedAccountsByHeadroom([lowerRankedAccount, topAccount]) { $0.label }.map(\.id),
+            ["top", "lower"]
         )
     }
 
-    func testMenuBarUsageTextPrefersCurrentSystemRollingWindow() {
+    func testMenuBarUsageTextPrefersCurrentSystemPrimaryWindow() {
         let staleTopRankedAccount = AccountSnapshot(
             accountId: "stale",
             label: "Stale",
@@ -256,13 +240,7 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(
-            menuBarUsageText(
-                from: [staleTopRankedAccount, currentAccount],
-                supportsFiveHourLimit: true
-            ),
-            "28%"
-        )
+        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "60%")
     }
 
     func testMenuBarUsageTextHidesWhenNoAccountIsCurrent() {

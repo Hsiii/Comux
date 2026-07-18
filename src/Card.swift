@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 
 private let accountCardHeight: CGFloat = 56
-private let activeAccountCardHeight: CGFloat = 112
 private let accountCardCornerRadius: CGFloat = 16
 
 enum WindowHeaderPlacement {
@@ -234,7 +233,7 @@ struct RollingUsageInlineView: View {
         Circle()
             .trim(from: 0, to: currentFraction)
             .stroke(
-                Color.white.opacity(isRollingWindowLocked(window) ? 0.66 : 0.92),
+                Color.white.opacity(isUsageWindowLocked(window) ? 0.66 : 0.92),
                 style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
             )
             .rotationEffect(.degrees(-90))
@@ -269,8 +268,8 @@ struct RollingUsageInlineView: View {
         .frame(width: size, height: size)
         .opacity(window.available ? 1 : 0)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("5 hour session usage")
-        .accessibilityValue(sessionResetText(for: window) + ", " + percentageText(for: window) + " remaining")
+        .accessibilityLabel("Usage window")
+        .accessibilityValue(usageWindowResetText(for: window) + ", " + percentageText(for: window) + " remaining")
     }
 }
 
@@ -296,7 +295,7 @@ struct HeaderIdentityClusterView: View {
                 .font(nameFont)
                 .lineLimit(1)
 
-            if isRollingWindowLocked(rollingWindow) {
+            if isUsageWindowLocked(rollingWindow) {
                 HStack(alignment: .firstTextBaseline, spacing: lockCountdownSpacing) {
                     Image(systemName: "lock.fill")
                         .font(nameFont.weight(.semibold))
@@ -315,7 +314,7 @@ struct HeaderIdentityClusterView: View {
     }
 }
 
-struct WeeklyUsageSurfaceView<Content: View>: View {
+struct UsageSurfaceView<Content: View>: View {
     let window: UsageWindow
     let isLocked: Bool
     let isActive: Bool
@@ -621,15 +620,9 @@ private struct AccountCardMenuTrigger: NSViewRepresentable {
 
 struct AccountCardView: View {
     static let collapsedHeight: CGFloat = accountCardHeight
-    static let expandedHeight: CGFloat = activeAccountCardHeight
 
-    static func height(
-        for account: AccountSnapshot,
-        supportsFiveHourLimit: Bool = FeatureFlags.supportsFiveHourLimit
-    ) -> CGFloat {
-        account.isCurrentSystemAccount == true && supportsFiveHourLimit
-            ? Self.expandedHeight
-            : Self.collapsedHeight
+    static func height(for account: AccountSnapshot) -> CGFloat {
+        Self.collapsedHeight
     }
 
     let account: AccountSnapshot
@@ -639,8 +632,6 @@ struct AccountCardView: View {
     let onRemove: () -> Void
     @State private var isHovered = false
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
-    private let expandedContentInsets = EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
-    private let expandedSectionGap: CGFloat = 10
     private let identityClusterWidth: CGFloat = 188
     private let identitySpacing: CGFloat = 6
 
@@ -656,12 +647,8 @@ struct AccountCardView: View {
         Self.height(for: account)
     }
 
-    private var isExpanded: Bool {
-        account.isCurrentSystemAccount == true && FeatureFlags.supportsFiveHourLimit
-    }
-
-    private var resetCredits: CodexResetCredits? {
-        account.resetCredits
+    private var primaryWindow: UsageWindow {
+        account.primaryUsageWindow
     }
 
     var body: some View {
@@ -673,24 +660,15 @@ struct AccountCardView: View {
     }
 
     private var cardContent: some View {
-        WeeklyUsageSurfaceView(
-            window: account.weeklyWindow,
-            isLocked: FeatureFlags.supportsFiveHourLimit && isRollingWindowLocked(account.rollingWindow),
+        UsageSurfaceView(
+            window: primaryWindow,
+            isLocked: isUsageWindowLocked(primaryWindow),
             isActive: account.isCurrentSystemAccount == true,
             isHovered: isHovered,
             topCornerRadius: accountCardCornerRadius,
             bottomCornerRadius: accountCardCornerRadius,
-            contentInsets: isExpanded ? expandedContentInsets : contentInsets
+            contentInsets: contentInsets
         ) {
-            self.usageRows
-        }
-    }
-
-    @ViewBuilder
-    private var usageRows: some View {
-        if isExpanded {
-            self.expandedUsageRows
-        } else {
             self.compactUsageRows
         }
     }
@@ -702,84 +680,42 @@ struct AccountCardView: View {
 
                 Spacer(minLength: 12)
 
-                self.usagePercentageLabel(prefix: nil, window: account.weeklyWindow)
-            }
-
-            self.usageDetailRow(
-                leadingText: compactAccountTag(for: account),
-                window: account.weeklyWindow
-            )
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
-
-    private var expandedUsageRows: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            self.expandedWeeklySection
-
-            Spacer()
-                .frame(height: expandedSectionGap)
-
-            self.expandedRollingSection
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
-
-    private var expandedWeeklySection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                self.identityCluster
-
-                Spacer(minLength: 12)
-
-                self.usagePercentageLabel(prefix: "Weekly", window: account.weeklyWindow)
-            }
-
-            self.usageDetailRow(
-                leadingText: compactAccountTag(for: account),
-                window: account.weeklyWindow
-            )
-        }
-    }
-
-    private var expandedRollingSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                self.resetCreditsPrimaryLine
-
-                Spacer(minLength: 12)
-
-                self.usagePercentageLabel(prefix: "5h", window: account.rollingWindow)
+                self.usagePercentageLabel(
+                    prefix: displayWindowLabel(for: primaryWindow),
+                    window: primaryWindow
+                )
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                self.resetCreditsSecondaryLine
+                if let metadata = compactAccountMetadata(for: account) {
+                    Text(metadata)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
 
                 Spacer(minLength: 12)
 
-                self.usagePaceLabel(for: account.rollingWindow)
+                self.compactSecondaryStatus
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
-    private func usageDetailRow(
-        leadingText: String?,
-        window: UsageWindow
-    ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            if let leadingText {
-                Text(leadingText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 12)
-
-            self.usagePaceLabel(for: window)
+    @ViewBuilder
+    private var compactSecondaryStatus: some View {
+        if FeatureFlags.supportsFiveHourLimit,
+           let shortWindow = account.shortHorizonWindow,
+           shortWindow.available {
+            Text("\(displayWindowLabel(for: shortWindow)) \(percentageText(for: shortWindow))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .monospacedDigit()
+        } else {
+            self.usagePaceLabel(for: primaryWindow)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func usagePercentageLabel(
@@ -810,57 +746,6 @@ struct AccountCardView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    @ViewBuilder
-    private var resetCreditsPrimaryLine: some View {
-        if let resetCredits,
-           resetCredits.availableCount > 0 {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("\(resetCredits.availableCount)")
-                    .foregroundStyle(.primary)
-
-                Text(resetCredits.availableCount == 1 ? "reset available" : "resets available")
-                    .foregroundStyle(.secondary)
-            }
-                .font(.headline.weight(.semibold))
-                .lineLimit(1)
-                .monospacedDigit()
-                .minimumScaleFactor(0.75)
-                .layoutPriority(1)
-        }
-    }
-
-    @ViewBuilder
-    private var resetCreditsSecondaryLine: some View {
-        if let text = resetCreditsSecondaryText {
-            Text(text)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .monospacedDigit()
-                .minimumScaleFactor(0.75)
-                .layoutPriority(1)
-        }
-    }
-
-    private var resetCreditsSecondaryText: String? {
-        guard let resetCredits else {
-            return nil
-        }
-
-        guard resetCredits.availableCount > 0 else {
-            return "No resets available"
-        }
-
-        guard let nextExpiresAt = resetCredits.nextExpiresAt,
-              let expiryDate = parseISO8601Date(nextExpiresAt),
-              expiryDate > Date()
-        else {
-            return "No expiry"
-        }
-
-        return "Next expires in \(formatCountdown(nextExpiresAt))"
-    }
-
     private var cardMenuTrigger: some View {
         AccountCardMenuTrigger(
             canRemove: canRemove,
@@ -879,7 +764,7 @@ struct AccountCardView: View {
                 .lineLimit(1)
                 .foregroundStyle(.primary)
 
-            if !isExpanded && shouldShowRollingLock(for: account) {
+            if shouldShowShortHorizonLock(for: account) {
                 HStack(alignment: .firstTextBaseline, spacing: lockCountdownSpacing) {
                     Image(systemName: "lock.fill")
                         .font(.headline.weight(.semibold))

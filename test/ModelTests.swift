@@ -76,7 +76,12 @@ final class ModelTests: XCTestCase {
             systemAuthProfileId: nil,
             isCurrentSystemAccount: true,
             lastSyncedAt: "2026-07-18T00:00:00Z",
-            usageWindows: [shortWindow, longWindow]
+            usageWindows: [shortWindow, longWindow],
+            resetCredits: CodexResetCredits(
+                availableCount: 2,
+                nextExpiresAt: nil,
+                updatedAt: "2026-07-18T00:00:00Z"
+            )
         )
 
         let decoded = try JSONDecoder().decode(
@@ -87,5 +92,6 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(decoded.usageWindows, [shortWindow, longWindow])
         XCTAssertEqual(decoded.primaryUsageWindow.id, "secondary")
         XCTAssertEqual(decoded.accountId, snapshot.accountId)
+        XCTAssertEqual(compactAccountMetadata(for: decoded), "Pro • 2 resets")
     }
 }

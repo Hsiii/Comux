@@ -55,7 +55,7 @@ If Comux does not show an account, open Codex and confirm that account is signed
 swift run comux
 ```
 
-The rolling 5-hour limit UI is disabled by default while Codex does not enforce that limit. To exercise the legacy UI locally, launch Comux with `COMUX_SUPPORTS_FIVE_HOUR_LIMIT=true`.
+Short-horizon limit status is hidden by default while Codex does not enforce the 5-hour limit. To exercise short-window status and locking locally, launch Comux with `COMUX_SUPPORTS_FIVE_HOUR_LIMIT=true`.
 
 ### Build a local DMG
 
