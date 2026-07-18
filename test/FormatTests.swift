@@ -97,6 +97,17 @@ final class FormatTests: XCTestCase {
             compactResetCreditsText(for: resetCredits, now: now),
             "2 resets • next expires in 2d 3h"
         )
+        XCTAssertEqual(resetCreditsCountText(for: resetCredits), "2 resets")
+        XCTAssertEqual(
+            resetCreditsExpiryText(for: resetCredits, now: now),
+            "Next expires in 2d 3h"
+        )
+    }
+
+    func testUsedTodayTextUsesProportionalPercentageCopy() {
+        XCTAssertEqual(usedTodayText(for: 8), "Used 8% today")
+        XCTAssertEqual(usedTodayText(for: 120), "Used 100% today")
+        XCTAssertNil(usedTodayText(for: nil))
     }
 
     func testThirtyDayUsageWindowAlignsPaceWithMonthlyReset() {

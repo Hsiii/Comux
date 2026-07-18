@@ -166,10 +166,20 @@ private struct TahoeDesktopWallpaperMock: View {
 @MainActor
 private func demoCoordinator() -> PulseCoordinator {
     let coordinator = PulseCoordinator()
+    let accounts = demoAccounts()
     coordinator.cache = CachePayload(
         meta: CacheMeta(source: "demo-mockup"),
-        accounts: demoAccounts()
+        accounts: accounts
     )
+    coordinator.usedTodayPercentageByAccountID = [
+        "hsi-work-main": 0,
+        "hsi-sub-work": 8,
+        "hsi-school": 12,
+        "hsi-plus": 3,
+        "hsi-sub-free": 4,
+        "hsi-sub-school": 21,
+        "hsiii-free": 14,
+    ]
     return coordinator
 }
 

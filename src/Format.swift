@@ -313,6 +313,18 @@ func compactResetCreditsText(
     for resetCredits: CodexResetCredits?,
     now: Date = Date()
 ) -> String? {
+    guard let countText = resetCreditsCountText(for: resetCredits) else {
+        return nil
+    }
+
+    guard let expiryText = resetCreditsExpiryText(for: resetCredits, now: now) else {
+        return countText
+    }
+
+    return "\(countText) • \(expiryText.lowercased())"
+}
+
+func resetCreditsCountText(for resetCredits: CodexResetCredits?) -> String? {
     guard let resetCredits else {
         return nil
     }
@@ -321,18 +333,33 @@ func compactResetCreditsText(
         return "No resets"
     }
 
-    let countText = resetCredits.availableCount == 1
+    return resetCredits.availableCount == 1
         ? "1 reset"
         : "\(resetCredits.availableCount) resets"
+}
 
-    guard let nextExpiresAt = resetCredits.nextExpiresAt,
+func resetCreditsExpiryText(
+    for resetCredits: CodexResetCredits?,
+    now: Date = Date()
+) -> String? {
+    guard let resetCredits,
+          resetCredits.availableCount > 0,
+          let nextExpiresAt = resetCredits.nextExpiresAt,
           let expiryDate = parseISO8601Date(nextExpiresAt),
           expiryDate > now
     else {
-        return countText
+        return nil
     }
 
-    return "\(countText) • next expires in \(formatCountdown(nextExpiresAt, now: now))"
+    return "Next expires in \(formatCountdown(nextExpiresAt, now: now))"
+}
+
+func usedTodayText(for usedTodayPercentage: Int?) -> String? {
+    guard let usedTodayPercentage else {
+        return nil
+    }
+
+    return "Used \(min(100, max(0, usedTodayPercentage)))% today"
 }
 
 func windowDuration(for window: UsageWindow) -> TimeInterval? {

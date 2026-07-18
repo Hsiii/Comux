@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-private let accountCardHeight: CGFloat = 56
+private let accountCardHeight: CGFloat = 80
 private let accountCardCornerRadius: CGFloat = 16
 
 enum WindowHeaderPlacement {
@@ -617,14 +617,15 @@ private struct AccountCardMenuTrigger: NSViewRepresentable {
 }
 
 struct AccountCardView: View {
-    static let collapsedHeight: CGFloat = accountCardHeight
+    static let fixedHeight: CGFloat = accountCardHeight
 
     static func height(for account: AccountSnapshot) -> CGFloat {
-        Self.collapsedHeight
+        Self.fixedHeight
     }
 
     let account: AccountSnapshot
     let displayName: String
+    let usedTodayPercentage: Int?
     let canRemove: Bool
     let onEditDisplayName: () -> Void
     let onRemove: () -> Void
@@ -662,34 +663,59 @@ struct AccountCardView: View {
     }
 
     private var compactUsageRows: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                self.identityHeadline
+        HStack(alignment: .top, spacing: 12) {
+            self.identityAndCreditsColumn
 
-                Spacer(minLength: 8)
+            Spacer(minLength: 8)
 
-                self.usageHeadlineLabel
-                    .fixedSize(horizontal: true, vertical: false)
-                    .layoutPriority(1)
-            }
-
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                if let resetCreditsText = compactResetCreditsText(for: account.resetCredits) {
-                    Text(resetCreditsText)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-
-                Spacer(minLength: 8)
-
-                Text(usageWindowResetText(for: primaryWindow))
-                    .fixedSize(horizontal: true, vertical: false)
-                    .layoutPriority(1)
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            self.usageColumn
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var identityAndCreditsColumn: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            self.identityHeadline
+
+            Spacer(minLength: 8)
+
+            if let countText = resetCreditsCountText(for: account.resetCredits) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(countText)
+
+                    if let expiryText = resetCreditsExpiryText(for: account.resetCredits) {
+                        Text(expiryText)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            }
+        }
+        .layoutPriority(0)
+    }
+
+    private var usageColumn: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            self.usageHeadlineLabel
+
+            Text(usageWindowResetText(for: primaryWindow))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+
+            Spacer(minLength: 8)
+
+            if let usedTodayText = usedTodayText(for: usedTodayPercentage) {
+                Text(usedTodayText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .lineLimit(1)
+        .fixedSize(horizontal: true, vertical: false)
+        .layoutPriority(1)
     }
 
     private var identityHeadline: some View {
