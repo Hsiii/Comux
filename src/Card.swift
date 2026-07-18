@@ -696,15 +696,13 @@ struct AccountCardView: View {
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                if let resetCreditsText = compactResetCreditsText(for: account.resetCredits) {
-                    Text(resetCreditsText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-
                 Spacer(minLength: 8)
+
+                Text(compactResetCreditsText(for: account.resetCredits))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)

@@ -97,6 +97,7 @@ final class FormatTests: XCTestCase {
             compactResetCreditsText(for: resetCredits, now: now),
             "2 resets • next expires in 2d 3h"
         )
+        XCTAssertEqual(compactResetCreditsText(for: nil, now: now), "No resets")
     }
 
     func testThirtyDayUsageWindowAlignsPaceWithMonthlyReset() {

@@ -312,9 +312,9 @@ func compactAccountTag(for account: AccountSnapshot) -> String? {
 func compactResetCreditsText(
     for resetCredits: CodexResetCredits?,
     now: Date = Date()
-) -> String? {
+) -> String {
     guard let resetCredits else {
-        return nil
+        return "No resets"
     }
 
     let countText: String
