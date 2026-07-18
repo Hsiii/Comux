@@ -202,6 +202,7 @@ private struct ControlRowContent: View {
     let id: String
     let title: String
     let showsCheckmark: Bool
+    let isDimmed: Bool
     @Binding var hoveredRowID: String?
 
     private var isHovered: Bool {
@@ -245,7 +246,11 @@ private struct ControlRowContent: View {
     }
 
     private var titleColor: Color {
-        isHovered ? Color(nsColor: .selectedMenuItemTextColor) : .primary
+        if isHovered {
+            return Color(nsColor: .selectedMenuItemTextColor)
+        }
+
+        return isDimmed ? .secondary : .primary
     }
 
     private var backgroundColor: Color {
@@ -496,6 +501,7 @@ struct SlimDashboardPanelView: View {
 
             self.controlRow(
                 autoUpdateStore.menuTitle,
+                isDimmed: autoUpdateStore.isMenuRowDimmed,
                 isEnabled: autoUpdateStore.canActivatePrimaryAction
             ) {
                 Task {
@@ -520,6 +526,7 @@ struct SlimDashboardPanelView: View {
     private func controlRow(
         _ title: String,
         showsCheckmark: Bool = false,
+        isDimmed: Bool = false,
         isEnabled: Bool = true,
         action: @escaping () -> Void
     ) -> some View {
@@ -528,6 +535,7 @@ struct SlimDashboardPanelView: View {
                 id: title,
                 title: title,
                 showsCheckmark: showsCheckmark,
+                isDimmed: isDimmed,
                 hoveredRowID: self.$hoveredControlRowID
             )
         }

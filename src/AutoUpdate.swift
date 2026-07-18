@@ -102,10 +102,6 @@ struct AutoUpdateCandidate: Equatable, Sendable {
     let pageURL: URL
     let archiveURL: URL
     let expectedSHA256: String
-
-    var displayVersion: String {
-        "v\(self.version)"
-    }
 }
 
 struct StagedAutoUpdate: Sendable {
@@ -120,6 +116,31 @@ enum AutoUpdateStatus: Equatable, Sendable {
     case updateAvailable(AutoUpdateCandidate)
     case downloading(AutoUpdateCandidate)
     case installing(AutoUpdateCandidate)
+}
+
+extension AutoUpdateStatus {
+    var menuTitle: String {
+        switch self {
+        case .idle, .upToDate:
+            return "Latest Version Installed"
+        case .checking:
+            return "Checking for Updates..."
+        case .updateAvailable:
+            return "Update Available"
+        case .downloading:
+            return "Downloading Update..."
+        case .installing:
+            return "Installing Update..."
+        }
+    }
+
+    var isMenuRowDimmed: Bool {
+        if case .updateAvailable = self {
+            return false
+        }
+
+        return true
+    }
 }
 
 enum AutoUpdateError: LocalizedError, Sendable {
@@ -480,20 +501,11 @@ final class AutoUpdateStore: ObservableObject {
     }
 
     var menuTitle: String {
-        switch self.status {
-        case .idle:
-            return "Check for Updates"
-        case .checking:
-            return "Checking for Updates..."
-        case .upToDate:
-            return "Up to Date"
-        case .updateAvailable(let candidate):
-            return "Install Update \(candidate.displayVersion)"
-        case .downloading:
-            return "Downloading Update..."
-        case .installing:
-            return "Installing Update..."
-        }
+        self.status.menuTitle
+    }
+
+    var isMenuRowDimmed: Bool {
+        self.status.isMenuRowDimmed
     }
 
     var canActivatePrimaryAction: Bool {

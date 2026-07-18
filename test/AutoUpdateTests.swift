@@ -23,4 +23,20 @@ final class AutoUpdateTests: XCTestCase {
 
         XCTAssertEqual(AutoUpdateCaskParser.extractSHA256(from: cask), "abcdef1234")
     }
+
+    func testUpdateMenuPresentationHighlightsOnlyAvailableUpdates() {
+        XCTAssertEqual(AutoUpdateStatus.idle.menuTitle, "Latest Version Installed")
+        XCTAssertTrue(AutoUpdateStatus.idle.isMenuRowDimmed)
+
+        let candidate = AutoUpdateCandidate(
+            version: "1.2.3",
+            pageURL: URL(string: "https://example.com/release")!,
+            archiveURL: URL(string: "https://example.com/comux.zip")!,
+            expectedSHA256: "abc123"
+        )
+        let availableStatus = AutoUpdateStatus.updateAvailable(candidate)
+
+        XCTAssertEqual(availableStatus.menuTitle, "Update Available")
+        XCTAssertFalse(availableStatus.isMenuRowDimmed)
+    }
 }
