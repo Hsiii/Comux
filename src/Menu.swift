@@ -25,6 +25,8 @@ private let controlTextLeadingInset: CGFloat = 32
 private let controlTextTrailingInset: CGFloat = 12
 private let controlHoverInset: CGFloat = 6
 private let controlHoverCornerRadius: CGFloat = 8
+private let menuPanelCornerRadius: CGFloat = 26
+private let lastControlRowBottomCornerRadius = menuPanelCornerRadius - controlHoverInset
 private let editDialogWidth: CGFloat = 328
 private let editDialogOuterPadding: CGFloat = 20
 private let editDialogContentSpacing: CGFloat = 16
@@ -33,7 +35,7 @@ private let accountDialogCornerRadius: CGFloat = 16
 
 @MainActor
 enum MenuPanelWindowAppearance {
-    static let cornerRadius: CGFloat = 26
+    static let cornerRadius = menuPanelCornerRadius
 
     static func apply(to window: NSWindow) {
         let surfaceView = window.contentView?.superview ?? window.contentView
@@ -265,6 +267,7 @@ private struct ControlRowContent: View {
     let title: String
     let showsCheckmark: Bool
     let isDimmed: Bool
+    let roundsPanelBottom: Bool
     @Binding var hoveredRowID: String?
 
     private var isHovered: Bool {
@@ -290,7 +293,13 @@ private struct ControlRowContent: View {
         }
             .contentShape(Rectangle())
             .background {
-                RoundedRectangle(cornerRadius: controlHoverCornerRadius, style: .continuous)
+                UnevenRoundedRectangle(
+                    topLeadingRadius: controlHoverCornerRadius,
+                    bottomLeadingRadius: self.bottomCornerRadius,
+                    bottomTrailingRadius: self.bottomCornerRadius,
+                    topTrailingRadius: controlHoverCornerRadius,
+                    style: .continuous
+                )
                     .fill(self.backgroundColor)
                     .padding(.horizontal, controlHoverInset)
             }
@@ -305,6 +314,10 @@ private struct ControlRowContent: View {
                     self.hoveredRowID = nil
                 }
             }
+    }
+
+    private var bottomCornerRadius: CGFloat {
+        roundsPanelBottom ? lastControlRowBottomCornerRadius : controlHoverCornerRadius
     }
 
     private var titleColor: Color {
@@ -575,7 +588,7 @@ struct SlimDashboardPanelView: View {
                 .padding(.vertical, controlDividerSpacing)
                 .padding(.horizontal, controlDividerHorizontalInset)
 
-            self.controlRow("Quit") {
+            self.controlRow("Quit", roundsPanelBottom: true) {
                 NSApp.terminate(nil)
             }
         }
@@ -590,6 +603,7 @@ struct SlimDashboardPanelView: View {
         showsCheckmark: Bool = false,
         isDimmed: Bool = false,
         isEnabled: Bool = true,
+        roundsPanelBottom: Bool = false,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -598,6 +612,7 @@ struct SlimDashboardPanelView: View {
                 title: title,
                 showsCheckmark: showsCheckmark,
                 isDimmed: isDimmed,
+                roundsPanelBottom: roundsPanelBottom,
                 hoveredRowID: self.$hoveredControlRowID
             )
         }
