@@ -75,7 +75,7 @@ func percentageText(for window: UsageWindow, now: Date = Date()) -> String {
     return "\(displayRemainingPercentage(for: window, now: now))%"
 }
 
-func expectedUsageDelta(for window: UsageWindow, now: Date = Date()) -> Int {
+func currentUsageDelta(for window: UsageWindow, now: Date = Date()) -> Int {
     guard window.available,
           !hasJustReset(window, now: now),
           !isFreshResetWindow(window, now: now)
@@ -83,8 +83,8 @@ func expectedUsageDelta(for window: UsageWindow, now: Date = Date()) -> Int {
         return 0
     }
 
-    return Int(round(expectedRemainingPercentage(for: window, now: now)))
-        - displayRemainingPercentage(for: window, now: now)
+    return displayRemainingPercentage(for: window, now: now)
+        - Int(round(expectedRemainingPercentage(for: window, now: now)))
 }
 
 func usageHeadlineText(for window: UsageWindow, now: Date = Date()) -> String {
@@ -92,9 +92,17 @@ func usageHeadlineText(for window: UsageWindow, now: Date = Date()) -> String {
         return percentageText(for: window, now: now)
     }
 
-    let delta = expectedUsageDelta(for: window, now: now)
-    let deltaText = delta > 0 ? "+\(delta)%" : "\(delta)%"
-    return "\(percentageText(for: window, now: now))(\(deltaText))"
+    return "\(percentageText(for: window, now: now))\(usageDeltaText(for: window, now: now) ?? "")"
+}
+
+func usageDeltaText(for window: UsageWindow, now: Date = Date()) -> String? {
+    guard window.available else {
+        return nil
+    }
+
+    let delta = currentUsageDelta(for: window, now: now)
+    let signedDelta = delta > 0 ? "+\(delta)%" : "\(delta)%"
+    return "(\(signedDelta))"
 }
 
 func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot? {

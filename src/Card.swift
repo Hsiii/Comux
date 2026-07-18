@@ -676,10 +676,7 @@ struct AccountCardView: View {
 
                 Spacer(minLength: 12)
 
-                Text(usageHeadlineText(for: primaryWindow))
-                    .font(.headline.weight(.semibold))
-                    .monospacedDigit()
-                    .fixedSize(horizontal: true, vertical: false)
+                self.usageHeadlineLabel
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -699,6 +696,22 @@ struct AccountCardView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var usageHeadlineLabel: some View {
+        let now = Date()
+
+        return HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text(percentageText(for: primaryWindow, now: now))
+
+            if let deltaText = usageDeltaText(for: primaryWindow, now: now) {
+                Text(deltaText)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .font(.headline.weight(.semibold))
+        .monospacedDigit()
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     @ViewBuilder

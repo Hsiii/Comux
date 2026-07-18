@@ -32,7 +32,7 @@ final class FormatTests: XCTestCase {
         XCTAssertFalse(resetPaceText(for: window).contains("-100%"))
     }
 
-    func testUsageHeadlineCombinesRemainingWithExpectedMinusCurrent() {
+    func testUsageHeadlineCombinesRemainingWithCurrentMinusExpected() {
         let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
         let window = UsageWindow(
             id: "weekly",
@@ -46,8 +46,9 @@ final class FormatTests: XCTestCase {
             resetsAt: "2026-07-23T00:00:00Z"
         )
 
-        XCTAssertEqual(expectedUsageDelta(for: window, now: now), -9)
-        XCTAssertEqual(usageHeadlineText(for: window, now: now), "80%(-9%)")
+        XCTAssertEqual(currentUsageDelta(for: window, now: now), 9)
+        XCTAssertEqual(usageDeltaText(for: window, now: now), "(+9%)")
+        XCTAssertEqual(usageHeadlineText(for: window, now: now), "80%(+9%)")
     }
 
     func testCompactResetCreditsIncludesNextExpiry() {
@@ -207,7 +208,7 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "30%(+70%)")
+        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "30%(-70%)")
         XCTAssertEqual(
             sortedAccountsByHeadroom([lowerRankedAccount, topAccount]) { $0.label }.map(\.id),
             ["top", "lower"]
@@ -272,7 +273,7 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "60%(+40%)")
+        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "60%(-40%)")
     }
 
     func testMenuBarUsageTextHidesWhenNoAccountIsCurrent() {
