@@ -31,6 +31,84 @@ enum UsagePayloadParser {
     }
 }
 
+enum UsageWindowPayloadParser {
+    static func parse(rateLimit: [String: Any]?) -> [UsageWindow] {
+        guard let rateLimit else {
+            return []
+        }
+
+        let preferredKeys = ["primary_window", "secondary_window"]
+        let additionalKeys = rateLimit.keys
+            .filter { $0.hasSuffix("_window") && !preferredKeys.contains($0) }
+            .sorted()
+
+        return (preferredKeys + additionalKeys).compactMap { key in
+            guard let rawWindow = rateLimit[key] as? [String: Any] else {
+                return nil
+            }
+
+            return Self.buildWindow(id: key, rawWindow: rawWindow)
+        }
+    }
+
+    private static func buildWindow(
+        id: String,
+        rawWindow: [String: Any]
+    ) -> UsageWindow {
+        let durationSeconds = (rawWindow["limit_window_seconds"] as? NSNumber)?.intValue
+        let resetAtEpoch = (rawWindow["reset_at"] as? NSNumber)?.doubleValue
+        let usedPercent = clampPercentage((rawWindow["used_percent"] as? NSNumber)?.doubleValue ?? 0)
+        let limitMinutes = Int(round(Double(durationSeconds ?? 0) / 60))
+        let usedMinutes = Int(round(Double(limitMinutes) * (usedPercent / 100)))
+        let resetsAt = resetAtEpoch.flatMap { epoch in
+            epoch > 0 ? Date(timeIntervalSince1970: epoch).ISO8601Format() : nil
+        } ?? ""
+
+        return UsageWindow(
+            id: id,
+            scope: Self.scope(for: durationSeconds),
+            durationSeconds: durationSeconds,
+            available: true,
+            label: Self.label(for: durationSeconds),
+            usedMinutes: usedMinutes,
+            limitMinutes: limitMinutes,
+            usedPercentage: usedPercent,
+            resetsAt: resetsAt
+        )
+    }
+
+    private static func scope(for durationSeconds: Int?) -> UsageWindowScope {
+        guard let durationSeconds, durationSeconds > 0 else {
+            return .unknown
+        }
+
+        return durationSeconds >= 6 * 24 * 60 * 60 ? .longHorizon : .shortHorizon
+    }
+
+    private static func label(for durationSeconds: Int?) -> String {
+        guard let durationSeconds, durationSeconds > 0 else {
+            return "Usage window"
+        }
+
+        let day = 24 * 60 * 60
+        let hour = 60 * 60
+
+        if durationSeconds == 7 * day {
+            return "Weekly window"
+        }
+
+        if durationSeconds.isMultiple(of: day) {
+            return "\(durationSeconds / day)-day window"
+        }
+
+        if durationSeconds.isMultiple(of: hour) {
+            return "\(durationSeconds / hour)-hour window"
+        }
+
+        return "Usage window"
+    }
+}
+
 enum ResetCreditsPayloadParser {
     static func parse(
         data: Data,

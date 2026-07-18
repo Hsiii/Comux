@@ -356,11 +356,6 @@ func normalizedSystemAuthProfileID(_ value: String?) -> String? {
     return trimmed.lowercased()
 }
 
-struct WindowPair {
-    let weeklyWindow: UsageWindow
-    let rollingWindow: UsageWindow
-}
-
 struct WorkspaceIdentity: Decodable {
     let items: [WorkspaceItem]
 }

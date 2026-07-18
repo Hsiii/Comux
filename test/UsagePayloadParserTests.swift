@@ -77,6 +77,65 @@ final class UsagePayloadParserTests: XCTestCase {
         XCTAssertEqual(payload["email"] as? String, "person@example.com")
     }
 
+    func testUsageWindowsFollowPayloadDurationsInsteadOfFixedPositions() {
+        let windows = UsageWindowPayloadParser.parse(
+            rateLimit: [
+                "primary_window": [
+                    "limit_window_seconds": 18_000,
+                    "reset_at": 1_800_000_000,
+                    "used_percent": 50,
+                ],
+                "secondary_window": [
+                    "limit_window_seconds": 604_800,
+                    "reset_at": 1_800_604_800,
+                    "used_percent": 25,
+                ],
+            ]
+        )
+
+        XCTAssertEqual(windows.map(\.id), ["primary_window", "secondary_window"])
+        XCTAssertEqual(windows[0].scope, .shortHorizon)
+        XCTAssertEqual(windows[0].label, "5-hour window")
+        XCTAssertEqual(windows[0].durationSeconds, 18_000)
+        XCTAssertEqual(windows[0].usedMinutes, 150)
+        XCTAssertEqual(windows[1].scope, .longHorizon)
+        XCTAssertEqual(windows[1].label, "Weekly window")
+        XCTAssertEqual(windows[1].durationSeconds, 604_800)
+    }
+
+    func testUsageWindowsDoNotInventMissingShortWindow() {
+        let windows = UsageWindowPayloadParser.parse(
+            rateLimit: [
+                "primary_window": [
+                    "limit_window_seconds": 2_592_000,
+                    "reset_at": 1_800_000_000,
+                    "used_percent": 10,
+                ],
+            ]
+        )
+
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertEqual(windows[0].id, "primary_window")
+        XCTAssertEqual(windows[0].scope, .longHorizon)
+        XCTAssertEqual(windows[0].label, "30-day window")
+    }
+
+    func testUsageWindowsIncludeAdditionalServerWindowKeys() {
+        let windows = UsageWindowPayloadParser.parse(
+            rateLimit: [
+                "burst_window": [
+                    "limit_window_seconds": 3_600,
+                    "reset_at": 1_800_000_000,
+                    "used_percent": 5,
+                ],
+            ]
+        )
+
+        XCTAssertEqual(windows.map(\.id), ["burst_window"])
+        XCTAssertEqual(windows[0].label, "1-hour window")
+        XCTAssertEqual(windows[0].scope, .shortHorizon)
+    }
+
     func testParsesAvailableResetCreditsAndNextExpiry() throws {
         let data = try self.jsonData([
             "credits": [

@@ -203,7 +203,7 @@ final class PulseCoordinator: ObservableObject {
                responseWorkspaceAccountID != self.normalizeWorkspaceAccountID(workspaceAccountID) {
                 continue
             }
-            let resetCredits = await self.fetchRateLimitResetCreditsIfSupported(
+            let resetCredits = try? await self.fetchRateLimitResetCredits(
                 accessToken: identity.accessToken,
                 cookieHeader: nil,
                 usageEndpoint: nil,
@@ -232,7 +232,7 @@ final class PulseCoordinator: ObservableObject {
         }
 
         if snapshots.allSatisfy({ $0.isCurrentSystemAccount != true }) {
-            let resetCredits = await self.fetchRateLimitResetCreditsIfSupported(
+            let resetCredits = try? await self.fetchRateLimitResetCredits(
                 accessToken: identity.accessToken,
                 cookieHeader: nil,
                 usageEndpoint: nil,
@@ -296,7 +296,7 @@ final class PulseCoordinator: ObservableObject {
             cookieHeader: account.chatGPTCookie,
             workspaceAccountID: workspaceAccountID
         )) ?? account.workspaceLabel
-        let resetCredits = await self.fetchRateLimitResetCreditsIfSupported(
+        let resetCredits = try? await self.fetchRateLimitResetCredits(
             accessToken: accessToken,
             cookieHeader: account.chatGPTCookie,
             usageEndpoint: account.usageEndpoint,
@@ -446,24 +446,6 @@ final class PulseCoordinator: ObservableObject {
         )
     }
 
-    private func fetchRateLimitResetCreditsIfSupported(
-        accessToken: String,
-        cookieHeader: String?,
-        usageEndpoint: String?,
-        accountHeader: String?
-    ) async -> CodexResetCredits? {
-        guard FeatureFlags.supportsFiveHourLimit else {
-            return nil
-        }
-
-        return try? await self.fetchRateLimitResetCredits(
-            accessToken: accessToken,
-            cookieHeader: cookieHeader,
-            usageEndpoint: usageEndpoint,
-            accountHeader: accountHeader
-        )
-    }
-
     private func rateLimitResetCreditsEndpoint(from usageEndpoint: String?) -> String {
         let fallback = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits"
         guard let usageEndpoint,
@@ -540,7 +522,9 @@ final class PulseCoordinator: ObservableObject {
         isCurrentSystemAccount: Bool,
         resetCredits: CodexResetCredits?
     ) throws -> AccountSnapshot {
-        let windows = self.resolveWindows(rateLimit: payload["rate_limit"] as? [String: Any])
+        let usageWindows = UsageWindowPayloadParser.parse(
+            rateLimit: payload["rate_limit"] as? [String: Any]
+        )
         let now = ISO8601DateFormatter().string(from: Date())
         let resolvedWorkspaceLabel = self.resolveWorkspaceLabel(
             payload: payload,
@@ -571,35 +555,8 @@ final class PulseCoordinator: ObservableObject {
             systemAuthProfileId: systemAuthProfileID,
             isCurrentSystemAccount: isCurrentSystemAccount,
             lastSyncedAt: now,
-            weeklyWindow: windows.weeklyWindow,
-            rollingWindow: windows.rollingWindow,
+            usageWindows: usageWindows,
             resetCredits: resetCredits
-        )
-    }
-
-    private func resolveWindows(rateLimit: [String: Any]?) -> WindowPair {
-        let primaryWindow = rateLimit?["primary_window"] as? [String: Any]
-        let secondaryWindow = rateLimit?["secondary_window"] as? [String: Any]
-        let primarySeconds = (primaryWindow?["limit_window_seconds"] as? NSNumber)?.intValue ?? 0
-        let secondarySeconds = (secondaryWindow?["limit_window_seconds"] as? NSNumber)?.intValue ?? 0
-
-        if primarySeconds >= 6 * 24 * 60 * 60 {
-            return WindowPair(
-                weeklyWindow: self.buildWindow(label: "Weekly window", rawWindow: primaryWindow),
-                rollingWindow: self.buildWindow(label: "Rolling 5-hour window", rawWindow: secondaryWindow)
-            )
-        }
-
-        if secondarySeconds >= 6 * 24 * 60 * 60 {
-            return WindowPair(
-                weeklyWindow: self.buildWindow(label: "Weekly window", rawWindow: secondaryWindow),
-                rollingWindow: self.buildWindow(label: "Rolling 5-hour window", rawWindow: primaryWindow)
-            )
-        }
-
-        return WindowPair(
-            weeklyWindow: self.buildWindow(label: "Weekly window", rawWindow: nil),
-            rollingWindow: self.buildWindow(label: "Rolling 5-hour window", rawWindow: primaryWindow)
         )
     }
 
@@ -727,34 +684,6 @@ final class PulseCoordinator: ObservableObject {
     private func buildRemovableAccountIDs(for accounts: [AccountSnapshot]) -> Set<String> {
         AccountRemovalResolver.removableAccountIDs(
             for: accounts
-        )
-    }
-
-    private func buildWindow(label: String, rawWindow: [String: Any]?) -> UsageWindow {
-        guard let rawWindow else {
-            return UsageWindow(
-                available: false,
-                label: label,
-                usedMinutes: 0,
-                limitMinutes: 0,
-                usedPercentage: 0,
-                resetsAt: ""
-            )
-        }
-
-        let limitSeconds = (rawWindow["limit_window_seconds"] as? NSNumber)?.intValue ?? 0
-        let resetAtEpoch = (rawWindow["reset_at"] as? NSNumber)?.doubleValue ?? 0
-        let usedPercent = clampPercentage((rawWindow["used_percent"] as? NSNumber)?.doubleValue ?? 0)
-        let limitMinutes = Int(round(Double(limitSeconds) / 60))
-        let usedMinutes = Int(round(Double(limitMinutes) * (usedPercent / 100)))
-
-        return UsageWindow(
-            available: true,
-            label: label,
-            usedMinutes: usedMinutes,
-            limitMinutes: limitMinutes,
-            usedPercentage: usedPercent,
-            resetsAt: Date(timeIntervalSince1970: resetAtEpoch).ISO8601Format()
         )
     }
 
