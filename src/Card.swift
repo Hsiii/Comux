@@ -664,55 +664,50 @@ struct AccountCardView: View {
     }
 
     private var compactUsageRows: some View {
-        HStack(alignment: .top, spacing: 12) {
-            self.identityRows
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                self.identityHeadline
 
-            Spacer(minLength: 8)
+                Spacer(minLength: 8)
 
-            self.usageRows
+                self.usageHeadlineLabel
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                if let resetCreditsText = compactResetCreditsText(for: account.resetCredits) {
+                    Text(resetCreditsText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(usageWindowResetText(for: primaryWindow))
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
-    private var identityRows: some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private var identityHeadline: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text(displayName)
-                .font(.headline.weight(.semibold))
                 .foregroundStyle(.primary)
-                .lineLimit(1)
 
             if let accountTag = compactAccountTag(for: account), !accountTag.isEmpty {
                 Text(accountTag)
-                    .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
             }
         }
-        .layoutPriority(0)
-    }
-
-    private var usageRows: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                self.usageHeadlineLabel
-
-                Text("•")
-
-                Text("resets in \(formatCountdown(primaryWindow.resetsAt))")
-            }
-            .lineLimit(1)
-
-            if let resetCreditsText = compactResetCreditsText(for: account.resetCredits) {
-                Text(resetCreditsText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-        }
-        .monospacedDigit()
-        .fixedSize(horizontal: true, vertical: false)
-        .layoutPriority(1)
+        .font(.headline.weight(.semibold))
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
     }
 
     private var usageHeadlineLabel: some View {

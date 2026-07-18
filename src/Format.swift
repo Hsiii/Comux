@@ -96,7 +96,11 @@ func usageHeadlineText(for window: UsageWindow, now: Date = Date()) -> String {
 }
 
 func usageDeltaText(for window: UsageWindow, now: Date = Date()) -> String? {
-    guard window.available else {
+    guard window.available,
+          !hasJustReset(window, now: now),
+          !isFreshResetWindow(window, now: now),
+          displayRemainingPercentage(for: window, now: now) < 100
+    else {
         return nil
     }
 
@@ -127,12 +131,12 @@ func menuBarUsageText(from accounts: [AccountSnapshot]) -> String? {
     return usageHeadlineText(for: account.primaryUsageWindow)
 }
 
-func usageWindowResetText(for window: UsageWindow) -> String {
-    if hasJustReset(window) || isFreshResetWindow(window) {
+func usageWindowResetText(for window: UsageWindow, now: Date = Date()) -> String {
+    if hasJustReset(window, now: now) || isFreshResetWindow(window, now: now) {
         return "Fresh window"
     }
 
-    return "Resets in \(formatCountdown(window.resetsAt))"
+    return "Resets in \(formatCountdown(window.resetsAt, now: now))"
 }
 
 func resetPaceText(for window: UsageWindow) -> String {

@@ -49,6 +49,42 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(usageHeadlineText(for: window, now: now), "80%(+9%)")
     }
 
+    func testFreshUsageWindowOmitsVarianceAndShowsFreshResetState() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
+        let window = UsageWindow(
+            id: "weekly",
+            scope: .longHorizon,
+            durationSeconds: 7 * 24 * 60 * 60,
+            available: true,
+            label: "Weekly window",
+            usedMinutes: 0,
+            limitMinutes: 100,
+            usedPercentage: 0,
+            resetsAt: "2026-07-17T00:00:00Z"
+        )
+
+        XCTAssertEqual(usageHeadlineText(for: window, now: now), "100%")
+        XCTAssertEqual(usageWindowResetText(for: window, now: now), "Fresh window")
+    }
+
+    func testFullUsageWindowOmitsVarianceBeforeItsReset() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
+        let window = UsageWindow(
+            id: "weekly",
+            scope: .longHorizon,
+            durationSeconds: 7 * 24 * 60 * 60,
+            available: true,
+            label: "Weekly window",
+            usedMinutes: 0,
+            limitMinutes: 100,
+            usedPercentage: 0,
+            resetsAt: "2026-07-24T00:00:00Z"
+        )
+
+        XCTAssertEqual(usageHeadlineText(for: window, now: now), "100%")
+        XCTAssertEqual(usageWindowResetText(for: window, now: now), "Resets in 6d 0h")
+    }
+
     func testCompactResetCreditsIncludesNextExpiry() {
         let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
         let resetCredits = CodexResetCredits(
