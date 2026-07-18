@@ -59,7 +59,7 @@ final class FormatTests: XCTestCase {
 
         XCTAssertEqual(
             compactResetCreditsText(for: resetCredits, now: now),
-            "2 resets • expires 2d 3h"
+            "2 resets • next expires in 2d 3h"
         )
     }
 

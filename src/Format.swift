@@ -328,7 +328,7 @@ func compactResetCreditsText(
         return countText
     }
 
-    return "\(countText) • expires \(formatCountdown(nextExpiresAt, now: now))"
+    return "\(countText) • next expires in \(formatCountdown(nextExpiresAt, now: now))"
 }
 
 func windowDuration(for window: UsageWindow) -> TimeInterval? {

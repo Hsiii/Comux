@@ -632,12 +632,6 @@ struct AccountCardView: View {
     let onRemove: () -> Void
     @State private var isHovered = false
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
-    private let identityClusterWidth: CGFloat = 188
-    private let identitySpacing: CGFloat = 6
-
-    private var truncatedDisplayName: String {
-        String(displayName.prefix(12))
-    }
 
     private var height: CGFloat {
         Self.height(for: account)
@@ -670,32 +664,55 @@ struct AccountCardView: View {
     }
 
     private var compactUsageRows: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                self.identityCluster
+        HStack(alignment: .top, spacing: 12) {
+            self.identityRows
 
-                Spacer(minLength: 12)
+            Spacer(minLength: 8)
 
-                self.usageHeadlineLabel
-            }
-
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                if let resetCreditsText = compactResetCreditsText(for: account.resetCredits) {
-                    Text(resetCreditsText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .monospacedDigit()
-                        .minimumScaleFactor(0.75)
-                }
-
-                Spacer(minLength: 12)
-
-                self.compactSecondaryStatus
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            self.usageRows
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var identityRows: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(displayName)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(1)
+
+            if let accountTag = compactAccountTag(for: account), !accountTag.isEmpty {
+                Text(accountTag)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
+        .layoutPriority(0)
+    }
+
+    private var usageRows: some View {
+        VStack(alignment: .trailing, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                self.usageHeadlineLabel
+
+                Text("•")
+
+                Text("resets in \(formatCountdown(primaryWindow.resetsAt))")
+            }
+            .lineLimit(1)
+
+            if let resetCreditsText = compactResetCreditsText(for: account.resetCredits) {
+                Text(resetCreditsText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+            }
+        }
+        .monospacedDigit()
+        .fixedSize(horizontal: true, vertical: false)
+        .layoutPriority(1)
     }
 
     private var usageHeadlineLabel: some View {
@@ -711,44 +728,6 @@ struct AccountCardView: View {
         }
         .font(.headline.weight(.semibold))
         .monospacedDigit()
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    @ViewBuilder
-    private var compactSecondaryStatus: some View {
-        if FeatureFlags.supportsFiveHourLimit,
-           let shortWindow = account.shortHorizonWindow,
-           shortWindow.available {
-            if shouldShowShortHorizonLock(for: account) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Image(systemName: "lock.fill")
-                        .font(.caption2.weight(.semibold))
-
-                    Text(formatCountdown(shortWindow.resetsAt))
-                        .monospacedDigit()
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            } else {
-                Text("\(displayWindowLabel(for: shortWindow)) \(percentageText(for: shortWindow))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .monospacedDigit()
-            }
-        } else {
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Image(systemName: "arrow.clockwise")
-                    .font(.caption2.weight(.semibold))
-
-                Text(formatCountdown(primaryWindow.resetsAt))
-                    .monospacedDigit()
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
-        }
     }
 
     private var cardMenuTrigger: some View {
@@ -762,23 +741,4 @@ struct AccountCardView: View {
         )
     }
 
-    private var identityCluster: some View {
-        HStack(alignment: .firstTextBaseline, spacing: identitySpacing) {
-            Text(truncatedDisplayName)
-                .font(.headline.weight(.semibold))
-                .lineLimit(1)
-                .foregroundStyle(.primary)
-
-            if let accountTag = compactAccountTag(for: account), !accountTag.isEmpty {
-                Text(accountTag)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-            }
-
-            Spacer(minLength: 8)
-        }
-        .frame(width: identityClusterWidth, alignment: .leading)
-    }
 }
