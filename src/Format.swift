@@ -106,7 +106,7 @@ func usageDeltaText(for window: UsageWindow, now: Date = Date()) -> String? {
 
     let delta = currentUsageDelta(for: window, now: now)
     let signedDelta = delta > 0 ? "+\(delta)%" : "\(delta)%"
-    return "(\(signedDelta))"
+    return " (\(signedDelta))"
 }
 
 func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot? {

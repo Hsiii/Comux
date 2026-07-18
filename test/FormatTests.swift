@@ -46,7 +46,7 @@ final class FormatTests: XCTestCase {
             resetsAt: "2026-07-23T00:00:00Z"
         )
 
-        XCTAssertEqual(usageHeadlineText(for: window, now: now), "80%(+9%)")
+        XCTAssertEqual(usageHeadlineText(for: window, now: now), "80% (+9%)")
     }
 
     func testFreshUsageWindowOmitsVarianceAndShowsFreshResetState() {
@@ -241,7 +241,7 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "30%(-70%)")
+        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "30% (-70%)")
     }
 
     func testMenuBarUsageTextPrefersCurrentSystemPrimaryWindow() {
@@ -302,7 +302,7 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "60%(-40%)")
+        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "60% (-40%)")
     }
 
     func testMenuBarUsageTextHidesWhenNoAccountIsCurrent() {
