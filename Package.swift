@@ -13,6 +13,7 @@ let package = Package(
             path: "src",
             sources: [
                 "App.swift",
+                "FeatureFlags.swift",
                 "Model.swift",
                 "AccountIdentity.swift",
                 "AccountSnapshotMerger.swift",

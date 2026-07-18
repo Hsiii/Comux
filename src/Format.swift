@@ -75,9 +75,18 @@ func percentageText(for window: UsageWindow) -> String {
     return "\(displayRemainingPercentage(for: window))%"
 }
 
-func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot? {
+func primaryMenuBarAccount(
+    from accounts: [AccountSnapshot],
+    supportsFiveHourLimit: Bool = FeatureFlags.supportsFiveHourLimit
+) -> AccountSnapshot? {
     accounts
-        .filter({ $0.isCurrentSystemAccount == true && $0.rollingWindow.available })
+        .filter({ account in
+            account.isCurrentSystemAccount == true
+                && menuBarUsageWindow(
+                    for: account,
+                    supportsFiveHourLimit: supportsFiveHourLimit
+                ).available
+        })
         .sorted(by: { left, right in
             let leftDate = ISO8601DateFormatter().date(from: left.lastSyncedAt) ?? .distantPast
             let rightDate = ISO8601DateFormatter().date(from: right.lastSyncedAt) ?? .distantPast
@@ -86,13 +95,30 @@ func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot?
         .first
 }
 
-func menuBarUsageText(from accounts: [AccountSnapshot]) -> String? {
-    guard let account = primaryMenuBarAccount(from: accounts),
-          account.rollingWindow.available else {
+func menuBarUsageText(
+    from accounts: [AccountSnapshot],
+    supportsFiveHourLimit: Bool = FeatureFlags.supportsFiveHourLimit
+) -> String? {
+    guard let account = primaryMenuBarAccount(
+        from: accounts,
+        supportsFiveHourLimit: supportsFiveHourLimit
+    ) else {
         return nil
     }
 
-    return percentageText(for: account.rollingWindow)
+    return percentageText(
+        for: menuBarUsageWindow(
+            for: account,
+            supportsFiveHourLimit: supportsFiveHourLimit
+        )
+    )
+}
+
+private func menuBarUsageWindow(
+    for account: AccountSnapshot,
+    supportsFiveHourLimit: Bool
+) -> UsageWindow {
+    supportsFiveHourLimit ? account.rollingWindow : account.weeklyWindow
 }
 
 func sessionBadgeText(for window: UsageWindow) -> String {
@@ -315,8 +341,13 @@ func isRollingWindowLocked(_ window: UsageWindow) -> Bool {
     window.available && remainingPercentage(for: window) == 0 && !hasJustReset(window)
 }
 
-func shouldShowRollingLock(for account: AccountSnapshot) -> Bool {
-    isRollingWindowLocked(account.rollingWindow) && displayRemainingPercentage(for: account.weeklyWindow) > 0
+func shouldShowRollingLock(
+    for account: AccountSnapshot,
+    supportsFiveHourLimit: Bool = FeatureFlags.supportsFiveHourLimit
+) -> Bool {
+    supportsFiveHourLimit
+        && isRollingWindowLocked(account.rollingWindow)
+        && displayRemainingPercentage(for: account.weeklyWindow) > 0
 }
 
 func sortedAccountsByResetTime(

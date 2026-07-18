@@ -81,6 +81,7 @@ final class FormatTests: XCTestCase {
         XCTAssertFalse(shouldShowRollingLock(for: account))
     }
 
+    @MainActor
     func testRollingLockStillShowsWhenWeeklyUsageRemains() {
         let account = AccountSnapshot(
             accountId: "session-locked",
@@ -111,7 +112,16 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertTrue(shouldShowRollingLock(for: account))
+        XCTAssertTrue(shouldShowRollingLock(for: account, supportsFiveHourLimit: true))
+        XCTAssertFalse(shouldShowRollingLock(for: account, supportsFiveHourLimit: false))
+        XCTAssertEqual(
+            AccountCardView.height(for: account, supportsFiveHourLimit: true),
+            AccountCardView.expandedHeight
+        )
+        XCTAssertEqual(
+            AccountCardView.height(for: account, supportsFiveHourLimit: false),
+            AccountCardView.collapsedHeight
+        )
     }
 
     func testMenuBarUsageTextUsesTopRankedRollingWindowPercentage() {
@@ -172,7 +182,20 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "65%")
+        XCTAssertEqual(
+            menuBarUsageText(
+                from: [lowerRankedAccount, topAccount],
+                supportsFiveHourLimit: true
+            ),
+            "65%"
+        )
+        XCTAssertEqual(
+            menuBarUsageText(
+                from: [lowerRankedAccount, topAccount],
+                supportsFiveHourLimit: false
+            ),
+            "30%"
+        )
     }
 
     func testMenuBarUsageTextPrefersCurrentSystemRollingWindow() {
@@ -233,7 +256,13 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "28%")
+        XCTAssertEqual(
+            menuBarUsageText(
+                from: [staleTopRankedAccount, currentAccount],
+                supportsFiveHourLimit: true
+            ),
+            "28%"
+        )
     }
 
     func testMenuBarUsageTextHidesWhenNoAccountIsCurrent() {

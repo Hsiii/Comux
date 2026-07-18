@@ -13,7 +13,7 @@
 ## Why
 
 - **Zero setup:** Picks up local Codex app sessions automatically (you can also set it up manually with Codex CLI).
-- **5h usage in your menu bar:** Check your active account's 5h usage frictionless.
+- **Usage in your menu bar:** Check your active account's remaining usage at a glance.
 - **Track all at once:** See usage and reset info across accounts and workspace in one panel.
 - **Smart planing:** Accounts are ranked by remaining headroom so you can pick the right account to burn.
 - **Auto updates:** Comux checks GitHub Releases daily and can install updates from the menu bar.
@@ -54,6 +54,8 @@ If Comux does not show an account, open Codex and confirm that account is signed
 ```bash
 swift run comux
 ```
+
+The rolling 5-hour limit UI is disabled by default while Codex does not enforce that limit. To exercise the legacy UI locally, launch Comux with `COMUX_SUPPORTS_FIVE_HOUR_LIMIT=true`.
 
 ### Build a local DMG
 

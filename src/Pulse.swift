@@ -203,7 +203,7 @@ final class PulseCoordinator: ObservableObject {
                responseWorkspaceAccountID != self.normalizeWorkspaceAccountID(workspaceAccountID) {
                 continue
             }
-            let resetCredits = try? await self.fetchRateLimitResetCredits(
+            let resetCredits = await self.fetchRateLimitResetCreditsIfSupported(
                 accessToken: identity.accessToken,
                 cookieHeader: nil,
                 usageEndpoint: nil,
@@ -232,7 +232,7 @@ final class PulseCoordinator: ObservableObject {
         }
 
         if snapshots.allSatisfy({ $0.isCurrentSystemAccount != true }) {
-            let resetCredits = try? await self.fetchRateLimitResetCredits(
+            let resetCredits = await self.fetchRateLimitResetCreditsIfSupported(
                 accessToken: identity.accessToken,
                 cookieHeader: nil,
                 usageEndpoint: nil,
@@ -296,7 +296,7 @@ final class PulseCoordinator: ObservableObject {
             cookieHeader: account.chatGPTCookie,
             workspaceAccountID: workspaceAccountID
         )) ?? account.workspaceLabel
-        let resetCredits = try? await self.fetchRateLimitResetCredits(
+        let resetCredits = await self.fetchRateLimitResetCreditsIfSupported(
             accessToken: accessToken,
             cookieHeader: account.chatGPTCookie,
             usageEndpoint: account.usageEndpoint,
@@ -443,6 +443,24 @@ final class PulseCoordinator: ObservableObject {
         return try ResetCreditsPayloadParser.parse(
             data: data,
             response: response
+        )
+    }
+
+    private func fetchRateLimitResetCreditsIfSupported(
+        accessToken: String,
+        cookieHeader: String?,
+        usageEndpoint: String?,
+        accountHeader: String?
+    ) async -> CodexResetCredits? {
+        guard FeatureFlags.supportsFiveHourLimit else {
+            return nil
+        }
+
+        return try? await self.fetchRateLimitResetCredits(
+            accessToken: accessToken,
+            cookieHeader: cookieHeader,
+            usageEndpoint: usageEndpoint,
+            accountHeader: accountHeader
         )
     }
 

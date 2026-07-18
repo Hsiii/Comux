@@ -623,8 +623,13 @@ struct AccountCardView: View {
     static let collapsedHeight: CGFloat = accountCardHeight
     static let expandedHeight: CGFloat = activeAccountCardHeight
 
-    static func height(for account: AccountSnapshot) -> CGFloat {
-        account.isCurrentSystemAccount == true ? Self.expandedHeight : Self.collapsedHeight
+    static func height(
+        for account: AccountSnapshot,
+        supportsFiveHourLimit: Bool = FeatureFlags.supportsFiveHourLimit
+    ) -> CGFloat {
+        account.isCurrentSystemAccount == true && supportsFiveHourLimit
+            ? Self.expandedHeight
+            : Self.collapsedHeight
     }
 
     let account: AccountSnapshot
@@ -652,7 +657,7 @@ struct AccountCardView: View {
     }
 
     private var isExpanded: Bool {
-        account.isCurrentSystemAccount == true
+        account.isCurrentSystemAccount == true && FeatureFlags.supportsFiveHourLimit
     }
 
     private var resetCredits: CodexResetCredits? {
@@ -670,7 +675,7 @@ struct AccountCardView: View {
     private var cardContent: some View {
         WeeklyUsageSurfaceView(
             window: account.weeklyWindow,
-            isLocked: isRollingWindowLocked(account.rollingWindow),
+            isLocked: FeatureFlags.supportsFiveHourLimit && isRollingWindowLocked(account.rollingWindow),
             isActive: account.isCurrentSystemAccount == true,
             isHovered: isHovered,
             topCornerRadius: accountCardCornerRadius,
