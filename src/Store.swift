@@ -35,6 +35,16 @@ final class CacheStore {
         )
     }
 
+    func usedTodayPercentages(
+        for payload: CachePayload,
+        now: Date = Date()
+    ) -> [String: Int] {
+        self.durableStore.loadUsedTodayPercentages(
+            for: payload.accounts,
+            now: now
+        )
+    }
+
     func removeAccount(withID accountID: String) throws -> CachePayload {
         let existing = self.load()
         let filteredAccounts = existing.accounts.filter { $0.accountId != accountID }

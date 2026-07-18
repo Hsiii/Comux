@@ -73,10 +73,51 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             try self.prepareDatabaseIfNeededLocked()
             try self.inTransactionLocked(
                 event: event,
-                touchedPaths: ["meta", "account_snapshots", "usage_windows"]
+                touchedPaths: ["meta", "account_snapshots", "usage_windows", "usage_samples"]
             ) {
                 try self.replaceMetaValueLocked(payload.meta.source, for: "cache.source")
                 try self.replaceAccountSnapshotsLocked(payload.accounts)
+                try self.recordUsageSamplesLocked(payload.accounts)
+                try self.pruneUsageSamplesLocked(now: Date())
+            }
+        }
+    }
+
+    func loadUsedTodayPercentages(
+        for accounts: [AccountSnapshot],
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [String: Int] {
+        self.queue.sync {
+            do {
+                try self.prepareDatabaseIfNeededLocked()
+                var percentages: [String: Int] = [:]
+
+                for account in accounts {
+                    let window = account.primaryUsageWindow
+                    guard let sampledAt = parseISO8601Date(account.lastSyncedAt) else {
+                        continue
+                    }
+
+                    let samples = try self.fetchUsageSamplesLocked(
+                        accountID: account.accountId,
+                        windowID: window.id,
+                        since: now.addingTimeInterval(-UsageHistory.retentionInterval)
+                    )
+                    if let percentage = UsageHistory.usedTodayPercentage(
+                        window: window,
+                        sampledAt: sampledAt,
+                        samples: samples,
+                        now: now,
+                        calendar: calendar
+                    ) {
+                        percentages[account.accountId] = percentage
+                    }
+                }
+
+                return percentages
+            } catch {
+                return [:]
             }
         }
     }
@@ -121,11 +162,13 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             try self.prepareDatabaseIfNeededLocked()
             try self.inTransactionLocked(
                 event: event,
-                touchedPaths: ["meta", "account_snapshots", "usage_windows", "account_configs"]
+                touchedPaths: ["meta", "account_snapshots", "usage_windows", "usage_samples", "account_configs"]
             ) {
                 try self.replaceMetaValueLocked(cache.meta.source, for: "cache.source")
                 try self.replaceMetaValueLocked(String(config.pollIntervalSeconds), for: "config.poll_interval_seconds")
                 try self.replaceAccountSnapshotsLocked(cache.accounts)
+                try self.recordUsageSamplesLocked(cache.accounts)
+                try self.pruneUsageSamplesLocked(now: Date())
                 try self.replaceAccountConfigsLocked(config.accounts)
             }
         }
@@ -276,6 +319,24 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         )
         try self.executeLocked(
             """
+            CREATE TABLE IF NOT EXISTS usage_samples (
+                account_id TEXT NOT NULL,
+                window_id TEXT NOT NULL,
+                sampled_at REAL NOT NULL,
+                used_percentage REAL NOT NULL,
+                resets_at TEXT NOT NULL,
+                PRIMARY KEY (account_id, window_id, sampled_at)
+            );
+            """
+        )
+        try self.executeLocked(
+            """
+            CREATE INDEX IF NOT EXISTS usage_samples_lookup
+            ON usage_samples (account_id, window_id, sampled_at);
+            """
+        )
+        try self.executeLocked(
+            """
             CREATE TABLE IF NOT EXISTS display_names (
                 email TEXT PRIMARY KEY,
                 display_name TEXT NOT NULL,
@@ -327,12 +388,20 @@ final class DurableStoreCoordinator: @unchecked Sendable {
 
         try self.inTransactionLocked(
             event: importedAnyData ? "storage.migrate_legacy" : "storage.bootstrap",
-            touchedPaths: ["meta", "account_snapshots", "usage_windows", "account_configs", "display_names"]
+            touchedPaths: [
+                "meta",
+                "account_snapshots",
+                "usage_windows",
+                "usage_samples",
+                "account_configs",
+                "display_names",
+            ]
         ) {
             try self.replaceMetaValueLocked("sqlite", for: "storage.engine")
             try self.replaceMetaValueLocked(cache.meta.source, for: "cache.source")
             try self.replaceMetaValueLocked(String(config.pollIntervalSeconds), for: "config.poll_interval_seconds")
             try self.replaceAccountSnapshotsLocked(cache.accounts)
+            try self.recordUsageSamplesLocked(cache.accounts)
             try self.replaceAccountConfigsLocked(config.accounts)
             try self.replaceDisplayNamesLocked(displayNames)
         }
@@ -874,6 +943,126 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 try self.stepDoneLocked(statement)
             }
         }
+    }
+
+    private func recordUsageSamplesLocked(_ snapshots: [AccountSnapshot]) throws {
+        let insertStatement = try self.prepareLocked(
+            """
+            INSERT OR IGNORE INTO usage_samples (
+                account_id,
+                window_id,
+                sampled_at,
+                used_percentage,
+                resets_at
+            ) VALUES (?, ?, ?, ?, ?);
+            """
+        )
+        defer { sqlite3_finalize(insertStatement) }
+
+        for snapshot in snapshots {
+            guard let sampledAt = parseISO8601Date(snapshot.lastSyncedAt) else {
+                continue
+            }
+
+            for window in snapshot.usageWindows where window.available {
+                let previous = try self.fetchLatestUsageSampleLocked(
+                    accountID: snapshot.accountId,
+                    windowID: window.id
+                )
+                guard UsageHistory.shouldRecord(
+                    previous: previous,
+                    window: window,
+                    sampledAt: sampledAt
+                ) else {
+                    continue
+                }
+
+                sqlite3_reset(insertStatement)
+                sqlite3_clear_bindings(insertStatement)
+                self.bindText(snapshot.accountId, to: insertStatement, index: 1)
+                self.bindText(window.id, to: insertStatement, index: 2)
+                sqlite3_bind_double(insertStatement, 3, sampledAt.timeIntervalSince1970)
+                sqlite3_bind_double(insertStatement, 4, window.usedPercentage)
+                self.bindText(window.resetsAt, to: insertStatement, index: 5)
+                try self.stepDoneLocked(insertStatement)
+            }
+        }
+    }
+
+    private func fetchLatestUsageSampleLocked(
+        accountID: String,
+        windowID: String
+    ) throws -> UsageSample? {
+        let statement = try self.prepareLocked(
+            """
+            SELECT sampled_at, used_percentage, resets_at
+            FROM usage_samples
+            WHERE account_id = ? AND window_id = ?
+            ORDER BY sampled_at DESC
+            LIMIT 1;
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+
+        self.bindText(accountID, to: statement, index: 1)
+        self.bindText(windowID, to: statement, index: 2)
+        guard sqlite3_step(statement) == SQLITE_ROW else {
+            return nil
+        }
+
+        return UsageSample(
+            accountID: accountID,
+            windowID: windowID,
+            sampledAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 0)),
+            usedPercentage: sqlite3_column_double(statement, 1),
+            resetsAt: self.columnText(statement, index: 2) ?? ""
+        )
+    }
+
+    private func fetchUsageSamplesLocked(
+        accountID: String,
+        windowID: String,
+        since: Date
+    ) throws -> [UsageSample] {
+        let statement = try self.prepareLocked(
+            """
+            SELECT sampled_at, used_percentage, resets_at
+            FROM usage_samples
+            WHERE account_id = ? AND window_id = ? AND sampled_at >= ?
+            ORDER BY sampled_at ASC;
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+
+        self.bindText(accountID, to: statement, index: 1)
+        self.bindText(windowID, to: statement, index: 2)
+        sqlite3_bind_double(statement, 3, since.timeIntervalSince1970)
+
+        var samples: [UsageSample] = []
+        while sqlite3_step(statement) == SQLITE_ROW {
+            samples.append(UsageSample(
+                accountID: accountID,
+                windowID: windowID,
+                sampledAt: Date(timeIntervalSince1970: sqlite3_column_double(statement, 0)),
+                usedPercentage: sqlite3_column_double(statement, 1),
+                resetsAt: self.columnText(statement, index: 2) ?? ""
+            ))
+        }
+        return samples
+    }
+
+    private func pruneUsageSamplesLocked(now: Date) throws {
+        let statement = try self.prepareLocked(
+            "DELETE FROM usage_samples WHERE sampled_at < ?;"
+        )
+        defer { sqlite3_finalize(statement) }
+
+        sqlite3_bind_double(
+            statement,
+            1,
+            now.addingTimeInterval(-UsageHistory.retentionInterval).timeIntervalSince1970
+        )
+        try self.stepDoneLocked(statement)
     }
 
     private func fetchAccountConfigsLocked() throws -> [AccountConfig] {
