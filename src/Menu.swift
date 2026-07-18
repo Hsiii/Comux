@@ -31,6 +31,68 @@ private let editDialogContentSpacing: CGFloat = 16
 private let editDialogButtonSpacing: CGFloat = 12
 private let accountDialogCornerRadius: CGFloat = 16
 
+@MainActor
+enum MenuPanelWindowAppearance {
+    static let cornerRadius: CGFloat = 26
+
+    static func apply(to window: NSWindow) {
+        let surfaceView = window.contentView?.superview ?? window.contentView
+        let needsUpdate =
+            window.isOpaque ||
+            window.backgroundColor != .clear ||
+            surfaceView?.layer?.cornerRadius != self.cornerRadius ||
+            surfaceView?.layer?.cornerCurve != .continuous ||
+            surfaceView?.layer?.masksToBounds != true
+
+        guard needsUpdate else {
+            return
+        }
+
+        window.isOpaque = false
+        window.backgroundColor = .clear
+
+        guard let surfaceView else {
+            return
+        }
+
+        surfaceView.wantsLayer = true
+        surfaceView.layer?.cornerRadius = self.cornerRadius
+        surfaceView.layer?.cornerCurve = .continuous
+        surfaceView.layer?.masksToBounds = true
+        window.invalidateShadow()
+    }
+}
+
+private final class MenuPanelWindowAttachmentView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        self.applyWindowAppearance()
+    }
+
+    override func layout() {
+        super.layout()
+        self.applyWindowAppearance()
+    }
+
+    private func applyWindowAppearance() {
+        guard let window else {
+            return
+        }
+
+        MenuPanelWindowAppearance.apply(to: window)
+    }
+}
+
+private struct MenuPanelWindowAttachment: NSViewRepresentable {
+    func makeNSView(context: Context) -> MenuPanelWindowAttachmentView {
+        MenuPanelWindowAttachmentView()
+    }
+
+    func updateNSView(_ nsView: MenuPanelWindowAttachmentView, context: Context) {
+        nsView.needsLayout = true
+    }
+}
+
 private var controlSectionBottomPadding: CGFloat {
     controlHoverInset
 }
@@ -618,7 +680,10 @@ struct PulseMenuView: View {
             }
         }
         .frame(width: panelWidth, height: self.panelHeight)
-        .background(.clear)
+        .background {
+            MenuPanelWindowAttachment()
+                .allowsHitTesting(false)
+        }
         .onAppear {
             Task {
                 await self.coordinator.syncNow()
