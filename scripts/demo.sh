@@ -13,6 +13,7 @@ swiftc \
   src/AccountIdentity.swift \
   src/AccountSnapshotMerger.swift \
   src/UsagePayloadParser.swift \
+  src/UsageHistory.swift \
   src/WorkspaceLabelResolver.swift \
   src/SystemRefreshErrorPolicy.swift \
   src/Path.swift \
