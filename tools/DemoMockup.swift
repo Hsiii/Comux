@@ -470,31 +470,6 @@ private func demoAccounts() -> [AccountSnapshot] {
             rollingResetOffset: 2 * 60 * 60 + 56 * 60,
             now: now
         ),
-        makeAccount(
-            id: "hsi-sub-school",
-            label: "Hsi Sub",
-            workspaceLabel: "School",
-            plan: "Codex Team",
-            isCurrent: false,
-            weeklyUsedPercentage: 100,
-            weeklyResetOffset: 3 * 24 * 60 * 60 + 16 * 60 * 60,
-            rollingUsedPercentage: 80,
-            rollingResetOffset: 3 * 60 * 60,
-            now: now
-        ),
-        makeAccount(
-            id: "hsiii-free",
-            label: "Hsiii",
-            workspaceLabel: "Personal",
-            plan: "Codex Free",
-            isCurrent: false,
-            weeklyWindowLabel: "30-day",
-            weeklyUsedPercentage: 100,
-            weeklyResetOffset: freeWindowDuration + hour,
-            rollingUsedPercentage: 65,
-            rollingResetOffset: 2 * 60 * 60,
-            now: now
-        ),
     ]
 }
 
