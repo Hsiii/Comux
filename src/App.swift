@@ -25,7 +25,7 @@ struct ComuxApp: App {
         _coordinator = StateObject(wrappedValue: coordinator)
         _autoUpdateStore = StateObject(wrappedValue: autoUpdateStore)
         coordinator.start()
-        autoUpdateStore.checkAutomatically()
+        autoUpdateStore.startAutomaticChecks()
     }
 
     var body: some Scene {

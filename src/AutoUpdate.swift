@@ -459,9 +459,11 @@ final class AutoUpdateStore: ObservableObject {
 
     private static let lastCheckKey = "dev.hsi.comux.lastAutoUpdateCheck"
     private static let automaticCheckInterval: TimeInterval = 24 * 60 * 60
+    private static let automaticCheckPollingIntervalNanoseconds: UInt64 = 60 * 60 * 1_000_000_000
 
     private let client: GitHubReleaseUpdateClient
     private let defaults: UserDefaults
+    private var automaticCheckTask: Task<Void, Never>?
     private var resetStatusTask: Task<Void, Never>?
 
     init(
@@ -470,6 +472,11 @@ final class AutoUpdateStore: ObservableObject {
     ) {
         self.client = client
         self.defaults = defaults
+    }
+
+    deinit {
+        self.automaticCheckTask?.cancel()
+        self.resetStatusTask?.cancel()
     }
 
     var menuTitle: String {
@@ -498,13 +505,27 @@ final class AutoUpdateStore: ObservableObject {
         }
     }
 
-    func checkAutomatically() {
-        guard self.shouldRunAutomaticCheck else {
+    func startAutomaticChecks() {
+        guard self.automaticCheckTask == nil else {
             return
         }
 
-        Task {
-            await self.checkForUpdates(isUserInitiated: false)
+        self.automaticCheckTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard self != nil else {
+                    return
+                }
+
+                if self?.shouldRunAutomaticCheck == true {
+                    await self?.checkForUpdates(isUserInitiated: false)
+                }
+
+                do {
+                    try await Task.sleep(nanoseconds: Self.automaticCheckPollingIntervalNanoseconds)
+                } catch {
+                    return
+                }
+            }
         }
     }
 

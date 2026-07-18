@@ -16,7 +16,7 @@
 - **Usage in your menu bar:** Check your active account's remaining usage at a glance.
 - **Track all at once:** See usage and reset info across accounts and workspace in one panel.
 - **Smart planing:** Accounts are ranked by remaining headroom so you can pick the right account to burn.
-- **Auto updates:** Comux checks GitHub Releases daily and can install updates from the menu bar.
+- **Auto updates:** Comux checks GitHub Releases daily, even while it stays open, and can install updates from the menu bar.
 - **Privacy first:** Comux supports custom display names and stores account metadata locally in `~/.comux`.
 
 ## Install
