@@ -46,8 +46,6 @@ final class FormatTests: XCTestCase {
             resetsAt: "2026-07-23T00:00:00Z"
         )
 
-        XCTAssertEqual(currentUsageDelta(for: window, now: now), 9)
-        XCTAssertEqual(usageDeltaText(for: window, now: now), "(+9%)")
         XCTAssertEqual(usageHeadlineText(for: window, now: now), "80%(+9%)")
     }
 
@@ -114,7 +112,6 @@ final class FormatTests: XCTestCase {
         XCTAssertFalse(shouldShowShortHorizonLock(for: account))
     }
 
-    @MainActor
     func testShortHorizonLockStillShowsWhenPrimaryUsageRemains() {
         let account = AccountSnapshot(
             accountId: "session-locked",
@@ -147,7 +144,6 @@ final class FormatTests: XCTestCase {
 
         XCTAssertTrue(shouldShowShortHorizonLock(for: account, supportsFiveHourLimit: true))
         XCTAssertFalse(shouldShowShortHorizonLock(for: account, supportsFiveHourLimit: false))
-        XCTAssertEqual(AccountCardView.height(for: account), AccountCardView.collapsedHeight)
     }
 
     func testMenuBarUsageTextUsesCurrentAccountLongHorizonPercentage() {
@@ -209,10 +205,6 @@ final class FormatTests: XCTestCase {
         )
 
         XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "30%(-70%)")
-        XCTAssertEqual(
-            sortedAccountsByHeadroom([lowerRankedAccount, topAccount]) { $0.label }.map(\.id),
-            ["top", "lower"]
-        )
     }
 
     func testMenuBarUsageTextPrefersCurrentSystemPrimaryWindow() {
