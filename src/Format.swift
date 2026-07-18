@@ -311,12 +311,12 @@ func compactAccountTag(for account: AccountSnapshot) -> String? {
 
 func resetCreditsCountText(for resetCredits: CodexResetCredits?) -> String {
     guard let resetCredits else {
-        return "No resets"
+        return "No resets available"
     }
 
     switch resetCredits.availableCount {
     case ...0:
-        return "No resets"
+        return "No resets available"
     case 1:
         return "1 reset available"
     default:

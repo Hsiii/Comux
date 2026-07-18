@@ -98,7 +98,7 @@ final class FormatTests: XCTestCase {
             resetCreditsExpiryText(for: resetCredits, now: now),
             "Next reset expires in 2d 3h"
         )
-        XCTAssertEqual(resetCreditsCountText(for: nil), "No resets")
+        XCTAssertEqual(resetCreditsCountText(for: nil), "No resets available")
         XCTAssertNil(resetCreditsExpiryText(for: nil, now: now))
     }
 
