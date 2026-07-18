@@ -2,14 +2,18 @@ import AppKit
 import SwiftUI
 
 private let windowRenderScale: CGFloat = 2
-private let canvasSize = CGSize(width: 529, height: 793)
+private let menuBarHeight: CGFloat = 35
+private let panelWidth: CGFloat = 360
+private let panelHeight: CGFloat = 636
+private let canvasBottomMargin: CGFloat = 41
+private let canvasSize = CGSize(
+    width: 529,
+    height: menuBarHeight + panelHeight + canvasBottomMargin
+)
 private let windowSize = CGSize(
     width: canvasSize.width * windowRenderScale,
     height: canvasSize.height * windowRenderScale
 )
-private let menuBarHeight: CGFloat = 35
-private let panelWidth: CGFloat = 360
-private let panelHeight: CGFloat = 716
 private let panelLeading = (canvasSize.width - panelWidth) / 2
 private let panelTopOffset = menuBarHeight
 private let panelCornerRadius: CGFloat = 26
