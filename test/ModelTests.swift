@@ -94,4 +94,44 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(decoded.accountId, snapshot.accountId)
         XCTAssertEqual(compactAccountMetadata(for: decoded), "Pro • 2 resets")
     }
+
+    func testPrimaryWindowPrefersAvailableLongHorizon() {
+        let availableWeekly = UsageWindow(
+            id: "weekly",
+            scope: .longHorizon,
+            durationSeconds: 7 * 24 * 60 * 60,
+            available: true,
+            label: "Weekly window",
+            usedMinutes: 10,
+            limitMinutes: 100,
+            usedPercentage: 10,
+            resetsAt: "2026-07-25T00:00:00Z"
+        )
+        let unavailableMonthly = UsageWindow(
+            id: "monthly",
+            scope: .longHorizon,
+            durationSeconds: 30 * 24 * 60 * 60,
+            available: false,
+            label: "30-day window",
+            usedMinutes: 0,
+            limitMinutes: 0,
+            usedPercentage: 0,
+            resetsAt: ""
+        )
+        let snapshot = AccountSnapshot(
+            accountId: "person@example.com::personal",
+            label: "Person",
+            email: "person@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: nil,
+            isCurrentSystemAccount: true,
+            lastSyncedAt: "2026-07-18T00:00:00Z",
+            usageWindows: [unavailableMonthly, availableWeekly]
+        )
+
+        XCTAssertEqual(snapshot.primaryUsageWindow.id, "weekly")
+    }
 }

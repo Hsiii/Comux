@@ -134,15 +134,19 @@ struct AccountSnapshot: Codable, Identifiable {
     var id: String { self.accountId }
 
     var longHorizonWindow: UsageWindow? {
-        self.usageWindows
-            .filter { $0.scope == .longHorizon }
+        let windows = self.usageWindows.filter { $0.scope == .longHorizon }
+        return windows
+            .filter(\.available)
             .max { ($0.durationSeconds ?? 0) < ($1.durationSeconds ?? 0) }
+            ?? windows.max { ($0.durationSeconds ?? 0) < ($1.durationSeconds ?? 0) }
     }
 
     var shortHorizonWindow: UsageWindow? {
-        self.usageWindows
-            .filter { $0.scope == .shortHorizon }
+        let windows = self.usageWindows.filter { $0.scope == .shortHorizon }
+        return windows
+            .filter(\.available)
             .min { ($0.durationSeconds ?? .max) < ($1.durationSeconds ?? .max) }
+            ?? windows.min { ($0.durationSeconds ?? .max) < ($1.durationSeconds ?? .max) }
     }
 
     var primaryUsageWindow: UsageWindow {
