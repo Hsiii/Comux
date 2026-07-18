@@ -85,7 +85,7 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(usageWindowResetText(for: window, now: now), "Resets in 6d 0h")
     }
 
-    func testCompactResetCreditsIncludesNextExpiry() {
+    func testResetCreditsSplitCountFromNextExpiry() {
         let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
         let resetCredits = CodexResetCredits(
             availableCount: 2,
@@ -93,11 +93,13 @@ final class FormatTests: XCTestCase {
             updatedAt: "2026-07-18T00:00:00Z"
         )
 
+        XCTAssertEqual(resetCreditsCountText(for: resetCredits), "2 resets")
         XCTAssertEqual(
-            compactResetCreditsText(for: resetCredits, now: now),
-            "2 resets • next expires in 2d 3h"
+            resetCreditsExpiryText(for: resetCredits, now: now),
+            "Next reset expires in 2d 3h"
         )
-        XCTAssertEqual(compactResetCreditsText(for: nil, now: now), "No resets")
+        XCTAssertEqual(resetCreditsCountText(for: nil), "No resets")
+        XCTAssertNil(resetCreditsExpiryText(for: nil, now: now))
     }
 
     func testThirtyDayUsageWindowAlignsPaceWithMonthlyReset() {

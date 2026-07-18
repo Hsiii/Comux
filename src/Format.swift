@@ -309,33 +309,35 @@ func compactAccountTag(for account: AccountSnapshot) -> String? {
     accountTierText(for: account)
 }
 
-func compactResetCreditsText(
-    for resetCredits: CodexResetCredits?,
-    now: Date = Date()
-) -> String {
+func resetCreditsCountText(for resetCredits: CodexResetCredits?) -> String {
     guard let resetCredits else {
         return "No resets"
     }
 
-    let countText: String
     switch resetCredits.availableCount {
     case ...0:
-        countText = "No resets"
+        return "No resets"
     case 1:
-        countText = "1 reset"
+        return "1 reset"
     default:
-        countText = "\(resetCredits.availableCount) resets"
+        return "\(resetCredits.availableCount) resets"
     }
+}
 
-    guard resetCredits.availableCount > 0,
+func resetCreditsExpiryText(
+    for resetCredits: CodexResetCredits?,
+    now: Date = Date()
+) -> String? {
+    guard let resetCredits,
+          resetCredits.availableCount > 0,
           let nextExpiresAt = resetCredits.nextExpiresAt,
           let expiryDate = parseISO8601Date(nextExpiresAt),
           expiryDate > now
     else {
-        return countText
+        return nil
     }
 
-    return "\(countText) • next expires in \(formatCountdown(nextExpiresAt, now: now))"
+    return "Next reset expires in \(formatCountdown(nextExpiresAt, now: now))"
 }
 
 func windowDuration(for window: UsageWindow) -> TimeInterval? {

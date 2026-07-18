@@ -92,7 +92,7 @@ final class ModelTests: XCTestCase {
         XCTAssertEqual(decoded.usageWindows, [shortWindow, longWindow])
         XCTAssertEqual(decoded.primaryUsageWindow.id, "secondary")
         XCTAssertEqual(decoded.accountId, snapshot.accountId)
-        XCTAssertEqual(compactResetCreditsText(for: decoded.resetCredits), "2 resets")
+        XCTAssertEqual(resetCreditsCountText(for: decoded.resetCredits), "2 resets")
     }
 
     func testPrimaryWindowPrefersAvailableLongHorizon() {

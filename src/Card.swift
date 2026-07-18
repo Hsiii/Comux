@@ -696,14 +696,22 @@ struct AccountCardView: View {
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Spacer(minLength: 8)
-
-                Text(compactResetCreditsText(for: account.resetCredits))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Text(resetCreditsCountText(for: account.resetCredits))
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
+
+                Spacer(minLength: 8)
+
+                if let expiryText = resetCreditsExpiryText(for: account.resetCredits) {
+                    Text(expiryText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(1)
+                }
             }
+            .font(.caption)
+            .foregroundStyle(.secondary)
             .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
