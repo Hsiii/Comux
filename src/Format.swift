@@ -133,7 +133,7 @@ func menuBarUsageText(from accounts: [AccountSnapshot]) -> String? {
 
 func usageWindowResetText(for window: UsageWindow, now: Date = Date()) -> String {
     if hasJustReset(window, now: now) || isFreshResetWindow(window, now: now) {
-        return "Fresh window"
+        return "Fresh"
     }
 
     return "Resets in \(formatCountdown(window.resetsAt, now: now))"
@@ -313,45 +313,29 @@ func compactResetCreditsText(
     for resetCredits: CodexResetCredits?,
     now: Date = Date()
 ) -> String? {
-    guard let countText = resetCreditsCountText(for: resetCredits) else {
-        return nil
-    }
-
-    guard let expiryText = resetCreditsExpiryText(for: resetCredits, now: now) else {
-        return countText
-    }
-
-    return "\(countText) • \(expiryText.lowercased())"
-}
-
-func resetCreditsCountText(for resetCredits: CodexResetCredits?) -> String? {
     guard let resetCredits else {
         return nil
     }
 
-    guard resetCredits.availableCount > 0 else {
-        return "No resets"
+    let countText: String
+    switch resetCredits.availableCount {
+    case ...0:
+        countText = "No resets"
+    case 1:
+        countText = "1 reset"
+    default:
+        countText = "\(resetCredits.availableCount) resets"
     }
 
-    return resetCredits.availableCount == 1
-        ? "1 reset"
-        : "\(resetCredits.availableCount) resets"
-}
-
-func resetCreditsExpiryText(
-    for resetCredits: CodexResetCredits?,
-    now: Date = Date()
-) -> String? {
-    guard let resetCredits,
-          resetCredits.availableCount > 0,
+    guard resetCredits.availableCount > 0,
           let nextExpiresAt = resetCredits.nextExpiresAt,
           let expiryDate = parseISO8601Date(nextExpiresAt),
           expiryDate > now
     else {
-        return nil
+        return countText
     }
 
-    return "Next expires in \(formatCountdown(nextExpiresAt, now: now))"
+    return "\(countText) • next expires in \(formatCountdown(nextExpiresAt, now: now))"
 }
 
 func windowDuration(for window: UsageWindow) -> TimeInterval? {

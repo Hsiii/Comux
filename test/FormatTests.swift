@@ -64,7 +64,7 @@ final class FormatTests: XCTestCase {
         )
 
         XCTAssertEqual(usageHeadlineText(for: window, now: now), "100%")
-        XCTAssertEqual(usageWindowResetText(for: window, now: now), "Fresh window")
+        XCTAssertEqual(usageWindowResetText(for: window, now: now), "Fresh")
     }
 
     func testFullUsageWindowOmitsVarianceBeforeItsReset() {
@@ -96,11 +96,6 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(
             compactResetCreditsText(for: resetCredits, now: now),
             "2 resets • next expires in 2d 3h"
-        )
-        XCTAssertEqual(resetCreditsCountText(for: resetCredits), "2 resets")
-        XCTAssertEqual(
-            resetCreditsExpiryText(for: resetCredits, now: now),
-            "Next expires in 2d 3h"
         )
     }
 

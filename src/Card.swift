@@ -662,52 +662,42 @@ struct AccountCardView: View {
     }
 
     private var compactUsageRows: some View {
-        HStack(alignment: .top, spacing: 12) {
-            self.identityAndCreditsColumn
-
-            Spacer(minLength: 8)
-
-            self.usageColumn
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
-
-    private var identityAndCreditsColumn: some View {
         VStack(alignment: .leading, spacing: 0) {
-            self.identityHeadline
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                self.identityHeadline
 
-            Spacer(minLength: 8)
+                Spacer(minLength: 8)
 
-            if let countText = resetCreditsCountText(for: account.resetCredits) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(countText)
+                self.usageHeadlineLabel
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+            }
 
-                    if let expiryText = resetCreditsExpiryText(for: account.resetCredits) {
-                        Text(expiryText)
-                    }
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Spacer(minLength: 8)
+
+                Text(usageWindowResetText(for: primaryWindow))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+            }
+
+            Spacer(minLength: 4)
+
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                if let resetCreditsText = compactResetCreditsText(for: account.resetCredits) {
+                    Text(resetCreditsText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+
+                Spacer(minLength: 8)
             }
         }
-        .layoutPriority(0)
-    }
-
-    private var usageColumn: some View {
-        VStack(alignment: .trailing, spacing: 0) {
-            self.usageHeadlineLabel
-
-            Text(usageWindowResetText(for: primaryWindow))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.top, 2)
-
-        }
-        .lineLimit(1)
-        .fixedSize(horizontal: true, vertical: false)
-        .layoutPriority(1)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
     private var identityHeadline: some View {
