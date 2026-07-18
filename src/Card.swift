@@ -662,9 +662,13 @@ struct AccountCardView: View {
     }
 
     private var compactUsageRows: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                self.identityHeadline
+                Text(displayName)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
 
                 Spacer(minLength: 8)
 
@@ -674,6 +678,14 @@ struct AccountCardView: View {
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
+                if let accountTag = compactAccountTag(for: account), !accountTag.isEmpty {
+                    Text(accountTag)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
+
                 Spacer(minLength: 8)
 
                 Text(usageWindowResetText(for: primaryWindow))
@@ -682,8 +694,6 @@ struct AccountCardView: View {
                     .fixedSize(horizontal: true, vertical: false)
                     .layoutPriority(1)
             }
-
-            Spacer(minLength: 4)
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 if let resetCreditsText = compactResetCreditsText(for: account.resetCredits) {
@@ -698,21 +708,6 @@ struct AccountCardView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
-
-    private var identityHeadline: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(displayName)
-                .foregroundStyle(.primary)
-
-            if let accountTag = compactAccountTag(for: account), !accountTag.isEmpty {
-                Text(accountTag)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .font(.headline.weight(.semibold))
-        .lineLimit(1)
-        .minimumScaleFactor(0.75)
     }
 
     private var usageHeadlineLabel: some View {
