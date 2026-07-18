@@ -712,7 +712,7 @@ struct AccountCardView: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-            .padding(.top, 4)
+            .padding(.top, 6)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
