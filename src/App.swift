@@ -44,7 +44,6 @@ struct ComuxApp: App {
                 if let usageText = menuBarUsageText(from: self.coordinator.cache.accounts) {
                     Text(usageText)
                         .font(.caption.weight(.semibold))
-                        .monospacedDigit()
                 }
             }
         }

@@ -51,7 +51,6 @@ struct WindowCardView: View {
             Text(resetPaceText(for: window))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-                .monospacedDigit()
         }
     }
 
@@ -303,7 +302,6 @@ struct HeaderIdentityClusterView: View {
                     Text(formatCountdown(rollingWindow.resetsAt))
                         .font(nameFont)
                         .lineLimit(1)
-                        .monospacedDigit()
                 }
                 .foregroundStyle(Color.white.opacity(0.5))
             }
@@ -690,7 +688,6 @@ struct AccountCardView: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-            .monospacedDigit()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
@@ -722,7 +719,6 @@ struct AccountCardView: View {
             }
         }
         .font(.headline.weight(.semibold))
-        .monospacedDigit()
     }
 
     private var cardMenuTrigger: some View {
