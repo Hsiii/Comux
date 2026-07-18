@@ -476,7 +476,7 @@ struct SlimDashboardPanelView: View {
     }
 
     private var addAccountTitle: String {
-        codexLoginStore.isAddingAccount ? "Adding Account..." : "Add Account"
+        codexLoginStore.isAddingAccount ? "Adding Account..." : "Add Account Manually"
     }
 
     private var controlStrip: some View {

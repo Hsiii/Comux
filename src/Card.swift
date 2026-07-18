@@ -704,7 +704,7 @@ struct AccountCardView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.75)
             }
-            .padding(.top, 2)
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
