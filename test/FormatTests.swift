@@ -93,7 +93,7 @@ final class FormatTests: XCTestCase {
             updatedAt: "2026-07-18T00:00:00Z"
         )
 
-        XCTAssertEqual(resetCreditsCountText(for: resetCredits), "2 resets")
+        XCTAssertEqual(resetCreditsCountText(for: resetCredits), "2 resets available")
         XCTAssertEqual(
             resetCreditsExpiryText(for: resetCredits, now: now),
             "Next reset expires in 2d 3h"

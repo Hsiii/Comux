@@ -318,9 +318,9 @@ func resetCreditsCountText(for resetCredits: CodexResetCredits?) -> String {
     case ...0:
         return "No resets"
     case 1:
-        return "1 reset"
+        return "1 reset available"
     default:
-        return "\(resetCredits.availableCount) resets"
+        return "\(resetCredits.availableCount) resets available"
     }
 }
 
