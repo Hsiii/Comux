@@ -625,7 +625,6 @@ struct AccountCardView: View {
 
     let account: AccountSnapshot
     let displayName: String
-    let usedTodayPercentage: Int?
     let canRemove: Bool
     let onEditDisplayName: () -> Void
     let onRemove: () -> Void
@@ -705,13 +704,6 @@ struct AccountCardView: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
 
-            Spacer(minLength: 8)
-
-            if let usedTodayText = usedTodayText(for: usedTodayPercentage) {
-                Text(usedTodayText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
         .lineLimit(1)
         .fixedSize(horizontal: true, vertical: false)

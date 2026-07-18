@@ -354,14 +354,6 @@ func resetCreditsExpiryText(
     return "Next expires in \(formatCountdown(nextExpiresAt, now: now))"
 }
 
-func usedTodayText(for usedTodayPercentage: Int?) -> String? {
-    guard let usedTodayPercentage else {
-        return nil
-    }
-
-    return "Used \(min(100, max(0, usedTodayPercentage)))% today"
-}
-
 func windowDuration(for window: UsageWindow) -> TimeInterval? {
     if let durationSeconds = window.durationSeconds, durationSeconds > 0 {
         return TimeInterval(durationSeconds)

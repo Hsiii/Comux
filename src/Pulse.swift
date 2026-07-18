@@ -9,7 +9,6 @@ final class PulseCoordinator: ObservableObject {
         ),
         accounts: []
     )
-    @Published var usedTodayPercentageByAccountID: [String: Int] = [:]
     @Published private(set) var removableAccountIDs = Set<String>()
 
     private let cacheStore = CacheStore()
@@ -37,7 +36,6 @@ final class PulseCoordinator: ObservableObject {
 
         self.hasStarted = true
         self.cache = self.cacheStore.load()
-        self.usedTodayPercentageByAccountID = self.cacheStore.usedTodayPercentages(for: self.cache)
         self.removableAccountIDs = self.buildRemovableAccountIDs(
             for: self.cache.accounts
         )
@@ -150,7 +148,6 @@ final class PulseCoordinator: ObservableObject {
 
         self.removalSuppressions.suppressRemoval(of: account)
         self.cache = removal.cache
-        self.usedTodayPercentageByAccountID = self.cacheStore.usedTodayPercentages(for: self.cache)
         self.removableAccountIDs = AccountRemovalResolver.removableAccountIDs(
             for: removal.cache.accounts
         )
@@ -714,7 +711,6 @@ final class PulseCoordinator: ObservableObject {
 
         try? self.cacheStore.save(merged)
         self.cache = merged
-        self.usedTodayPercentageByAccountID = self.cacheStore.usedTodayPercentages(for: merged)
         self.removableAccountIDs = self.buildRemovableAccountIDs(
             for: merged.accounts
         )

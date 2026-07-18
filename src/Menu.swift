@@ -42,7 +42,6 @@ private var controlCheckmarkLeadingInset: CGFloat {
 private struct AccountRowModel: Identifiable {
     let account: AccountSnapshot
     let displayName: String
-    let usedTodayPercentage: Int?
     let canRemove: Bool
 
     var id: String { self.account.id }
@@ -428,7 +427,6 @@ struct SlimDashboardPanelView: View {
             AccountRowModel(
                 account: account,
                 displayName: displayNameStore.displayName(for: account),
-                usedTodayPercentage: coordinator.usedTodayPercentageByAccountID[account.accountId],
                 canRemove: coordinator.isRemovable(account)
             )
         }
@@ -454,7 +452,6 @@ struct SlimDashboardPanelView: View {
                 AccountCardView(
                     account: row.account,
                     displayName: row.displayName,
-                    usedTodayPercentage: row.usedTodayPercentage,
                     canRemove: row.canRemove,
                     onEditDisplayName: {
                         self.promptForDisplayName(row.account)

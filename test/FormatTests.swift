@@ -104,12 +104,6 @@ final class FormatTests: XCTestCase {
         )
     }
 
-    func testUsedTodayTextUsesProportionalPercentageCopy() {
-        XCTAssertEqual(usedTodayText(for: 8), "Used 8% today")
-        XCTAssertEqual(usedTodayText(for: 120), "Used 100% today")
-        XCTAssertNil(usedTodayText(for: nil))
-    }
-
     func testThirtyDayUsageWindowAlignsPaceWithMonthlyReset() {
         let resetDate = Date().addingTimeInterval(24 * 24 * 60 * 60)
         let window = UsageWindow(
