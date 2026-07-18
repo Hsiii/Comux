@@ -32,6 +32,38 @@ final class FormatTests: XCTestCase {
         XCTAssertFalse(resetPaceText(for: window).contains("-100%"))
     }
 
+    func testUsageHeadlineCombinesRemainingWithExpectedMinusCurrent() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
+        let window = UsageWindow(
+            id: "weekly",
+            scope: .longHorizon,
+            durationSeconds: 7 * 24 * 60 * 60,
+            available: true,
+            label: "Weekly window",
+            usedMinutes: 20,
+            limitMinutes: 100,
+            usedPercentage: 20,
+            resetsAt: "2026-07-23T00:00:00Z"
+        )
+
+        XCTAssertEqual(expectedUsageDelta(for: window, now: now), -9)
+        XCTAssertEqual(usageHeadlineText(for: window, now: now), "80%(-9%)")
+    }
+
+    func testCompactResetCreditsIncludesNextExpiry() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
+        let resetCredits = CodexResetCredits(
+            availableCount: 2,
+            nextExpiresAt: "2026-07-20T03:00:00Z",
+            updatedAt: "2026-07-18T00:00:00Z"
+        )
+
+        XCTAssertEqual(
+            compactResetCreditsText(for: resetCredits, now: now),
+            "2 resets • expires 2d 3h"
+        )
+    }
+
     func testThirtyDayUsageWindowAlignsPaceWithMonthlyReset() {
         let resetDate = Date().addingTimeInterval(24 * 24 * 60 * 60)
         let window = UsageWindow(
@@ -175,7 +207,7 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "30%")
+        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "30%(+70%)")
         XCTAssertEqual(
             sortedAccountsByHeadroom([lowerRankedAccount, topAccount]) { $0.label }.map(\.id),
             ["top", "lower"]
@@ -240,7 +272,7 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "60%")
+        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "60%(+40%)")
     }
 
     func testMenuBarUsageTextHidesWhenNoAccountIsCurrent() {

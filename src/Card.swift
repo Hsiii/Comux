@@ -635,10 +635,6 @@ struct AccountCardView: View {
     private let identityClusterWidth: CGFloat = 188
     private let identitySpacing: CGFloat = 6
 
-    private var lockCountdownSpacing: CGFloat {
-        identitySpacing / 2
-    }
-
     private var truncatedDisplayName: String {
         String(displayName.prefix(12))
     }
@@ -680,18 +676,20 @@ struct AccountCardView: View {
 
                 Spacer(minLength: 12)
 
-                self.usagePercentageLabel(
-                    prefix: displayWindowLabel(for: primaryWindow),
-                    window: primaryWindow
-                )
+                Text(usageHeadlineText(for: primaryWindow))
+                    .font(.headline.weight(.semibold))
+                    .monospacedDigit()
+                    .fixedSize(horizontal: true, vertical: false)
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
-                if let metadata = compactAccountMetadata(for: account) {
-                    Text(metadata)
+                if let resetCreditsText = compactResetCreditsText(for: account.resetCredits) {
+                    Text(resetCreditsText)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.75)
                 }
 
                 Spacer(minLength: 12)
@@ -708,42 +706,36 @@ struct AccountCardView: View {
         if FeatureFlags.supportsFiveHourLimit,
            let shortWindow = account.shortHorizonWindow,
            shortWindow.available {
-            Text("\(displayWindowLabel(for: shortWindow)) \(percentageText(for: shortWindow))")
+            if shouldShowShortHorizonLock(for: account) {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Image(systemName: "lock.fill")
+                        .font(.caption2.weight(.semibold))
+
+                    Text(formatCountdown(shortWindow.resetsAt))
+                        .monospacedDigit()
+                }
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-                .monospacedDigit()
-        } else {
-            self.usagePaceLabel(for: primaryWindow)
-        }
-    }
-
-    private func usagePercentageLabel(
-        prefix: String?,
-        window: UsageWindow
-    ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-            if let prefix {
-                Text(prefix)
-                    .font(.headline.weight(.semibold))
+            } else {
+                Text("\(displayWindowLabel(for: shortWindow)) \(percentageText(for: shortWindow))")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .monospacedDigit()
             }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption2.weight(.semibold))
 
-            Text(percentageText(for: window))
-                .font(.headline.weight(.semibold))
-                .monospacedDigit()
-        }
-        .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private func usagePaceLabel(for window: UsageWindow) -> some View {
-        Text(resetPaceText(for: window))
+                Text(formatCountdown(primaryWindow.resetsAt))
+                    .monospacedDigit()
+            }
             .font(.caption)
             .foregroundStyle(.secondary)
             .lineLimit(1)
-            .monospacedDigit()
-            .minimumScaleFactor(0.75)
-            .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var cardMenuTrigger: some View {
@@ -764,17 +756,12 @@ struct AccountCardView: View {
                 .lineLimit(1)
                 .foregroundStyle(.primary)
 
-            if shouldShowShortHorizonLock(for: account) {
-                HStack(alignment: .firstTextBaseline, spacing: lockCountdownSpacing) {
-                    Image(systemName: "lock.fill")
-                        .font(.headline.weight(.semibold))
-
-                    Text(formatCountdown(account.rollingWindow.resetsAt))
-                        .font(.headline.weight(.semibold))
-                        .lineLimit(1)
-                        .monospacedDigit()
-                }
-                .foregroundStyle(Color.white.opacity(0.5))
+            if let accountTag = compactAccountTag(for: account), !accountTag.isEmpty {
+                Text(accountTag)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
             }
 
             Spacer(minLength: 8)

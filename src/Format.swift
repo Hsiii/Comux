@@ -10,12 +10,12 @@ func parseISO8601Date(_ value: String) -> Date? {
     return ISO8601DateFormatter().date(from: value)
 }
 
-func formatCountdown(_ value: String) -> String {
+func formatCountdown(_ value: String, now: Date = Date()) -> String {
     guard let date = parseISO8601Date(value) else {
         return "n/a"
     }
 
-    let diff = Int(date.timeIntervalSinceNow)
+    let diff = Int(date.timeIntervalSince(now))
 
     if diff <= 0 {
         return "just reset"
@@ -63,16 +63,38 @@ func hasJustReset(_ window: UsageWindow, now: Date = Date()) -> Bool {
     return resetDate <= now
 }
 
-func displayRemainingPercentage(for window: UsageWindow) -> Int {
-    hasJustReset(window) ? 100 : remainingPercentage(for: window)
+func displayRemainingPercentage(for window: UsageWindow, now: Date = Date()) -> Int {
+    hasJustReset(window, now: now) ? 100 : remainingPercentage(for: window)
 }
 
-func percentageText(for window: UsageWindow) -> String {
+func percentageText(for window: UsageWindow, now: Date = Date()) -> String {
     guard window.available else {
         return "No seat"
     }
 
-    return "\(displayRemainingPercentage(for: window))%"
+    return "\(displayRemainingPercentage(for: window, now: now))%"
+}
+
+func expectedUsageDelta(for window: UsageWindow, now: Date = Date()) -> Int {
+    guard window.available,
+          !hasJustReset(window, now: now),
+          !isFreshResetWindow(window, now: now)
+    else {
+        return 0
+    }
+
+    return Int(round(expectedRemainingPercentage(for: window, now: now)))
+        - displayRemainingPercentage(for: window, now: now)
+}
+
+func usageHeadlineText(for window: UsageWindow, now: Date = Date()) -> String {
+    guard window.available else {
+        return percentageText(for: window, now: now)
+    }
+
+    let delta = expectedUsageDelta(for: window, now: now)
+    let deltaText = delta > 0 ? "+\(delta)%" : "\(delta)%"
+    return "\(percentageText(for: window, now: now))(\(deltaText))"
 }
 
 func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot? {
@@ -94,7 +116,7 @@ func menuBarUsageText(from accounts: [AccountSnapshot]) -> String? {
         return nil
     }
 
-    return percentageText(for: account.primaryUsageWindow)
+    return usageHeadlineText(for: account.primaryUsageWindow)
 }
 
 func usageWindowResetText(for window: UsageWindow) -> String {
@@ -275,22 +297,30 @@ func compactAccountTag(for account: AccountSnapshot) -> String? {
     accountTierText(for: account)
 }
 
-func compactAccountMetadata(for account: AccountSnapshot) -> String? {
-    let accountTag = compactAccountTag(for: account)
-    let resetCreditsTag = account.resetCredits.flatMap { resetCredits -> String? in
-        guard resetCredits.availableCount > 0 else {
-            return nil
-        }
-
-        return resetCredits.availableCount == 1
-            ? "1 reset"
-            : "\(resetCredits.availableCount) resets"
+func compactResetCreditsText(
+    for resetCredits: CodexResetCredits?,
+    now: Date = Date()
+) -> String? {
+    guard let resetCredits else {
+        return nil
     }
 
-    let parts = [accountTag, resetCreditsTag]
-        .compactMap { $0 }
-        .filter { !$0.isEmpty }
-    return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    guard resetCredits.availableCount > 0 else {
+        return "No resets"
+    }
+
+    let countText = resetCredits.availableCount == 1
+        ? "1 reset"
+        : "\(resetCredits.availableCount) resets"
+
+    guard let nextExpiresAt = resetCredits.nextExpiresAt,
+          let expiryDate = parseISO8601Date(nextExpiresAt),
+          expiryDate > now
+    else {
+        return countText
+    }
+
+    return "\(countText) • expires \(formatCountdown(nextExpiresAt, now: now))"
 }
 
 func windowDuration(for window: UsageWindow) -> TimeInterval? {
@@ -315,7 +345,7 @@ func windowDuration(for window: UsageWindow) -> TimeInterval? {
     return nil
 }
 
-func expectedRemainingPercentage(for window: UsageWindow) -> Double {
+func expectedRemainingPercentage(for window: UsageWindow, now: Date = Date()) -> Double {
     guard window.available,
           let duration = windowDuration(for: window),
           let resetDate = parseISO8601Date(window.resetsAt)
@@ -324,7 +354,7 @@ func expectedRemainingPercentage(for window: UsageWindow) -> Double {
     }
 
     let startDate = resetDate.addingTimeInterval(-duration)
-    let elapsed = Date().timeIntervalSince(startDate)
+    let elapsed = now.timeIntervalSince(startDate)
     return clampPercentage(100 - ((elapsed / duration) * 100))
 }
 
