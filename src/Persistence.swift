@@ -71,7 +71,10 @@ final class DurableStoreCoordinator: @unchecked Sendable {
     ) throws {
         try self.queue.sync {
             try self.prepareDatabaseIfNeededLocked()
-            try self.inTransactionLocked(event: event, touchedPaths: ["meta", "account_snapshots"]) {
+            try self.inTransactionLocked(
+                event: event,
+                touchedPaths: ["meta", "account_snapshots", "usage_windows"]
+            ) {
                 try self.replaceMetaValueLocked(payload.meta.source, for: "cache.source")
                 try self.replaceAccountSnapshotsLocked(payload.accounts)
             }
@@ -118,7 +121,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             try self.prepareDatabaseIfNeededLocked()
             try self.inTransactionLocked(
                 event: event,
-                touchedPaths: ["meta", "account_snapshots", "account_configs"]
+                touchedPaths: ["meta", "account_snapshots", "usage_windows", "account_configs"]
             ) {
                 try self.replaceMetaValueLocked(cache.meta.source, for: "cache.source")
                 try self.replaceMetaValueLocked(String(config.pollIntervalSeconds), for: "config.poll_interval_seconds")
@@ -254,6 +257,25 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         )
         try self.executeLocked(
             """
+            CREATE TABLE IF NOT EXISTS usage_windows (
+                account_id TEXT NOT NULL,
+                window_id TEXT NOT NULL,
+                scope TEXT NOT NULL,
+                duration_seconds INTEGER,
+                ordinal INTEGER NOT NULL,
+                available INTEGER NOT NULL,
+                label TEXT NOT NULL,
+                used_minutes INTEGER NOT NULL,
+                limit_minutes INTEGER NOT NULL,
+                used_percentage REAL NOT NULL,
+                resets_at TEXT NOT NULL,
+                PRIMARY KEY (account_id, window_id),
+                FOREIGN KEY (account_id) REFERENCES account_snapshots(account_id) ON DELETE CASCADE
+            );
+            """
+        )
+        try self.executeLocked(
+            """
             CREATE TABLE IF NOT EXISTS display_names (
                 email TEXT PRIMARY KEY,
                 display_name TEXT NOT NULL,
@@ -305,7 +327,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
 
         try self.inTransactionLocked(
             event: importedAnyData ? "storage.migrate_legacy" : "storage.bootstrap",
-            touchedPaths: ["meta", "account_snapshots", "account_configs", "display_names"]
+            touchedPaths: ["meta", "account_snapshots", "usage_windows", "account_configs", "display_names"]
         ) {
             try self.replaceMetaValueLocked("sqlite", for: "storage.engine")
             try self.replaceMetaValueLocked(cache.meta.source, for: "cache.source")
@@ -362,6 +384,72 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                 """
             )
         }
+
+        guard try self.metaValueLocked(for: "usage_windows.schema.v1") == nil else {
+            return
+        }
+
+        try self.executeLocked(
+            """
+            INSERT OR IGNORE INTO usage_windows (
+                account_id,
+                window_id,
+                scope,
+                duration_seconds,
+                ordinal,
+                available,
+                label,
+                used_minutes,
+                limit_minutes,
+                used_percentage,
+                resets_at
+            )
+            SELECT
+                account_id,
+                'legacy-weekly',
+                'longHorizon',
+                604800,
+                0,
+                weekly_available,
+                weekly_label,
+                weekly_used_minutes,
+                weekly_limit_minutes,
+                weekly_used_percentage,
+                weekly_resets_at
+            FROM account_snapshots;
+            """
+        )
+        try self.executeLocked(
+            """
+            INSERT OR IGNORE INTO usage_windows (
+                account_id,
+                window_id,
+                scope,
+                duration_seconds,
+                ordinal,
+                available,
+                label,
+                used_minutes,
+                limit_minutes,
+                used_percentage,
+                resets_at
+            )
+            SELECT
+                account_id,
+                'legacy-rolling',
+                'shortHorizon',
+                18000,
+                1,
+                rolling_available,
+                rolling_label,
+                rolling_used_minutes,
+                rolling_limit_minutes,
+                rolling_used_percentage,
+                rolling_resets_at
+            FROM account_snapshots;
+            """
+        )
+        try self.replaceMetaValueLocked("true", for: "usage_windows.schema.v1")
     }
 
     private func loadLegacyCacheLocked() -> CachePayload {
@@ -511,6 +599,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
     }
 
     private func fetchAccountSnapshotsLocked() throws -> [AccountSnapshot] {
+        let usageWindowsByAccount = try self.fetchUsageWindowsLocked()
         let statement = try self.prepareLocked(
             """
             SELECT
@@ -548,6 +637,7 @@ final class DurableStoreCoordinator: @unchecked Sendable {
         var snapshots: [AccountSnapshot] = []
 
         while sqlite3_step(statement) == SQLITE_ROW {
+            let accountID = self.columnText(statement, index: 0) ?? ""
             let weekly = UsageWindow(
                 available: sqlite3_column_int(statement, 10) != 0,
                 label: self.columnText(statement, index: 11) ?? "",
@@ -572,25 +662,48 @@ final class DurableStoreCoordinator: @unchecked Sendable {
                     updatedAt: self.columnText(statement, index: 24) ?? ""
                 )
 
-            snapshots.append(
-                AccountSnapshot(
-                    accountId: self.columnText(statement, index: 0) ?? "",
-                    label: self.columnText(statement, index: 1) ?? "",
-                    email: self.columnText(statement, index: 2) ?? "",
-                    workspaceId: self.columnText(statement, index: 3),
-                    workspaceLabel: self.columnText(statement, index: 4) ?? "",
-                    plan: self.columnText(statement, index: 5) ?? "",
-                    source: self.columnText(statement, index: 6) ?? "",
-                    systemAuthProfileId: self.columnText(statement, index: 7),
-                    isCurrentSystemAccount: sqlite3_column_type(statement, 8) == SQLITE_NULL
-                        ? nil
-                        : sqlite3_column_int(statement, 8) != 0,
-                    lastSyncedAt: self.columnText(statement, index: 9) ?? "",
-                    weeklyWindow: weekly,
-                    rollingWindow: rolling,
-                    resetCredits: resetCredits
+            let usageWindows = usageWindowsByAccount[accountID] ?? []
+
+            if usageWindows.isEmpty {
+                snapshots.append(
+                    AccountSnapshot(
+                        accountId: accountID,
+                        label: self.columnText(statement, index: 1) ?? "",
+                        email: self.columnText(statement, index: 2) ?? "",
+                        workspaceId: self.columnText(statement, index: 3),
+                        workspaceLabel: self.columnText(statement, index: 4) ?? "",
+                        plan: self.columnText(statement, index: 5) ?? "",
+                        source: self.columnText(statement, index: 6) ?? "",
+                        systemAuthProfileId: self.columnText(statement, index: 7),
+                        isCurrentSystemAccount: sqlite3_column_type(statement, 8) == SQLITE_NULL
+                            ? nil
+                            : sqlite3_column_int(statement, 8) != 0,
+                        lastSyncedAt: self.columnText(statement, index: 9) ?? "",
+                        weeklyWindow: weekly,
+                        rollingWindow: rolling,
+                        resetCredits: resetCredits
+                    )
                 )
-            )
+            } else {
+                snapshots.append(
+                    AccountSnapshot(
+                        accountId: accountID,
+                        label: self.columnText(statement, index: 1) ?? "",
+                        email: self.columnText(statement, index: 2) ?? "",
+                        workspaceId: self.columnText(statement, index: 3),
+                        workspaceLabel: self.columnText(statement, index: 4) ?? "",
+                        plan: self.columnText(statement, index: 5) ?? "",
+                        source: self.columnText(statement, index: 6) ?? "",
+                        systemAuthProfileId: self.columnText(statement, index: 7),
+                        isCurrentSystemAccount: sqlite3_column_type(statement, 8) == SQLITE_NULL
+                            ? nil
+                            : sqlite3_column_int(statement, 8) != 0,
+                        lastSyncedAt: self.columnText(statement, index: 9) ?? "",
+                        usageWindows: usageWindows,
+                        resetCredits: resetCredits
+                    )
+                )
+            }
         }
 
         return snapshots
@@ -669,6 +782,97 @@ final class DurableStoreCoordinator: @unchecked Sendable {
             }
 
             try self.stepDoneLocked(statement)
+        }
+
+        try self.replaceUsageWindowsLocked(snapshots)
+    }
+
+    private func fetchUsageWindowsLocked() throws -> [String: [UsageWindow]] {
+        let statement = try self.prepareLocked(
+            """
+            SELECT
+                account_id,
+                window_id,
+                scope,
+                duration_seconds,
+                available,
+                label,
+                used_minutes,
+                limit_minutes,
+                used_percentage,
+                resets_at
+            FROM usage_windows
+            ORDER BY account_id ASC, ordinal ASC;
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+
+        var windowsByAccount: [String: [UsageWindow]] = [:]
+
+        while sqlite3_step(statement) == SQLITE_ROW {
+            let accountID = self.columnText(statement, index: 0) ?? ""
+            let rawScope = self.columnText(statement, index: 2) ?? ""
+            let durationSeconds = sqlite3_column_type(statement, 3) == SQLITE_NULL
+                ? nil
+                : Int(sqlite3_column_int64(statement, 3))
+            let window = UsageWindow(
+                id: self.columnText(statement, index: 1),
+                scope: UsageWindowScope(rawValue: rawScope) ?? .unknown,
+                durationSeconds: durationSeconds,
+                available: sqlite3_column_int(statement, 4) != 0,
+                label: self.columnText(statement, index: 5) ?? "",
+                usedMinutes: Int(sqlite3_column_int(statement, 6)),
+                limitMinutes: Int(sqlite3_column_int(statement, 7)),
+                usedPercentage: sqlite3_column_double(statement, 8),
+                resetsAt: self.columnText(statement, index: 9) ?? ""
+            )
+            windowsByAccount[accountID, default: []].append(window)
+        }
+
+        return windowsByAccount
+    }
+
+    private func replaceUsageWindowsLocked(_ snapshots: [AccountSnapshot]) throws {
+        let statement = try self.prepareLocked(
+            """
+            INSERT INTO usage_windows (
+                account_id,
+                window_id,
+                scope,
+                duration_seconds,
+                ordinal,
+                available,
+                label,
+                used_minutes,
+                limit_minutes,
+                used_percentage,
+                resets_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """
+        )
+        defer { sqlite3_finalize(statement) }
+
+        for snapshot in snapshots {
+            for (ordinal, window) in snapshot.usageWindows.enumerated() {
+                sqlite3_reset(statement)
+                sqlite3_clear_bindings(statement)
+                self.bindText(snapshot.accountId, to: statement, index: 1)
+                self.bindText(window.id, to: statement, index: 2)
+                self.bindText(window.scope.rawValue, to: statement, index: 3)
+                if let durationSeconds = window.durationSeconds {
+                    sqlite3_bind_int64(statement, 4, Int64(durationSeconds))
+                } else {
+                    sqlite3_bind_null(statement, 4)
+                }
+                sqlite3_bind_int(statement, 5, Int32(ordinal))
+                sqlite3_bind_int(statement, 6, window.available ? 1 : 0)
+                self.bindText(window.label, to: statement, index: 7)
+                sqlite3_bind_int(statement, 8, Int32(window.usedMinutes))
+                sqlite3_bind_int(statement, 9, Int32(window.limitMinutes))
+                sqlite3_bind_double(statement, 10, window.usedPercentage)
+                self.bindText(window.resetsAt, to: statement, index: 11)
+                try self.stepDoneLocked(statement)
+            }
         }
     }
 

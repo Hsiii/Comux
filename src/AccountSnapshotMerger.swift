@@ -87,13 +87,9 @@ struct AccountSnapshotMerger {
             systemAuthProfileId: incoming.systemAuthProfileId ?? existing.systemAuthProfileId,
             isCurrentSystemAccount: incoming.isCurrentSystemAccount,
             lastSyncedAt: incoming.lastSyncedAt,
-            weeklyWindow: self.preferredUsageWindow(
-                current: existing.weeklyWindow,
-                candidate: incoming.weeklyWindow
-            ),
-            rollingWindow: self.preferredUsageWindow(
-                current: existing.rollingWindow,
-                candidate: incoming.rollingWindow
+            usageWindows: self.preferredUsageWindows(
+                current: existing.usageWindows,
+                candidate: incoming.usageWindows
             ),
             resetCredits: incoming.resetCredits ?? existing.resetCredits
         )
@@ -185,11 +181,11 @@ struct AccountSnapshotMerger {
             || !incoming.weeklyWindow.available
     }
 
-    private func preferredUsageWindow(
-        current: UsageWindow,
-        candidate: UsageWindow
-    ) -> UsageWindow {
-        candidate.available ? candidate : current
+    private func preferredUsageWindows(
+        current: [UsageWindow],
+        candidate: [UsageWindow]
+    ) -> [UsageWindow] {
+        candidate.contains(where: \.available) ? candidate : current
     }
 
     private func isBrokenSeatFallbackSnapshot(_ account: AccountSnapshot) -> Bool {
@@ -363,8 +359,7 @@ struct AccountSnapshotMerger {
             systemAuthProfileId: account.systemAuthProfileId,
             isCurrentSystemAccount: isCurrentSystemAccount,
             lastSyncedAt: account.lastSyncedAt,
-            weeklyWindow: account.weeklyWindow,
-            rollingWindow: account.rollingWindow,
+            usageWindows: account.usageWindows,
             resetCredits: account.resetCredits
         )
     }

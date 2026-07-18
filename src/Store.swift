@@ -110,8 +110,7 @@ final class CacheStore {
             systemAuthProfileId: account.systemAuthProfileId,
             isCurrentSystemAccount: account.isCurrentSystemAccount,
             lastSyncedAt: account.lastSyncedAt,
-            weeklyWindow: account.weeklyWindow,
-            rollingWindow: account.rollingWindow,
+            usageWindows: account.usageWindows,
             resetCredits: account.resetCredits
         )
     }
@@ -139,8 +138,7 @@ final class CacheStore {
             systemAuthProfileId: newest.systemAuthProfileId,
             isCurrentSystemAccount: newest.isCurrentSystemAccount,
             lastSyncedAt: newest.lastSyncedAt,
-            weeklyWindow: newest.weeklyWindow,
-            rollingWindow: newest.rollingWindow,
+            usageWindows: newest.usageWindows,
             resetCredits: newest.resetCredits
         )
     }
