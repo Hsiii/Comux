@@ -8,6 +8,7 @@ VERSION=""
 ASSUME_YES=0
 DRY_RUN=0
 DRAFT=1
+changes=()
 release_args=()
 
 usage() {
@@ -22,6 +23,7 @@ Options:
   --version <version>     Release an explicit semantic version.
   --draft                 Create a draft GitHub release. This is the default.
   --publish               Publish the GitHub release immediately.
+  --change <text>         Add a user-facing What's Changed bullet. Repeat for more bullets.
   --yes, -y               Skip confirmation prompts.
   --dry-run               Print the release command without running it.
   --help, -h              Show this help.
@@ -30,7 +32,7 @@ Any options after -- are passed to scripts/release.sh.
 
 Examples:
   make release
-  make release ARGS="--bump minor"
+  make release ARGS="--bump minor --change 'Show weekly usage at a glance'"
   make release ARGS="--publish -- --local-package"
 EOF
 }
@@ -52,6 +54,10 @@ while [[ $# -gt 0 ]]; do
         --publish)
             DRAFT=0
             shift
+            ;;
+        --change)
+            changes+=("${2:-}")
+            shift 2
             ;;
         --yes|-y)
             ASSUME_YES=1
@@ -77,6 +83,15 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ "${#changes[@]}" -gt 0 ]]; then
+    for change in "${changes[@]}"; do
+        if [[ -z "$change" ]]; then
+            echo "Release changes cannot be empty." >&2
+            exit 1
+        fi
+    done
+fi
 
 cd "$ROOT_DIR"
 
@@ -203,6 +218,46 @@ prompt_version() {
 
 current_version="$(latest_version)"
 
+has_release_notes_input() {
+    local arg
+
+    if [[ "${#changes[@]}" -gt 0 ]]; then
+        return 0
+    fi
+
+    if [[ "${#release_args[@]}" -eq 0 ]]; then
+        return 1
+    fi
+
+    for arg in "${release_args[@]}"; do
+        case "$arg" in
+            --change|--notes)
+                return 0
+                ;;
+        esac
+    done
+
+    return 1
+}
+
+prompt_changes() {
+    local change
+
+    echo "Add user-facing changes, one per line. Submit an empty line when finished:" >&2
+    while true; do
+        printf '%s' '- ' >&2
+        read -r change
+        if [[ -z "$change" ]]; then
+            if [[ "${#changes[@]}" -gt 0 ]]; then
+                break
+            fi
+            echo "Add at least one user-facing change." >&2
+            continue
+        fi
+        changes+=("$change")
+    done
+}
+
 if [[ -n "$VERSION" && -n "$BUMP" ]]; then
     echo "Use either --version or --bump, not both." >&2
     exit 1
@@ -217,9 +272,23 @@ else
     selected_version="$(prompt_version "$current_version")"
 fi
 
+if ! has_release_notes_input; then
+    if [[ "$ASSUME_YES" == "1" ]]; then
+        echo "At least one user-facing release change is required with --yes." >&2
+        echo "Pass --change 'Describe what changed for users'." >&2
+        exit 1
+    fi
+    prompt_changes
+fi
+
 command_args=("$ROOT_DIR/scripts/release.sh" "$selected_version")
 if [[ "$DRAFT" == "1" ]]; then
     command_args+=(--draft)
+fi
+if [[ "${#changes[@]}" -gt 0 ]]; then
+    for change in "${changes[@]}"; do
+        command_args+=(--change "$change")
+    done
 fi
 if [[ "${#release_args[@]}" -gt 0 ]]; then
     command_args+=("${release_args[@]}")

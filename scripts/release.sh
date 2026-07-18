@@ -7,6 +7,7 @@ REPO=""
 TARGET="main"
 WATCH=1
 NOTES=""
+changes=()
 LOCAL_PACKAGE=0
 ALLOW_EXISTING=0
 DRAFT=0
@@ -22,7 +23,8 @@ Usage: scripts/release.sh <version> [options]
 Options:
   --repo <owner/name>     GitHub repository to release. Defaults to the current repo.
   --target <ref>          Release target branch or SHA. Defaults to main.
-  --notes <text>          Release notes. Defaults to "Comux <version>".
+  --change <text>         Add a user-facing What's Changed bullet. Repeat for more bullets.
+  --notes <text>          Complete release notes containing a What's Changed bullet list.
   --draft                 Create a draft GitHub release.
   --local-package         Build, sign, submit notarization locally, and print the resume command.
   --wait-notarization     With --local-package, wait for Apple and publish in one command.
@@ -38,7 +40,7 @@ Options:
 Examples:
   scripts/release.sh 1.2.3
   scripts/release.sh 1.2.3 --local-package
-  scripts/release.sh v1.2.3 --notes "Signed and notarized release"
+  scripts/release.sh v1.2.3 --change "Show weekly usage at a glance"
 EOF
 }
 
@@ -69,6 +71,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --notes)
             NOTES="${2:-}"
+            shift 2
+            ;;
+        --change)
+            changes+=("${2:-}")
             shift 2
             ;;
         --draft)
@@ -144,8 +150,39 @@ if [[ -z "$REPO" ]]; then
     REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 fi
 
+if [[ -n "$NOTES" && "${#changes[@]}" -gt 0 ]]; then
+    echo "Use either --notes or --change, not both." >&2
+    exit 1
+fi
+
+if [[ "${#changes[@]}" -gt 0 ]]; then
+    NOTES="## What's Changed"
+    for change in "${changes[@]}"; do
+        if [[ -z "$change" ]]; then
+            echo "Release changes cannot be empty." >&2
+            exit 1
+        fi
+        NOTES+=$'\n\n- '
+        NOTES+="$change"
+    done
+fi
+
 if [[ -z "$NOTES" ]]; then
-    NOTES="Comux ${VERSION}"
+    echo "Release notes require at least one user-facing change." >&2
+    echo "Pass --change 'Describe what changed for users'." >&2
+    exit 1
+fi
+
+changes_header_line="$(grep -n -m1 -Fx "## What's Changed" <<<"$NOTES" | cut -d: -f1 || true)"
+if [[ -z "$changes_header_line" ]]; then
+    echo "Release notes must contain an exact ## What's Changed heading." >&2
+    exit 1
+fi
+
+changes_section="$(tail -n "+$((changes_header_line + 1))" <<<"$NOTES" | sed '/^## /q')"
+if ! grep -Eq '^- .+' <<<"$changes_section"; then
+    echo "Release notes must include at least one bullet under ## What's Changed." >&2
+    exit 1
 fi
 
 if [[ -z "$TAP_DIR" && -d "$ROOT_DIR/../homebrew-tap/.git" ]]; then
