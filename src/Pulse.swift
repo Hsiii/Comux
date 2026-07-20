@@ -15,6 +15,7 @@ final class PulseCoordinator: ObservableObject {
     private let accountConfigStore = AccountConfigStore()
     private let durableStore = DurableStoreCoordinator.shared
     private let snapshotMerger = AccountSnapshotMerger()
+    private let authenticatedSession = CodexAuthenticatedSession.shared
     private var hasStarted = false
     private var isSyncing = false
     nonisolated(unsafe) private var syncTimer: Timer?
@@ -167,14 +168,15 @@ final class PulseCoordinator: ObservableObject {
             accessToken: identity.accessToken,
             cookieHeader: nil,
             usageEndpoint: "https://chatgpt.com/backend-api/wham/usage",
-            accountHeader: nil
+            accountHeader: identity.accountId
         )
         let currentWorkspaceAccountID = self.normalizeWorkspaceAccountID(
             (currentUsage["account_id"] as? String) ?? identity.accountId
         )
         let workspaceItems = try await self.fetchWorkspaceItems(
             accessToken: identity.accessToken,
-            cookieHeader: nil
+            cookieHeader: nil,
+            accountHeader: identity.accountId ?? currentWorkspaceAccountID
         )
 
         var snapshots: [AccountSnapshot] = []
@@ -378,7 +380,7 @@ final class PulseCoordinator: ObservableObject {
         request.setValue(account.chatGPTCookie, forHTTPHeaderField: "Cookie")
         request.setValue("https://chatgpt.com", forHTTPHeaderField: "Origin")
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, _) = try await self.authenticatedSession.data(for: request)
         let payload = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         let accessToken = payload?["accessToken"] as? String
 
@@ -407,7 +409,7 @@ final class PulseCoordinator: ObservableObject {
             request.setValue(accountHeader, forHTTPHeaderField: "ChatGPT-Account-Id")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await self.authenticatedSession.data(for: request)
         return try UsagePayloadParser.parse(
             data: data,
             response: response
@@ -439,7 +441,7 @@ final class PulseCoordinator: ObservableObject {
             request.setValue(accountHeader, forHTTPHeaderField: "ChatGPT-Account-ID")
         }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await self.authenticatedSession.data(for: request)
         return try ResetCreditsPayloadParser.parse(
             data: data,
             response: response
@@ -467,20 +469,15 @@ final class PulseCoordinator: ObservableObject {
 
     private func fetchWorkspaceItems(
         accessToken: String,
-        cookieHeader: String?
+        cookieHeader: String?,
+        accountHeader: String?
     ) async throws -> [WorkspaceItem] {
-        var request = URLRequest(url: URL(string: "https://chatgpt.com/backend-api/accounts")!)
-        request.httpMethod = "GET"
-        request.timeoutInterval = 20
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("codex-cli", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        if let cookieHeader, !cookieHeader.isEmpty {
-            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
-        }
-
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let request = WorkspaceLabelResolver.workspaceListRequest(
+            accessToken: accessToken,
+            cookieHeader: cookieHeader,
+            accountHeader: accountHeader
+        )
+        let (data, response) = try await self.authenticatedSession.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw PulseError.workspaceListUnavailable
         }
@@ -500,7 +497,8 @@ final class PulseCoordinator: ObservableObject {
     ) async throws -> String? {
         let workspaceItems = try await self.fetchWorkspaceItems(
             accessToken: accessToken,
-            cookieHeader: cookieHeader
+            cookieHeader: cookieHeader,
+            accountHeader: workspaceAccountID
         )
         return WorkspaceLabelResolver.resolve(
             workspaceItems: workspaceItems,

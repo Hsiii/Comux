@@ -43,6 +43,19 @@ final class WorkspaceLabelResolverTests: XCTestCase {
         XCTAssertEqual(noWorkspaceKey, "person@example.com")
     }
 
+    func testWorkspaceListRequestUsesAccountScopedOAuthContext() {
+        let request = WorkspaceLabelResolver.workspaceListRequest(
+            accessToken: "access-token",
+            cookieHeader: nil,
+            accountHeader: "account-live"
+        )
+
+        XCTAssertEqual(request.cachePolicy, .reloadIgnoringLocalCacheData)
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access-token")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "ChatGPT-Account-Id"), "account-live")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), "codex-cli")
+    }
+
     private func normalizeWorkspaceAccountID(_ value: String?) -> String? {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
               !trimmed.isEmpty else {
