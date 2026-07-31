@@ -109,11 +109,20 @@ func usageDeltaText(for window: UsageWindow, now: Date = Date()) -> String? {
     return " (\(signedDelta))"
 }
 
+func menuBarUsageWindow(for account: AccountSnapshot) -> UsageWindow {
+    if let fiveHourWindow = account.fiveHourWindow,
+       fiveHourWindow.available {
+        return fiveHourWindow
+    }
+
+    return account.longHorizonWindow ?? UsageWindow.unavailable(scope: .longHorizon)
+}
+
 func primaryMenuBarAccount(from accounts: [AccountSnapshot]) -> AccountSnapshot? {
     accounts
         .filter({ account in
             account.isCurrentSystemAccount == true
-                && account.primaryUsageWindow.available
+                && menuBarUsageWindow(for: account).available
         })
         .sorted(by: { left, right in
             let leftDate = ISO8601DateFormatter().date(from: left.lastSyncedAt) ?? .distantPast
@@ -128,7 +137,7 @@ func menuBarUsageText(from accounts: [AccountSnapshot]) -> String? {
         return nil
     }
 
-    return usageHeadlineText(for: account.primaryUsageWindow)
+    return usageHeadlineText(for: menuBarUsageWindow(for: account))
 }
 
 func usageWindowResetText(for window: UsageWindow, now: Date = Date()) -> String {
@@ -159,16 +168,16 @@ func resetPaceText(for window: UsageWindow) -> String {
 
 func resetCreditsSummaryText(for resetCredits: CodexResetCredits?) -> String? {
     guard let resetCredits else {
-        return nil
+        return "Resets unavailable"
     }
 
     guard resetCredits.availableCount > 0 else {
-        return "No resets available"
+        return "No full resets available"
     }
 
     let availableText = resetCredits.availableCount == 1
-        ? "1 reset available"
-        : "\(resetCredits.availableCount) resets available"
+        ? "1 full reset available"
+        : "\(resetCredits.availableCount) full resets available"
 
     guard let nextExpiresAt = resetCredits.nextExpiresAt,
           let expiryDate = parseISO8601Date(nextExpiresAt),
@@ -311,16 +320,16 @@ func compactAccountTag(for account: AccountSnapshot) -> String? {
 
 func resetCreditsCountText(for resetCredits: CodexResetCredits?) -> String {
     guard let resetCredits else {
-        return "No resets available"
+        return "Resets unavailable"
     }
 
     switch resetCredits.availableCount {
     case ...0:
-        return "No resets available"
+        return "No full resets available"
     case 1:
-        return "1 reset available"
+        return "1 full reset available"
     default:
-        return "\(resetCredits.availableCount) resets available"
+        return "\(resetCredits.availableCount) full resets available"
     }
 }
 
@@ -337,7 +346,7 @@ func resetCreditsExpiryText(
         return nil
     }
 
-    return "Next reset expires in \(formatCountdown(nextExpiresAt, now: now))"
+    return "Next full reset expires in \(formatCountdown(nextExpiresAt, now: now))"
 }
 
 func windowDuration(for window: UsageWindow) -> TimeInterval? {
@@ -391,12 +400,12 @@ func isUsageWindowLocked(_ window: UsageWindow) -> Bool {
     window.available && remainingPercentage(for: window) == 0 && !hasJustReset(window)
 }
 
-func shouldShowShortHorizonLock(
-    for account: AccountSnapshot,
-    supportsFiveHourLimit: Bool = FeatureFlags.supportsFiveHourLimit
-) -> Bool {
-    supportsFiveHourLimit
-        && isUsageWindowLocked(account.rollingWindow)
+func shouldShowShortHorizonLock(for account: AccountSnapshot) -> Bool {
+    guard let fiveHourWindow = account.fiveHourWindow else {
+        return false
+    }
+
+    return isUsageWindowLocked(fiveHourWindow)
         && displayRemainingPercentage(for: account.primaryUsageWindow) > 0
 }
 

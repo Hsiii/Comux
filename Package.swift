@@ -13,11 +13,11 @@ let package = Package(
             path: "src",
             sources: [
                 "App.swift",
-                "FeatureFlags.swift",
                 "Model.swift",
                 "AccountIdentity.swift",
                 "AccountSnapshotMerger.swift",
                 "UsagePayloadParser.swift",
+                "CodexAppServerRateLimits.swift",
                 "CodexAuthenticatedSession.swift",
                 "WorkspaceLabelResolver.swift",
                 "SystemRefreshErrorPolicy.swift",
