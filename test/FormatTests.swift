@@ -93,12 +93,22 @@ final class FormatTests: XCTestCase {
             updatedAt: "2026-07-18T00:00:00Z"
         )
 
-        XCTAssertEqual(resetCreditsCountText(for: resetCredits), "2 resets available")
+        XCTAssertEqual(resetCreditsCountText(for: resetCredits), "2 full resets available")
         XCTAssertEqual(
             resetCreditsExpiryText(for: resetCredits, now: now),
-            "Next reset expires in 2d 3h"
+            "Next full reset expires in 2d 3h"
         )
-        XCTAssertEqual(resetCreditsCountText(for: nil), "No resets available")
+        XCTAssertEqual(resetCreditsCountText(for: nil), "Resets unavailable")
+        XCTAssertEqual(
+            resetCreditsCountText(
+                for: CodexResetCredits(
+                    availableCount: 0,
+                    nextExpiresAt: nil,
+                    updatedAt: now.ISO8601Format()
+                )
+            ),
+            "No full resets available"
+        )
         XCTAssertNil(resetCreditsExpiryText(for: nil, now: now))
     }
 
@@ -181,11 +191,10 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertTrue(shouldShowShortHorizonLock(for: account, supportsFiveHourLimit: true))
-        XCTAssertFalse(shouldShowShortHorizonLock(for: account, supportsFiveHourLimit: false))
+        XCTAssertTrue(shouldShowShortHorizonLock(for: account))
     }
 
-    func testMenuBarUsageTextUsesCurrentAccountLongHorizonPercentage() {
+    func testMenuBarUsageTextAutomaticallyUsesFiveHourWindowWhenPresent() {
         let topAccount = AccountSnapshot(
             accountId: "top",
             label: "Top",
@@ -243,7 +252,37 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "30% (-70%)")
+        XCTAssertEqual(menuBarUsageText(from: [lowerRankedAccount, topAccount]), "65% (-35%)")
+    }
+
+    func testMenuBarUsageTextFallsBackToWeeklyWhenFiveHourWindowIsMissing() {
+        let weekly = UsageWindow(
+            id: "weekly",
+            scope: .longHorizon,
+            durationSeconds: 7 * 24 * 60 * 60,
+            available: true,
+            label: "Weekly window",
+            usedMinutes: 25,
+            limitMinutes: 100,
+            usedPercentage: 25,
+            resetsAt: "2099-06-19T00:00:00Z"
+        )
+        let account = AccountSnapshot(
+            accountId: "weekly-only",
+            label: "Weekly Only",
+            email: "weekly@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: nil,
+            isCurrentSystemAccount: true,
+            lastSyncedAt: "2026-06-12T00:00:00Z",
+            usageWindows: [weekly]
+        )
+
+        XCTAssertEqual(menuBarUsageText(from: [account]), "75% (-25%)")
+        XCTAssertFalse(shouldShowShortHorizonLock(for: account))
     }
 
     func testMenuBarUsageTextPrefersCurrentSystemPrimaryWindow() {
@@ -304,7 +343,7 @@ final class FormatTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "60% (-40%)")
+        XCTAssertEqual(menuBarUsageText(from: [staleTopRankedAccount, currentAccount]), "28% (-72%)")
     }
 
     func testMenuBarUsageTextHidesWhenNoAccountIsCurrent() {

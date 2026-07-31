@@ -149,6 +149,16 @@ struct AccountSnapshot: Codable, Identifiable {
             ?? windows.min { ($0.durationSeconds ?? .max) < ($1.durationSeconds ?? .max) }
     }
 
+    var fiveHourWindow: UsageWindow? {
+        let fiveHours = 5 * 60 * 60
+        let windows = self.usageWindows.filter { window in
+            window.durationSeconds == fiveHours
+                || window.label.localizedCaseInsensitiveContains("5-hour")
+                || window.label.localizedCaseInsensitiveContains("5h")
+        }
+        return windows.first(where: \.available) ?? windows.first
+    }
+
     var primaryUsageWindow: UsageWindow {
         self.longHorizonWindow
             ?? self.usageWindows.first(where: \.available)

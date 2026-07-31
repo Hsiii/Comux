@@ -55,7 +55,7 @@ If Comux does not show an account, open Codex and confirm that account is signed
 swift run comux
 ```
 
-Short-horizon limit status is hidden by default while Codex does not enforce the 5-hour limit. To exercise short-window status and locking locally, launch Comux with `COMUX_SUPPORTS_FIVE_HOUR_LIMIT=true`.
+When Codex returns a 5-hour window, Comux automatically shows it in the menu bar and enables short-window locking. Accounts without one continue to show weekly usage.
 
 ### Build a local DMG
 

@@ -189,6 +189,55 @@ final class UsagePayloadParserTests: XCTestCase {
         XCTAssertEqual(resetCredits.nextExpiresAt, "2026-07-12T04:03:43Z")
     }
 
+    func testResetCreditCountRemainsAuthoritativeWhenDetailsAreTruncated() throws {
+        let data = try self.jsonData([
+            "credits": [
+                [
+                    "id": "only-detail",
+                    "status": "available",
+                    "expires_at": "2026-07-18T00:39:53Z",
+                ],
+            ],
+            "available_count": 3,
+        ])
+        let response = HTTPURLResponse(
+            url: URL(string: "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )
+
+        let resetCredits = try ResetCreditsPayloadParser.parse(
+            data: data,
+            response: response,
+            now: ISO8601DateFormatter().date(from: "2026-07-01T00:00:00Z")!
+        )
+
+        XCTAssertEqual(resetCredits.availableCount, 3)
+        XCTAssertEqual(resetCredits.nextExpiresAt, "2026-07-18T00:39:53Z")
+    }
+
+    func testExplicitZeroResetCountRemainsAuthoritative() throws {
+        let data = try self.jsonData([
+            "credits": [
+                [
+                    "id": "stale-detail",
+                    "status": "available",
+                    "expires_at": "2026-07-18T00:39:53Z",
+                ],
+            ],
+            "available_count": 0,
+        ])
+
+        let resetCredits = try ResetCreditsPayloadParser.parse(
+            data: data,
+            response: nil,
+            now: ISO8601DateFormatter().date(from: "2026-07-01T00:00:00Z")!
+        )
+
+        XCTAssertEqual(resetCredits.availableCount, 0)
+    }
+
     func testResetCreditSummaryShowsCountAndNextExpiry() {
         let resetCredits = CodexResetCredits(
             availableCount: 1,
@@ -198,7 +247,7 @@ final class UsagePayloadParserTests: XCTestCase {
 
         XCTAssertEqual(
             resetCreditsSummaryText(for: resetCredits),
-            "1 reset available • next expires in 2d 2h"
+            "1 full reset available • next expires in 2d 2h"
         )
     }
 

@@ -8,11 +8,12 @@ build_dir="$(mktemp -d "${TMPDIR:-/tmp}/comux-demo-mockup.XXXXXX")"
 trap 'rm -rf "$build_dir"' EXIT
 
 swiftc \
-  src/FeatureFlags.swift \
   src/Model.swift \
   src/AccountIdentity.swift \
   src/AccountSnapshotMerger.swift \
   src/UsagePayloadParser.swift \
+  src/CodexAppServerRateLimits.swift \
+  src/CodexAuthenticatedSession.swift \
   src/WorkspaceLabelResolver.swift \
   src/SystemRefreshErrorPolicy.swift \
   src/Path.swift \

@@ -47,20 +47,31 @@ enum UsageWindowPayloadParser {
                 return nil
             }
 
-            return Self.buildWindow(id: key, rawWindow: rawWindow)
+            let durationSeconds = (rawWindow["limit_window_seconds"] as? NSNumber)?.intValue
+            let resetAtEpoch = (rawWindow["reset_at"] as? NSNumber)?.doubleValue
+            let usedPercent = (rawWindow["used_percent"] as? NSNumber)?.doubleValue ?? 0
+
+            return UsageWindowFactory.make(
+                id: key,
+                durationSeconds: durationSeconds,
+                usedPercent: usedPercent,
+                resetsAtEpoch: resetAtEpoch
+            )
         }
     }
+}
 
-    private static func buildWindow(
+enum UsageWindowFactory {
+    static func make(
         id: String,
-        rawWindow: [String: Any]
+        durationSeconds: Int?,
+        usedPercent: Double,
+        resetsAtEpoch: Double?
     ) -> UsageWindow {
-        let durationSeconds = (rawWindow["limit_window_seconds"] as? NSNumber)?.intValue
-        let resetAtEpoch = (rawWindow["reset_at"] as? NSNumber)?.doubleValue
-        let usedPercent = clampPercentage((rawWindow["used_percent"] as? NSNumber)?.doubleValue ?? 0)
+        let clampedUsedPercent = clampPercentage(usedPercent)
         let limitMinutes = Int(round(Double(durationSeconds ?? 0) / 60))
-        let usedMinutes = Int(round(Double(limitMinutes) * (usedPercent / 100)))
-        let resetsAt = resetAtEpoch.flatMap { epoch in
+        let usedMinutes = Int(round(Double(limitMinutes) * (clampedUsedPercent / 100)))
+        let resetsAt = resetsAtEpoch.flatMap { epoch in
             epoch > 0 ? Date(timeIntervalSince1970: epoch).ISO8601Format() : nil
         } ?? ""
 
@@ -72,7 +83,7 @@ enum UsageWindowPayloadParser {
             label: Self.label(for: durationSeconds),
             usedMinutes: usedMinutes,
             limitMinutes: limitMinutes,
-            usedPercentage: usedPercent,
+            usedPercentage: clampedUsedPercent,
             resetsAt: resetsAt
         )
     }
@@ -124,7 +135,8 @@ enum ResetCreditsPayloadParser {
             throw PulseError.invalidUsageResponse
         }
 
-        let rawAvailableCount = max((payload["available_count"] as? NSNumber)?.intValue ?? 0, 0)
+        let rawAvailableCount = (payload["available_count"] as? NSNumber)
+            .map { max($0.intValue, 0) }
         let rawCredits = payload["credits"] as? [[String: Any]] ?? []
         let availableCredits = rawCredits.compactMap { credit -> Date?? in
             guard (credit["status"] as? String) == "available" else {
@@ -137,7 +149,7 @@ enum ResetCreditsPayloadParser {
 
             return expiresAt > now ? .some(expiresAt) : nil
         }
-        let availableCount = rawCredits.isEmpty ? rawAvailableCount : availableCredits.count
+        let availableCount = rawAvailableCount ?? availableCredits.count
         let nextExpiresAt = availableCredits.compactMap { $0 }.min()?.ISO8601Format()
 
         return CodexResetCredits(
