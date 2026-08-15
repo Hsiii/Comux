@@ -72,8 +72,9 @@ private struct DemoMockupView: View {
         .preferredColorScheme(.dark)
     }
 
+    @ViewBuilder
     private var panel: some View {
-        SlimDashboardPanelView(
+        let content = SlimDashboardPanelView(
             coordinator: coordinator,
             displayNameStore: displayNameStore,
             codexLoginStore: codexLoginStore,
@@ -86,20 +87,19 @@ private struct DemoMockupView: View {
             onRemoveRequested: { _ in }
         )
         .frame(width: panelWidth, height: panelHeight)
-        .background(
-            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
-                .fill(Color(red: 0.12, green: 0.16, blue: 0.2).opacity(0.9))
+
+        if #available(macOS 26.0, *) {
+            content
+                .glassEffect(.regular, in: .rect(cornerRadius: panelCornerRadius))
+                .shadow(color: .black.opacity(0.34), radius: 16, x: 0, y: 8)
+        } else {
+            content
                 .background(
-                    RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                    .ultraThinMaterial,
+                    in: RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
                 )
-                .clipShape(RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous))
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: panelCornerRadius, style: .continuous)
-                .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
+                .shadow(color: .black.opacity(0.34), radius: 16, x: 0, y: 8)
         }
-        .shadow(color: .black.opacity(0.34), radius: 16, x: 0, y: 8)
     }
 }
 
