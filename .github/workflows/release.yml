@@ -64,7 +64,7 @@ jobs:
 
   package-macos:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       RELEASE_VERSION: ${{ inputs.version }}
       RELEASE_REPOSITORY: ${{ inputs.repository != '' && inputs.repository || github.repository }}
@@ -79,7 +79,7 @@ jobs:
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: "16.4"
+          xcode-version: "26.6"
 
       - name: Install packaging tools
         shell: bash
