@@ -194,10 +194,11 @@ enum CodexAppServerRateLimitsReader {
     }
 }
 
-private final class CodexAppServerResponseCapture: @unchecked Sendable {
+final class CodexAppServerResponseCapture: @unchecked Sendable {
     private let input: FileHandle
     private let lock = NSLock()
     private let completion = DispatchSemaphore(value: 0)
+    private var output: FileHandle?
     private var buffer = Data()
     private var didRequestRateLimits = false
     private var didComplete = false
@@ -208,8 +209,19 @@ private final class CodexAppServerResponseCapture: @unchecked Sendable {
     }
 
     func start(reading output: FileHandle) {
+        self.lock.lock()
+        self.output = output
+        self.lock.unlock()
+
         output.readabilityHandler = { [weak self] handle in
-            self?.receive(handle.availableData)
+            let data = handle.availableData
+            guard !data.isEmpty else {
+                handle.readabilityHandler = nil
+                self?.stop()
+                return
+            }
+
+            self?.receive(data)
         }
     }
 
@@ -217,7 +229,11 @@ private final class CodexAppServerResponseCapture: @unchecked Sendable {
         self.lock.lock()
         let shouldSignal = !self.didComplete
         self.didComplete = true
+        let output = self.output
+        self.output = nil
         self.lock.unlock()
+
+        output?.readabilityHandler = nil
 
         if shouldSignal {
             self.completion.signal()

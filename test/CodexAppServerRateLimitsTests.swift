@@ -95,4 +95,19 @@ final class CodexAppServerRateLimitsTests: XCTestCase {
         XCTAssertEqual(snapshot?.usageWindows.first?.durationSeconds, 604_800)
         XCTAssertEqual(snapshot?.resetCredits?.availableCount, 1)
     }
+
+    func testResponseCaptureClearsOutputHandlerWhenStopped() {
+        let input = Pipe()
+        let output = Pipe()
+        let outputHandle = output.fileHandleForReading
+        let capture = CodexAppServerResponseCapture(
+            input: input.fileHandleForWriting
+        )
+
+        capture.start(reading: outputHandle)
+        XCTAssertNotNil(outputHandle.readabilityHandler)
+
+        capture.stop()
+        XCTAssertNil(outputHandle.readabilityHandler)
+    }
 }
