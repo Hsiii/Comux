@@ -3,9 +3,9 @@
   
   See your Codex account limits from the macOS menu bar.  
   
-  <img src="https://raw.githubusercontent.com/Hsiii/Comux/main/assets/demo.png" alt="Comux menu bar usage demo" width="420" />
+  <img src="https://raw.githubusercontent.com/orangesago/comux/main/assets/demo.png" alt="Comux menu bar usage demo" width="420" />
 
-  <a href="https://github.com/Hsiii/Comux/releases/latest">Download latest release</a>
+  <a href="https://github.com/orangesago/comux/releases/latest">Download latest release</a>
    ·
   <a href="#install">Install with Homebrew</a>
 </div>
@@ -24,10 +24,10 @@
 Install with Homebrew:
 
 ```bash
-brew install --cask Hsiii/tap/comux
+brew install --cask orangesago/tap/comux
 ```
 
-Or download from [GitHub Releases](https://github.com/Hsiii/Comux/releases/latest).
+Or download from [GitHub Releases](https://github.com/orangesago/comux/releases/latest).
 
 Requirements:
 
@@ -46,7 +46,7 @@ Comux uses your existing local Codex session state to refresh usage. Account met
 
 ## Troubleshooting
 
-If Comux does not show an account, open Codex and confirm that account is signed in locally, then reopen the Comux menu. If Homebrew installs an older version, use **Check for Updates** from the Comux menu or run `brew update` and then `brew upgrade --cask Hsiii/tap/comux`.
+If Comux does not show an account, open Codex and confirm that account is signed in locally, then reopen the Comux menu. If Homebrew installs an older version, use **Check for Updates** from the Comux menu or run `brew update` and then `brew upgrade --cask orangesago/tap/comux`.
 
 ## Development
 ### Run directly
