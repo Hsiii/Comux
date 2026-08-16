@@ -209,7 +209,7 @@ actor GitHubReleaseUpdateClient {
     private static let bundleIdentifier = "dev.hsi.comux.app"
     private static let appBundleName = "comux.app"
 
-    private let latestReleaseURL = URL(string: "https://api.github.com/repos/orangesago/comux/releases/latest")!
+    private let latestReleaseURL = URL(string: "https://api.github.com/repos/sago-cream/comux/releases/latest")!
     private let session: URLSession
     private let fileManager: FileManager
 
