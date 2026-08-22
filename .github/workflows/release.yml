@@ -128,21 +128,11 @@ jobs:
             exit 1
           fi
 
-          release_notes="$(gh release view "$tag" \
+          gh release view "$tag" \
             --repo "$RELEASE_REPOSITORY" \
             --json body \
-            --jq '.body')"
-          changes_header_line="$(grep -n -m1 -Fx "## What's Changed" <<<"$release_notes" | cut -d: -f1 || true)"
-          if [[ -z "$changes_header_line" ]]; then
-            echo "::error::Release $tag must contain an exact ## What's Changed heading."
-            exit 1
-          fi
-
-          changes_section="$(tail -n "+$((changes_header_line + 1))" <<<"$release_notes" | sed '/^## /q')"
-          if ! grep -Eq '^- .+' <<<"$changes_section"; then
-            echo "::error::Release $tag needs at least one user-facing bullet under ## What's Changed."
-            exit 1
-          fi
+            --jq '.body' \
+            | ./scripts/validate-release-notes.sh
 
       - name: Resolve prebuilt release assets
         id: prebuilt

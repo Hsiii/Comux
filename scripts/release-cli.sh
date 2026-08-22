@@ -7,7 +7,6 @@ BUMP=""
 VERSION=""
 ASSUME_YES=0
 DRY_RUN=0
-DRAFT=1
 changes=()
 release_args=()
 
@@ -21,8 +20,6 @@ Options:
   --bump <major|minor|patch>
                           Select the version bump without prompting.
   --version <version>     Release an explicit semantic version.
-  --draft                 Create a draft GitHub release. This is the default.
-  --publish               Publish the GitHub release immediately.
   --change <text>         Add a user-facing What's Changed bullet. Repeat for more bullets.
   --yes, -y               Skip confirmation prompts.
   --dry-run               Print the release command without running it.
@@ -33,7 +30,7 @@ Any options after -- are passed to scripts/release.sh.
 Examples:
   make release
   make release ARGS="--bump minor --change 'Show weekly usage at a glance'"
-  make release ARGS="--publish -- --local-package"
+  make release ARGS="--bump patch --change 'Fix account refreshes' --yes"
 EOF
 }
 
@@ -47,13 +44,14 @@ while [[ $# -gt 0 ]]; do
             VERSION="${2:-}"
             shift 2
             ;;
-        --draft)
-            DRAFT=1
-            shift
-            ;;
         --publish)
-            DRAFT=0
-            shift
+            echo "--publish is unsafe before release assets exist." >&2
+            echo "Run the release normally; the workflow publishes it after notarization." >&2
+            exit 1
+            ;;
+        --draft)
+            echo "--draft is no longer needed; remote releases always start as drafts." >&2
+            exit 1
             ;;
         --change)
             changes+=("${2:-}")
@@ -282,9 +280,6 @@ if ! has_release_notes_input; then
 fi
 
 command_args=("$ROOT_DIR/scripts/release.sh" "$selected_version")
-if [[ "$DRAFT" == "1" ]]; then
-    command_args+=(--draft)
-fi
 if [[ "${#changes[@]}" -gt 0 ]]; then
     for change in "${changes[@]}"; do
         command_args+=(--change "$change")
@@ -302,21 +297,13 @@ if [[ "$DRY_RUN" == "1" ]]; then
 fi
 
 if [[ "$ASSUME_YES" != "1" ]]; then
-    if [[ "$DRAFT" == "1" ]]; then
-        printf "Create draft release v%s? [Y/n] " "$selected_version"
-    else
-        printf "Create published release v%s? [y/N] " "$selected_version"
-    fi
+    printf "Start release v%s? [Y/n] " "$selected_version"
 
     read -r confirmation
     case "$confirmation" in
         y|Y|yes|YES)
             ;;
         "")
-            if [[ "$DRAFT" != "1" ]]; then
-                echo "Release canceled."
-                exit 0
-            fi
             ;;
         *)
             echo "Release canceled."
