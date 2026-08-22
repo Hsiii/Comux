@@ -168,10 +168,10 @@ final class FormatTests: XCTestCase {
             updatedAt: "2026-07-18T00:00:00Z"
         )
 
-        XCTAssertEqual(resetCreditsCountText(for: resetCredits), "2 full resets available")
+        XCTAssertEqual(resetCreditsCountText(for: resetCredits), "2 resets available")
         XCTAssertEqual(
             resetCreditsExpiryText(for: resetCredits, now: now),
-            "Next full reset expires in 2d 3h"
+            "Next reset expires in 2d 3h"
         )
         XCTAssertEqual(resetCreditsCountText(for: nil), "Resets unavailable")
         XCTAssertEqual(
@@ -182,7 +182,7 @@ final class FormatTests: XCTestCase {
                     updatedAt: now.ISO8601Format()
                 )
             ),
-            "No full resets available"
+            "No resets available"
         )
         XCTAssertNil(resetCreditsExpiryText(for: nil, now: now))
     }
