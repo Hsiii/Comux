@@ -25,22 +25,21 @@ Options:
   --target <ref>          Release target branch or SHA. Defaults to main.
   --change <text>         Add a user-facing What's Changed bullet. Repeat for more bullets.
   --notes <text>          Complete release notes containing a What's Changed bullet list.
-  --draft                 Create a draft GitHub release.
+  --draft                 Keep a locally packaged release as a draft after assets are uploaded.
   --local-package         Build, sign, submit notarization locally, and print the resume command.
   --wait-notarization     With --local-package, wait for Apple and publish in one command.
   --finalize-notarization [id]
                           Check an accepted submission, staple, package, upload, and update tap.
-  --allow-existing        Replace local assets on an existing published release, or rerun
-                          the Release workflow for a published release missing assets.
+  --allow-existing        Repair an incomplete published release or replace its local assets.
   --tap-dir <path>        Local Homebrew tap checkout. Defaults to ../homebrew-tap when present.
   --skip-tap              Do not update the local Homebrew tap checkout.
-  --no-watch              Create the release without waiting for the workflow.
+  --no-watch              Start packaging without waiting for the workflow.
   --help, -h              Show this help.
 
 Examples:
-  scripts/release.sh 1.2.3
-  scripts/release.sh 1.2.3 --local-package
-  scripts/release.sh v1.2.3 --change "Show weekly usage at a glance"
+  scripts/release.sh 1.2.3 --change "Show weekly usage at a glance"
+  scripts/release.sh 1.2.3 --local-package --change "Show weekly usage at a glance"
+  scripts/release.sh 1.2.3 --allow-existing
 EOF
 }
 
@@ -168,22 +167,23 @@ if [[ "${#changes[@]}" -gt 0 ]]; then
 fi
 
 if [[ -z "$NOTES" ]]; then
+    NOTES="$(
+        gh release view "$TAG" \
+            --repo "$REPO" \
+            --json body \
+            --jq .body \
+            2>/dev/null \
+            || true
+    )"
+fi
+
+if [[ -z "$NOTES" ]]; then
     echo "Release notes require at least one user-facing change." >&2
     echo "Pass --change 'Describe what changed for users'." >&2
     exit 1
 fi
 
-changes_header_line="$(grep -n -m1 -Fx "## What's Changed" <<<"$NOTES" | cut -d: -f1 || true)"
-if [[ -z "$changes_header_line" ]]; then
-    echo "Release notes must contain an exact ## What's Changed heading." >&2
-    exit 1
-fi
-
-changes_section="$(tail -n "+$((changes_header_line + 1))" <<<"$NOTES" | sed '/^## /q')"
-if ! grep -Eq '^- .+' <<<"$changes_section"; then
-    echo "Release notes must include at least one bullet under ## What's Changed." >&2
-    exit 1
-fi
+printf '%s\n' "$NOTES" | "$ROOT_DIR/scripts/validate-release-notes.sh"
 
 if [[ -z "$TAP_DIR" && -d "$ROOT_DIR/../homebrew-tap/.git" ]]; then
     TAP_DIR="$ROOT_DIR/../homebrew-tap"
@@ -340,7 +340,7 @@ create_release() {
     refresh_release_state
 }
 
-edit_existing_draft_release() {
+edit_release() {
     local publish="$1"
     local -a release_edit_command
 
@@ -525,6 +525,7 @@ report_remote_release_result() {
 }
 
 if [[ "$LOCAL_PACKAGE" == "1" ]]; then
+    keep_local_draft="$DRAFT"
     output_file=""
     release_keychain_dir=""
     release_keychain_path=""
@@ -571,6 +572,31 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
             printf '  %s\n' "${missing_local_env[@]}" >&2
             exit 1
         fi
+    fi
+
+    if [[ "$RELEASE_EXISTS" == "1" ]]; then
+        if [[ "$RELEASE_IS_DRAFT" == "true" ]]; then
+            echo "Updating draft release $TAG before local packaging."
+            edit_release 0
+        else
+            if [[ "$RELEASE_IS_IMMUTABLE" == "true" ]]; then
+                echo "Release $TAG is immutable and cannot be replaced." >&2
+                exit 1
+            fi
+            if [[ "$ALLOW_EXISTING" != "1" ]]; then
+                echo "Published release already exists: $TAG" >&2
+                echo "Pass --allow-existing to return it to draft before replacing its assets." >&2
+                exit 1
+            fi
+
+            echo "Returning release $TAG to draft before replacing its assets."
+            edit_release 0
+        fi
+    else
+        echo "Creating draft release $TAG before local packaging."
+        DRAFT=1
+        create_release
+        DRAFT="$keep_local_draft"
     fi
 
     release_keychain_dir="$(mktemp -d)"
@@ -710,7 +736,7 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     if [[ "$RELEASE_EXISTS" == "1" ]]; then
         if [[ "$RELEASE_IS_DRAFT" == "true" ]]; then
             echo "Updating existing draft release $TAG with local assets."
-            edit_existing_draft_release 0
+            edit_release 0
             gh release upload "$TAG" \
                 --repo "$REPO" \
                 "$archive_path" \
@@ -720,7 +746,7 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
             if [[ "$DRAFT" != "1" ]]; then
                 echo "Publishing existing draft release $TAG."
                 release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-                edit_existing_draft_release 1
+                edit_release 1
                 should_wait_for_release_event=1
             fi
         else
@@ -752,7 +778,7 @@ if [[ "$LOCAL_PACKAGE" == "1" ]]; then
     fi
 
     if [[ "$DRAFT" == "1" ]]; then
-        echo "Draft release is ready. Publish $TAG on GitHub to trigger the Release workflow."
+        echo "Draft release $TAG has its required assets and is ready to publish."
         exit 0
     fi
 
@@ -766,25 +792,12 @@ fi
 
 if [[ "$RELEASE_EXISTS" == "1" ]]; then
     if [[ "$RELEASE_IS_DRAFT" == "true" ]]; then
-        if [[ "$DRAFT" == "1" ]]; then
-            echo "Draft release already exists for $TAG; updating title, notes, and target."
-            edit_existing_draft_release 0
-            echo "Draft release is ready. Publish $TAG on GitHub to trigger the Release workflow."
-            exit 0
-        fi
-
         validate_remote_release_configuration
 
-        echo "Publishing existing draft release $TAG."
-        release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        edit_existing_draft_release 1
-        wait_for_release_workflow "$release_started_at" "release"
+        echo "Updating draft release $TAG and starting packaging."
+        edit_release 0
+        dispatch_existing_release_workflow
         exit 0
-    fi
-
-    if [[ "$DRAFT" == "1" ]]; then
-        echo "Published release already exists for $TAG; cannot recreate it as a draft." >&2
-        exit 1
     fi
 
     asset_count="$(release_asset_count)"
@@ -795,26 +808,26 @@ if [[ "$RELEASE_EXISTS" == "1" ]]; then
 
     if [[ "$ALLOW_EXISTING" != "1" ]]; then
         echo "Published release $TAG exists but is missing release assets." >&2
-        echo "Pass --allow-existing to rerun the Release workflow for this version." >&2
+        echo "Pass --allow-existing to return it to draft and restart packaging." >&2
+        exit 1
+    fi
+
+    if [[ "$RELEASE_IS_IMMUTABLE" == "true" ]]; then
+        echo "Release $TAG is immutable and cannot be repaired." >&2
         exit 1
     fi
 
     validate_remote_release_configuration
 
-    echo "Published release $TAG exists but is missing assets; dispatching Release workflow."
+    echo "Returning incomplete release $TAG to draft and restarting packaging."
+    edit_release 0
     dispatch_existing_release_workflow
     exit 0
 fi
 
 validate_remote_release_configuration
 
-echo "Creating release $TAG for $REPO at $TARGET."
-release_started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "Creating draft release $TAG for $REPO at $TARGET and starting packaging."
+DRAFT=1
 create_release
-
-if [[ "$DRAFT" == "1" ]]; then
-    echo "Draft release created. Publish $TAG on GitHub to trigger the Release workflow."
-    exit 0
-fi
-
-wait_for_release_workflow "$release_started_at" "release"
+dispatch_existing_release_workflow
