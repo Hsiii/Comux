@@ -1,6 +1,67 @@
 import Foundation
 import SwiftUI
 
+#if DEBUG
+enum FreshDebugMode {
+    private static let windowDuration = 7 * 24 * 60 * 60
+
+    static func isEnabled(
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        environment["FRESH"] == "1"
+    }
+
+    static func initialCache(now: Date = Date()) -> CachePayload {
+        self.cache(now: now, usedPercentage: 0, resetOffset: -60)
+    }
+
+    static func startedCache(now: Date = Date()) -> CachePayload {
+        self.cache(
+            now: now,
+            usedPercentage: 1,
+            resetOffset: TimeInterval(self.windowDuration)
+        )
+    }
+
+    private static func cache(
+        now: Date,
+        usedPercentage: Double,
+        resetOffset: TimeInterval
+    ) -> CachePayload {
+        CachePayload(
+            meta: CacheMeta(source: "debug fresh mode"),
+            accounts: [
+                AccountSnapshot(
+                    accountId: "debug-fresh",
+                    label: "Fresh Debug",
+                    email: "debug@comux.local",
+                    workspaceId: nil,
+                    workspaceLabel: "Debug",
+                    plan: "Codex Debug",
+                    source: "debug fresh mode",
+                    systemAuthProfileId: "debug-fresh-profile",
+                    isCurrentSystemAccount: true,
+                    lastSyncedAt: now.ISO8601Format(),
+                    usageWindows: [
+                        UsageWindow(
+                            id: "debug-fresh-window",
+                            scope: .longHorizon,
+                            durationSeconds: self.windowDuration,
+                            available: true,
+                            label: "Usage window",
+                            usedMinutes: Int(usedPercentage),
+                            limitMinutes: 100,
+                            usedPercentage: usedPercentage,
+                            resetsAt: now.addingTimeInterval(resetOffset).ISO8601Format()
+                        ),
+                    ]
+                ),
+            ]
+        )
+    }
+}
+#endif
+
 @MainActor
 final class PulseCoordinator: ObservableObject {
     @Published var cache = CachePayload(
@@ -36,6 +97,15 @@ final class PulseCoordinator: ObservableObject {
         }
 
         self.hasStarted = true
+
+        #if DEBUG
+        if FreshDebugMode.isEnabled() {
+            self.cache = FreshDebugMode.initialCache()
+            self.removableAccountIDs = []
+            return
+        }
+        #endif
+
         self.cache = self.cacheStore.load()
         self.removableAccountIDs = self.buildRemovableAccountIDs(
             for: self.cache.accounts
@@ -66,6 +136,12 @@ final class PulseCoordinator: ObservableObject {
     }
 
     func syncNow() async {
+        #if DEBUG
+        guard !FreshDebugMode.isEnabled() else {
+            return
+        }
+        #endif
+
         if self.isSyncing {
             self.needsSyncAfterCurrent = true
             return
@@ -152,6 +228,36 @@ final class PulseCoordinator: ObservableObject {
         self.removableAccountIDs = AccountRemovalResolver.removableAccountIDs(
             for: removal.cache.accounts
         )
+    }
+
+    func startResetCountdown(for account: AccountSnapshot) async throws {
+        guard let currentAccount = self.cache.accounts.first(where: { $0.id == account.id }),
+              shouldOfferResetCountdown(for: currentAccount)
+        else {
+            throw ResetCountdownError.noLongerAvailable
+        }
+
+        #if DEBUG
+        if FreshDebugMode.isEnabled() {
+            try await Task.sleep(for: .milliseconds(800))
+            self.cache = FreshDebugMode.startedCache()
+            return
+        }
+        #endif
+
+        let result = await ResetCountdownRunner.run()
+        switch result.outcome {
+        case .success:
+            await self.syncNow()
+        case .missingBinary:
+            throw ResetCountdownError.missingBinary
+        case .timedOut:
+            throw ResetCountdownError.timedOut
+        case .failed(let status):
+            throw ResetCountdownError.failed(status: status, output: result.output)
+        case .launchFailed(let details):
+            throw ResetCountdownError.launchFailed(details)
+        }
     }
 
     private func loadConfig() -> PulseConfig {

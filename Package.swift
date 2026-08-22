@@ -28,6 +28,7 @@ let package = Package(
                 "Format.swift",
                 "Card.swift",
                 "CodexLogin.swift",
+                "ResetCountdown.swift",
                 "Menu.swift",
                 "LaunchAtLogin.swift",
                 "Resources.swift",

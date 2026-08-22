@@ -23,6 +23,7 @@ swiftc \
   src/Format.swift \
   src/Card.swift \
   src/CodexLogin.swift \
+  src/ResetCountdown.swift \
   src/Menu.swift \
   src/LaunchAtLogin.swift \
   src/AutoUpdate.swift \
