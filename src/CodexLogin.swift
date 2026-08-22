@@ -267,7 +267,7 @@ final class CodexLoginStore: ObservableObject {
     }
 }
 
-private final class ProcessOutputCapture: @unchecked Sendable {
+final class ProcessOutputCapture: @unchecked Sendable {
     private let handle: FileHandle
     private let lock = NSLock()
     private var data = Data()

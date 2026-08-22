@@ -85,6 +85,81 @@ final class FormatTests: XCTestCase {
         XCTAssertEqual(usageWindowResetText(for: window, now: now), "Resets in 6d 0h")
     }
 
+    func testResetCountdownIsOfferedOnlyForCurrentDormantAccount() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
+        let freshWindow = UsageWindow(
+            id: "weekly",
+            scope: .longHorizon,
+            durationSeconds: 7 * 24 * 60 * 60,
+            available: true,
+            label: "Weekly window",
+            usedMinutes: 0,
+            limitMinutes: 100,
+            usedPercentage: 0,
+            resetsAt: "2026-07-17T00:00:00Z"
+        )
+        let current = AccountSnapshot(
+            accountId: "current-fresh",
+            label: "Current Fresh",
+            email: "fresh@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: "profile",
+            isCurrentSystemAccount: true,
+            lastSyncedAt: now.ISO8601Format(),
+            usageWindows: [freshWindow]
+        )
+        let historical = AccountSnapshot(
+            accountId: "historical-fresh",
+            label: "Historical Fresh",
+            email: "historical@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: nil,
+            isCurrentSystemAccount: false,
+            lastSyncedAt: now.ISO8601Format(),
+            usageWindows: [freshWindow]
+        )
+
+        XCTAssertTrue(shouldOfferResetCountdown(for: current, now: now))
+        XCTAssertFalse(shouldOfferResetCountdown(for: historical, now: now))
+    }
+
+    func testElapsedUsedWindowCanReadFreshWithoutOfferingResetCountdown() {
+        let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
+        let elapsedWindow = UsageWindow(
+            id: "weekly",
+            scope: .longHorizon,
+            durationSeconds: 7 * 24 * 60 * 60,
+            available: true,
+            label: "Weekly window",
+            usedMinutes: 20,
+            limitMinutes: 100,
+            usedPercentage: 20,
+            resetsAt: "2026-07-17T00:00:00Z"
+        )
+        let account = AccountSnapshot(
+            accountId: "elapsed",
+            label: "Elapsed",
+            email: "elapsed@example.com",
+            workspaceId: nil,
+            workspaceLabel: "Personal",
+            plan: "Codex Pro",
+            source: "test",
+            systemAuthProfileId: "profile",
+            isCurrentSystemAccount: true,
+            lastSyncedAt: now.ISO8601Format(),
+            usageWindows: [elapsedWindow]
+        )
+
+        XCTAssertEqual(usageWindowResetText(for: elapsedWindow, now: now), "Fresh")
+        XCTAssertFalse(shouldOfferResetCountdown(for: account, now: now))
+    }
+
     func testResetCreditsSplitCountFromNextExpiry() {
         let now = ISO8601DateFormatter().date(from: "2026-07-18T00:00:00Z")!
         let resetCredits = CodexResetCredits(
