@@ -84,7 +84,8 @@ private struct DemoMockupView: View {
             panelHeight: panelHeight,
             onAddAccountRequested: { },
             onEditDisplayNameRequested: { _ in },
-            onRemoveRequested: { _ in }
+            onRemoveRequested: { _ in },
+            onStartResetCountdown: { _ in }
         )
         .frame(width: panelWidth, height: panelHeight)
 

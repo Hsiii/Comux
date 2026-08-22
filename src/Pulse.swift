@@ -154,6 +154,28 @@ final class PulseCoordinator: ObservableObject {
         )
     }
 
+    func startResetCountdown(for account: AccountSnapshot) async throws {
+        guard let currentAccount = self.cache.accounts.first(where: { $0.id == account.id }),
+              shouldOfferResetCountdown(for: currentAccount)
+        else {
+            throw ResetCountdownError.noLongerAvailable
+        }
+
+        let result = await ResetCountdownRunner.run()
+        switch result.outcome {
+        case .success:
+            await self.syncNow()
+        case .missingBinary:
+            throw ResetCountdownError.missingBinary
+        case .timedOut:
+            throw ResetCountdownError.timedOut
+        case .failed(let status):
+            throw ResetCountdownError.failed(status: status, output: result.output)
+        case .launchFailed(let details):
+            throw ResetCountdownError.launchFailed(details)
+        }
+    }
+
     private func loadConfig() -> PulseConfig {
         self.accountConfigStore.load()
     }

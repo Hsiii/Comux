@@ -6,6 +6,31 @@ import Darwin
 private let resetCountdownTimeout: TimeInterval = 60
 private let resetCountdownOutputLimit = 1_200
 
+enum ResetCountdownError: Error, LocalizedError, Equatable {
+    case noLongerAvailable
+    case missingBinary
+    case timedOut
+    case failed(status: Int32, output: String)
+    case launchFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .noLongerAvailable:
+            return "This account no longer has a fresh reset window."
+        case .missingBinary:
+            return "Comux could not find the Codex CLI."
+        case .timedOut:
+            return "Codex did not finish the reset countdown request within one minute."
+        case .failed(let status, let output):
+            let base = "Codex exited with status \(status)."
+            let trimmedOutput = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmedOutput.isEmpty ? base : "\(base)\n\n\(trimmedOutput)"
+        case .launchFailed(let details):
+            return "Comux could not start Codex. \(details)"
+        }
+    }
+}
+
 struct ResetCountdownRunner {
     struct Result: Equatable, Sendable {
         enum Outcome: Equatable, Sendable {
