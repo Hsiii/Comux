@@ -172,12 +172,12 @@ func resetCreditsSummaryText(for resetCredits: CodexResetCredits?) -> String? {
     }
 
     guard resetCredits.availableCount > 0 else {
-        return "No full resets available"
+        return "No resets available"
     }
 
     let availableText = resetCredits.availableCount == 1
-        ? "1 full reset available"
-        : "\(resetCredits.availableCount) full resets available"
+        ? "1 reset available"
+        : "\(resetCredits.availableCount) resets available"
 
     guard let nextExpiresAt = resetCredits.nextExpiresAt,
           let expiryDate = parseISO8601Date(nextExpiresAt),
@@ -325,11 +325,11 @@ func resetCreditsCountText(for resetCredits: CodexResetCredits?) -> String {
 
     switch resetCredits.availableCount {
     case ...0:
-        return "No full resets available"
+        return "No resets available"
     case 1:
-        return "1 full reset available"
+        return "1 reset available"
     default:
-        return "\(resetCredits.availableCount) full resets available"
+        return "\(resetCredits.availableCount) resets available"
     }
 }
 
@@ -346,7 +346,7 @@ func resetCreditsExpiryText(
         return nil
     }
 
-    return "Next full reset expires in \(formatCountdown(nextExpiresAt, now: now))"
+    return "Next reset expires in \(formatCountdown(nextExpiresAt, now: now))"
 }
 
 func windowDuration(for window: UsageWindow) -> TimeInterval? {

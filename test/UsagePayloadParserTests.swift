@@ -247,7 +247,7 @@ final class UsagePayloadParserTests: XCTestCase {
 
         XCTAssertEqual(
             resetCreditsSummaryText(for: resetCredits),
-            "1 full reset available • next expires in 2d 2h"
+            "1 reset available • next expires in 2d 2h"
         )
     }
 
