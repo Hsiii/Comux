@@ -3,12 +3,6 @@ import SwiftUI
 
 private let accountCardHeight: CGFloat = 80
 private let accountCardCornerRadius: CGFloat = 16
-private let resetCountdownShelfHeight: CGFloat = 42
-private let resetCountdownShelfOverlap: CGFloat = 8
-private let resetCountdownShelfHorizontalInset: CGFloat = 8
-private let resetCountdownShelfVisibleHeight = resetCountdownShelfHeight - resetCountdownShelfOverlap
-private let resetCountdownShelfControlHeight: CGFloat = 26
-private let resetCountdownShelfControlGap: CGFloat = 4
 
 enum WindowHeaderPlacement {
     case above
@@ -626,9 +620,7 @@ struct AccountCardView: View {
     static let fixedHeight: CGFloat = accountCardHeight
 
     static func height(for account: AccountSnapshot) -> CGFloat {
-        Self.fixedHeight + (shouldOfferResetCountdown(for: account)
-            ? resetCountdownShelfHeight - resetCountdownShelfOverlap
-            : 0)
+        Self.fixedHeight
     }
 
     let account: AccountSnapshot
@@ -636,57 +628,23 @@ struct AccountCardView: View {
     let canRemove: Bool
     let onEditDisplayName: () -> Void
     let onRemove: () -> Void
-    let onStartResetCountdown: () async throws -> Void
     @State private var isHovered = false
-    @State private var isStartingResetCountdown = false
-    @State private var didStartResetCountdown = false
     private let contentInsets = EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16)
+
+    private var height: CGFloat {
+        Self.height(for: account)
+    }
 
     private var primaryWindow: UsageWindow {
         account.primaryUsageWindow
     }
 
-    private var showsResetCountdownShelf: Bool {
-        shouldOfferResetCountdown(for: account) && !self.didStartResetCountdown
-    }
-
-    private var cardHeight: CGFloat {
-        Self.fixedHeight + (self.showsResetCountdownShelf ? resetCountdownShelfVisibleHeight : 0)
-    }
-
     var body: some View {
-        VStack(spacing: -resetCountdownShelfOverlap) {
-            self.accountSurface
-                .zIndex(1)
-
-            if self.showsResetCountdownShelf {
-                ResetCountdownShelf(
-                    isStarting: self.isStartingResetCountdown,
-                    onStart: self.startResetCountdown,
-                    onShowInfo: {
-                        ResetCountdownDialogPresenter.showInfo()
-                    }
-                )
-                .padding(.horizontal, resetCountdownShelfHorizontalInset)
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-        .frame(height: self.cardHeight, alignment: .top)
-        .clipped()
-        .animation(.easeOut(duration: 0.16), value: self.showsResetCountdownShelf)
-    }
-
-    private var accountSurface: some View {
         self.cardContent
-            .frame(
-                maxWidth: .infinity,
-                minHeight: Self.fixedHeight,
-                maxHeight: Self.fixedHeight,
-                alignment: .topLeading
-            )
-            .overlay {
-                self.cardMenuTrigger
-            }
+            .frame(maxWidth: .infinity, minHeight: self.height, maxHeight: self.height, alignment: .topLeading)
+        .overlay {
+            self.cardMenuTrigger
+        }
     }
 
     private var cardContent: some View {
@@ -784,155 +742,4 @@ struct AccountCardView: View {
         )
     }
 
-    private func startResetCountdown() {
-        guard !self.isStartingResetCountdown else {
-            return
-        }
-
-        self.isStartingResetCountdown = true
-        Task {
-            do {
-                try await self.onStartResetCountdown()
-                self.didStartResetCountdown = true
-            } catch {
-                ResetCountdownDialogPresenter.showError(error.localizedDescription)
-            }
-
-            self.isStartingResetCountdown = false
-        }
-    }
-}
-
-@MainActor
-private enum ResetCountdownDialogPresenter {
-    static func showInfo() {
-        self.show(
-            title: "Start reset countdown",
-            message: "After a usage reset, Codex won't start the next reset countdown until you consume some usage. This button sends a tiny Luna Light request (using almost no tokens) and starts the timer for you.",
-            style: .informational
-        )
-    }
-
-    static func showError(_ message: String) {
-        self.show(
-            title: "Couldn't Start Reset Countdown",
-            message: message,
-            style: .warning
-        )
-    }
-
-    private static func show(
-        title: String,
-        message: String,
-        style: NSAlert.Style
-    ) {
-        let menuWindow = NSApp.keyWindow
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = message
-        alert.alertStyle = style
-        alert.icon = AppResources.image(
-            named: "logo",
-            withExtension: "png",
-            subdirectory: "assets"
-        )
-        alert.addButton(withTitle: "OK")
-        alert.window.level = .floating
-        alert.window.center()
-
-        NSApp.activate(ignoringOtherApps: true)
-        alert.runModal()
-        menuWindow?.makeKeyAndOrderFront(nil)
-    }
-}
-
-private struct ResetCountdownShelf: View {
-    let isStarting: Bool
-    let onStart: () -> Void
-    let onShowInfo: () -> Void
-    @State private var isStartHovered = false
-    @State private var isInfoHovered = false
-
-    var body: some View {
-        HStack(spacing: resetCountdownShelfControlGap) {
-            Button(action: self.onStart) {
-                HStack(spacing: 10) {
-                    Group {
-                        if self.isStarting {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Image(systemName: "timer")
-                        }
-                    }
-                    .frame(width: 16, height: 16)
-
-                    Text("Start reset countdown")
-                        .font(.callout.weight(.medium))
-                        .lineLimit(1)
-                }
-                .foregroundStyle(self.isStarting ? .secondary : .primary)
-                .padding(.horizontal, 8)
-                .frame(
-                    minHeight: resetCountdownShelfControlHeight,
-                    maxHeight: resetCountdownShelfControlHeight
-                )
-                .fixedSize(horizontal: true, vertical: false)
-                .contentShape(Rectangle())
-                .background(
-                    Color.white.opacity(self.isStartHovered ? 0.055 : 0),
-                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
-                )
-            }
-            .buttonStyle(ResetCountdownShelfButtonStyle())
-            .disabled(self.isStarting)
-            .onHover { self.isStartHovered = $0 }
-            .accessibilityHint("Uses a small amount of Codex usage")
-
-            Spacer(minLength: resetCountdownShelfControlGap)
-
-            Button(action: self.onShowInfo) {
-                Image(systemName: "questionmark.circle")
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(
-                        width: resetCountdownShelfControlHeight,
-                        height: resetCountdownShelfControlHeight
-                    )
-                    .contentShape(Rectangle())
-                    .background(
-                        Color.white.opacity(self.isInfoHovered ? 0.055 : 0),
-                        in: RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    )
-            }
-            .buttonStyle(ResetCountdownShelfButtonStyle())
-            .onHover { self.isInfoHovered = $0 }
-            .accessibilityLabel("About starting the reset countdown")
-        }
-        .padding(.top, resetCountdownShelfOverlap)
-        .padding(.horizontal, resetCountdownShelfControlGap)
-        .frame(height: resetCountdownShelfHeight)
-        .background {
-            UnevenRoundedRectangle(
-                topLeadingRadius: 0,
-                bottomLeadingRadius: 12,
-                bottomTrailingRadius: 12,
-                topTrailingRadius: 0,
-                style: .continuous
-            )
-            .fill(Color.white.opacity(0.045))
-        }
-        .mask(alignment: .bottom) {
-            Rectangle()
-                .frame(height: resetCountdownShelfVisibleHeight)
-        }
-    }
-}
-
-private struct ResetCountdownShelfButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
-    }
 }
