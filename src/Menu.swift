@@ -406,7 +406,6 @@ struct SlimDashboardPanelView: View {
     let onAddAccountRequested: () -> Void
     let onEditDisplayNameRequested: (AccountSnapshot) -> Void
     let onRemoveRequested: (AccountSnapshot) -> Void
-    let onStartResetCountdown: (AccountSnapshot) async throws -> Void
     @State private var hoveredControlRowID: String?
 
     private var needsScrollView: Bool {
@@ -477,9 +476,6 @@ struct SlimDashboardPanelView: View {
                     },
                     onRemove: {
                         self.promptForRemoval(row.account)
-                    },
-                    onStartResetCountdown: {
-                        try await self.onStartResetCountdown(row.account)
                     }
                 )
             }
@@ -606,9 +602,6 @@ struct PulseMenuView: View {
                 },
                 onRemoveRequested: { account in
                     self.promptForRemoval(account)
-                },
-                onStartResetCountdown: { account in
-                    try await self.coordinator.startResetCountdown(for: account)
                 }
             )
 

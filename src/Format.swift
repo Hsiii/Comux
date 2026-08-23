@@ -396,11 +396,6 @@ func isFreshResetWindow(_ window: UsageWindow, now: Date = Date()) -> Bool {
     return resetDate <= now
 }
 
-func shouldOfferResetCountdown(for account: AccountSnapshot, now: Date = Date()) -> Bool {
-    account.isCurrentSystemAccount == true
-        && isFreshResetWindow(account.primaryUsageWindow, now: now)
-}
-
 func isUsageWindowLocked(_ window: UsageWindow) -> Bool {
     window.available && remainingPercentage(for: window) == 0 && !hasJustReset(window)
 }
