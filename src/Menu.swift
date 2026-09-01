@@ -636,7 +636,7 @@ struct PulseMenuView: View {
         .background(.clear)
         .onAppear {
             Task {
-                await self.coordinator.syncNow()
+                await self.coordinator.syncIfMenuCacheIsStale()
             }
         }
         .animation(.easeOut(duration: 0.14), value: self.activeDialog?.id)
