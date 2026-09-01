@@ -667,7 +667,7 @@ struct PulseMenuView: View {
         Task {
             let didLogin = await self.codexLoginStore.addAccount()
             if didLogin {
-                await self.coordinator.syncNow()
+                await self.coordinator.syncNow(requestKind: .stateChange)
             }
         }
     }
