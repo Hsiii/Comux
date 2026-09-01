@@ -17,6 +17,20 @@ enum RefreshFreshnessPolicy {
     }
 }
 
+enum RefreshRequestKind {
+    case passive
+    case stateChange
+}
+
+enum RefreshCoalescingPolicy {
+    static func shouldQueueFollowUp(
+        isSyncing: Bool,
+        requestKind: RefreshRequestKind
+    ) -> Bool {
+        isSyncing && requestKind == .stateChange
+    }
+}
+
 @MainActor
 final class PulseCoordinator: ObservableObject {
     @Published var cache = CachePayload(
@@ -82,9 +96,14 @@ final class PulseCoordinator: ObservableObject {
         }
     }
 
-    func syncNow() async {
+    func syncNow(requestKind: RefreshRequestKind = .passive) async {
         if self.isSyncing {
-            self.needsSyncAfterCurrent = true
+            if RefreshCoalescingPolicy.shouldQueueFollowUp(
+                isSyncing: true,
+                requestKind: requestKind
+            ) {
+                self.needsSyncAfterCurrent = true
+            }
             return
         }
 
@@ -798,7 +817,7 @@ final class PulseCoordinator: ObservableObject {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1))
             self.hasPendingAuthRetry = false
-            await self.syncNow()
+            await self.syncNow(requestKind: .stateChange)
         }
     }
 
@@ -830,7 +849,7 @@ final class PulseCoordinator: ObservableObject {
 
             self.lastObservedAuthSignature = currentSignature
             Task { @MainActor in
-                await self.syncNow()
+                await self.syncNow(requestKind: .stateChange)
             }
         }
 
