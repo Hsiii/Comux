@@ -117,7 +117,7 @@ struct CodexResetCredits: Codable, Equatable, Sendable {
     let updatedAt: String
 }
 
-struct AccountSnapshot: Codable, Identifiable {
+struct AccountSnapshot: Codable, Identifiable, Sendable {
     let accountId: String
     let label: String
     let email: String
@@ -327,7 +327,7 @@ struct CachePayload: Codable {
     let accounts: [AccountSnapshot]
 }
 
-struct AccountConfig: Codable, Identifiable {
+struct AccountConfig: Codable, Identifiable, Sendable {
     let id: String
     let label: String
     let email: String
@@ -351,7 +351,7 @@ struct PulseConfig: Codable {
     )
 }
 
-struct SystemAuthIdentity {
+struct SystemAuthIdentity: Sendable {
     let accessToken: String
     let accountId: String?
     let email: String?
@@ -374,7 +374,7 @@ struct WorkspaceIdentity: Decodable {
     let items: [WorkspaceItem]
 }
 
-struct WorkspaceItem: Decodable {
+struct WorkspaceItem: Decodable, Sendable {
     let id: String
     let name: String?
 }

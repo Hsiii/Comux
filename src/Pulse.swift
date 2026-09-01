@@ -40,6 +40,10 @@ enum RefreshPublicationPolicy {
     }
 }
 
+enum RefreshConcurrencyPolicy {
+    static let maximumConcurrentFetches = 3
+}
+
 @MainActor
 final class PulseCoordinator: ObservableObject {
     @Published var cache = CachePayload(
@@ -156,14 +160,13 @@ final class PulseCoordinator: ObservableObject {
             }
         }
 
-        for account in config.accounts {
-            do {
-                let snapshot = try await self.buildCookieSnapshot(for: account)
-                incomingSnapshots.append(snapshot)
-            } catch {
-                continue
-            }
+        let configuredSnapshots = try? await BoundedConcurrency.map(
+            config.accounts,
+            limit: RefreshConcurrencyPolicy.maximumConcurrentFetches
+        ) { [self] account in
+            try? await self.buildCookieSnapshot(for: account)
         }
+        incomingSnapshots.append(contentsOf: configuredSnapshots?.compactMap { $0 } ?? [])
 
         if RefreshPublicationPolicy.shouldPublish(
             snapshotCount: incomingSnapshots.count,
@@ -246,25 +249,18 @@ final class PulseCoordinator: ObservableObject {
         )
         let currentRateLimits = await preferredCurrentRateLimits
 
-        var snapshots: [AccountSnapshot] = []
+        var indexedSnapshots: [(Int, AccountSnapshot)] = []
+        var remoteWorkspaceItems: [(Int, WorkspaceItem)] = []
 
-        for workspaceItem in workspaceItems {
+        for (index, workspaceItem) in workspaceItems.enumerated() {
             let workspaceAccountID = self.trimmedWorkspaceAccountID(workspaceItem.id)
-            let rawUsage: [String: Any]
-
-            if self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID {
-                rawUsage = currentUsage
-            } else {
-                rawUsage = try await self.fetchUsagePayload(
-                    accessToken: identity.accessToken,
-                    cookieHeader: nil,
-                    usageEndpoint: "https://chatgpt.com/backend-api/wham/usage",
-                    accountHeader: workspaceAccountID
-                )
+            guard self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID else {
+                remoteWorkspaceItems.append((index, workspaceItem))
+                continue
             }
 
             let responseWorkspaceAccountID = self.normalizeWorkspaceAccountID(
-                rawUsage["account_id"] as? String
+                currentUsage["account_id"] as? String
             )
 
             if let workspaceAccountID,
@@ -272,38 +268,48 @@ final class PulseCoordinator: ObservableObject {
                responseWorkspaceAccountID != self.normalizeWorkspaceAccountID(workspaceAccountID) {
                 continue
             }
-            let isCurrentWorkspace = self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID
-            let preferredRateLimits = isCurrentWorkspace ? currentRateLimits : nil
-            let resetCredits = isCurrentWorkspace
-                ? currentRateLimits.resetCredits
-                : (try? await self.fetchRateLimitResetCredits(
-                    accessToken: identity.accessToken,
-                    cookieHeader: nil,
-                    usageEndpoint: nil,
-                    accountHeader: workspaceAccountID
-                ))
 
-            snapshots.append(
-                try self.normalizeUsage(
-                    rawUsage,
-                    accountID: workspaceItem.id,
-                    label: identity.name ?? rawUsage["email"] as? String ?? identity.email ?? "Current system account",
-                    email: rawUsage["email"] as? String ?? identity.email ?? "Unknown account",
-                    workspaceID: workspaceItem.id,
-                    workspaceLabel: self.resolveWorkspaceName(
-                        rawUsage,
-                        workspaceItem: workspaceItem,
-                        identity: identity
-                    ),
-                    plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
-                    source: "live system auth",
-                    systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
-                    isCurrentSystemAccount: isCurrentWorkspace,
-                    resetCredits: resetCredits,
-                    preferredUsageWindows: preferredRateLimits?.usageWindows
+            let snapshot = try self.normalizeUsage(
+                currentUsage,
+                accountID: workspaceItem.id,
+                label: identity.name ?? currentUsage["email"] as? String ?? identity.email ?? "Current system account",
+                email: currentUsage["email"] as? String ?? identity.email ?? "Unknown account",
+                workspaceID: workspaceItem.id,
+                workspaceLabel: self.resolveWorkspaceName(
+                    currentUsage,
+                    workspaceItem: workspaceItem,
+                    identity: identity
+                ),
+                plan: self.displayPlan(currentUsage["plan_type"] as? String ?? identity.planType),
+                source: "live system auth",
+                systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
+                isCurrentSystemAccount: true,
+                resetCredits: currentRateLimits.resetCredits,
+                preferredUsageWindows: currentRateLimits.usageWindows
+            )
+            indexedSnapshots.append((index, snapshot))
+        }
+
+        let remoteSnapshots = try await BoundedConcurrency.map(
+            remoteWorkspaceItems,
+            limit: RefreshConcurrencyPolicy.maximumConcurrentFetches
+        ) { [self] indexedWorkspace in
+            let (index, workspaceItem) = indexedWorkspace
+            return (
+                index,
+                try await self.buildRemoteWorkspaceSnapshot(
+                    workspaceItem,
+                    identity: identity
                 )
             )
         }
+        indexedSnapshots.append(contentsOf: remoteSnapshots.compactMap { index, snapshot in
+            snapshot.map { (index, $0) }
+        })
+
+        var snapshots = indexedSnapshots
+            .sorted { $0.0 < $1.0 }
+            .map(\.1)
 
         if snapshots.allSatisfy({ $0.isCurrentSystemAccount != true }) {
             snapshots.append(
@@ -317,6 +323,53 @@ final class PulseCoordinator: ObservableObject {
         }
 
         return SystemSnapshotRefresh(snapshots: snapshots)
+    }
+
+    private func buildRemoteWorkspaceSnapshot(
+        _ workspaceItem: WorkspaceItem,
+        identity: SystemAuthIdentity
+    ) async throws -> AccountSnapshot? {
+        let workspaceAccountID = self.trimmedWorkspaceAccountID(workspaceItem.id)
+        let rawUsage = try await self.fetchUsagePayload(
+            accessToken: identity.accessToken,
+            cookieHeader: nil,
+            usageEndpoint: "https://chatgpt.com/backend-api/wham/usage",
+            accountHeader: workspaceAccountID
+        )
+        let responseWorkspaceAccountID = self.normalizeWorkspaceAccountID(
+            rawUsage["account_id"] as? String
+        )
+
+        if let workspaceAccountID,
+           responseWorkspaceAccountID != nil,
+           responseWorkspaceAccountID != self.normalizeWorkspaceAccountID(workspaceAccountID) {
+            return nil
+        }
+
+        let resetCredits = try? await self.fetchRateLimitResetCredits(
+            accessToken: identity.accessToken,
+            cookieHeader: nil,
+            usageEndpoint: nil,
+            accountHeader: workspaceAccountID
+        )
+
+        return try self.normalizeUsage(
+            rawUsage,
+            accountID: workspaceItem.id,
+            label: identity.name ?? rawUsage["email"] as? String ?? identity.email ?? "Current system account",
+            email: rawUsage["email"] as? String ?? identity.email ?? "Unknown account",
+            workspaceID: workspaceItem.id,
+            workspaceLabel: self.resolveWorkspaceName(
+                rawUsage,
+                workspaceItem: workspaceItem,
+                identity: identity
+            ),
+            plan: self.displayPlan(rawUsage["plan_type"] as? String ?? identity.planType),
+            source: "live system auth",
+            systemAuthProfileID: normalizedSystemAuthProfileID(identity.subject ?? identity.email),
+            isCurrentSystemAccount: false,
+            resetCredits: resetCredits
+        )
     }
 
     private func readCurrentRateLimits(

@@ -16,6 +16,7 @@ let package = Package(
                 "Model.swift",
                 "AccountIdentity.swift",
                 "AccountSnapshotMerger.swift",
+                "BoundedConcurrency.swift",
                 "UsagePayloadParser.swift",
                 "CodexAppServerRateLimits.swift",
                 "CodexAuthenticatedSession.swift",
