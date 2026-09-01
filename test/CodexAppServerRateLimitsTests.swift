@@ -2,6 +2,63 @@ import XCTest
 @testable import Comux
 
 final class CodexAppServerRateLimitsTests: XCTestCase {
+    func testCompleteAPIUsageDoesNotNeedAppServer() {
+        let apiWindow = self.makeWindow(id: "api", usedPercentage: 20)
+
+        XCTAssertFalse(
+            CodexRateLimitsSourceResolver.needsAppServer(
+                apiUsageWindows: [apiWindow]
+            )
+        )
+    }
+
+    func testMissingAPIUsageFallsBackToAppServer() {
+        let fallbackWindow = self.makeWindow(id: "fallback", usedPercentage: 40)
+        let fallback = CodexRateLimitsSnapshot(
+            usageWindows: [fallbackWindow],
+            resetCredits: nil
+        )
+
+        XCTAssertTrue(
+            CodexRateLimitsSourceResolver.needsAppServer(apiUsageWindows: [])
+        )
+        XCTAssertEqual(
+            CodexRateLimitsSourceResolver.resolve(
+                apiUsageWindows: [],
+                apiResetCredits: nil,
+                appServer: fallback
+            ).usageWindows,
+            [fallbackWindow]
+        )
+    }
+
+    func testAPIUsageAndResetCreditsRemainPreferred() {
+        let apiWindow = self.makeWindow(id: "api", usedPercentage: 20)
+        let fallbackWindow = self.makeWindow(id: "fallback", usedPercentage: 40)
+        let apiCredits = CodexResetCredits(
+            availableCount: 2,
+            nextExpiresAt: nil,
+            updatedAt: "2026-09-01T00:00:00Z"
+        )
+        let fallback = CodexRateLimitsSnapshot(
+            usageWindows: [fallbackWindow],
+            resetCredits: CodexResetCredits(
+                availableCount: 1,
+                nextExpiresAt: nil,
+                updatedAt: "2026-09-01T00:00:00Z"
+            )
+        )
+
+        let resolved = CodexRateLimitsSourceResolver.resolve(
+            apiUsageWindows: [apiWindow],
+            apiResetCredits: apiCredits,
+            appServer: fallback
+        )
+
+        XCTAssertEqual(resolved.usageWindows, [apiWindow])
+        XCTAssertEqual(resolved.resetCredits, apiCredits)
+    }
+
     func testParsesWeeklyOnlySnapshotAndAuthoritativeResetCount() throws {
         let now = ISO8601DateFormatter().date(from: "2026-07-01T00:00:00Z")!
         let snapshot = CodexAppServerRateLimitsParser.parse(
@@ -109,5 +166,22 @@ final class CodexAppServerRateLimitsTests: XCTestCase {
 
         capture.stop()
         XCTAssertNil(outputHandle.readabilityHandler)
+    }
+
+    private func makeWindow(
+        id: String,
+        usedPercentage: Double
+    ) -> UsageWindow {
+        UsageWindow(
+            id: id,
+            scope: .longHorizon,
+            durationSeconds: 7 * 24 * 60 * 60,
+            available: true,
+            label: "Weekly window",
+            usedMinutes: Int(usedPercentage),
+            limitMinutes: 100,
+            usedPercentage: usedPercentage,
+            resetsAt: "2026-09-08T00:00:00Z"
+        )
     }
 }

@@ -1,8 +1,27 @@
 import Foundation
 
-struct CodexRateLimitsSnapshot: Equatable {
+struct CodexRateLimitsSnapshot: Equatable, Sendable {
     let usageWindows: [UsageWindow]
     let resetCredits: CodexResetCredits?
+}
+
+enum CodexRateLimitsSourceResolver {
+    static func needsAppServer(apiUsageWindows: [UsageWindow]) -> Bool {
+        apiUsageWindows.isEmpty
+    }
+
+    static func resolve(
+        apiUsageWindows: [UsageWindow],
+        apiResetCredits: CodexResetCredits?,
+        appServer: CodexRateLimitsSnapshot?
+    ) -> CodexRateLimitsSnapshot {
+        CodexRateLimitsSnapshot(
+            usageWindows: apiUsageWindows.isEmpty
+                ? appServer?.usageWindows ?? []
+                : apiUsageWindows,
+            resetCredits: apiResetCredits ?? appServer?.resetCredits
+        )
+    }
 }
 
 enum CodexAppServerRateLimitsParser {

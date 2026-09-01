@@ -164,7 +164,6 @@ final class PulseCoordinator: ObservableObject {
             return SystemSnapshotRefresh(snapshots: [])
         }
 
-        async let preferredCurrentRateLimits = CodexAppServerRateLimitsReader.read()
         let currentUsage = try await self.fetchUsagePayload(
             accessToken: identity.accessToken,
             cookieHeader: nil,
@@ -173,6 +172,16 @@ final class PulseCoordinator: ObservableObject {
         )
         let currentWorkspaceAccountID = self.normalizeWorkspaceAccountID(
             (currentUsage["account_id"] as? String) ?? identity.accountId
+        )
+        let apiUsageWindows = UsageWindowPayloadParser.parse(
+            rateLimit: currentUsage["rate_limit"] as? [String: Any]
+        )
+        let currentWorkspaceAccountHeader = (currentUsage["account_id"] as? String)
+            ?? identity.accountId
+        async let preferredCurrentRateLimits = self.readCurrentRateLimits(
+            apiUsageWindows: apiUsageWindows,
+            accessToken: identity.accessToken,
+            accountHeader: currentWorkspaceAccountHeader
         )
         let workspaceItems = try await self.fetchWorkspaceItems(
             accessToken: identity.accessToken,
@@ -209,18 +218,14 @@ final class PulseCoordinator: ObservableObject {
             }
             let isCurrentWorkspace = self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID
             let preferredRateLimits = isCurrentWorkspace ? currentRateLimits : nil
-            let resetCredits: CodexResetCredits?
-
-            if let preferredRateLimits {
-                resetCredits = preferredRateLimits.resetCredits
-            } else {
-                resetCredits = try? await self.fetchRateLimitResetCredits(
+            let resetCredits = isCurrentWorkspace
+                ? currentRateLimits.resetCredits
+                : (try? await self.fetchRateLimitResetCredits(
                     accessToken: identity.accessToken,
                     cookieHeader: nil,
                     usageEndpoint: nil,
                     accountHeader: workspaceAccountID
-                )
-            }
+                ))
 
             snapshots.append(
                 try self.normalizeUsage(
@@ -245,29 +250,41 @@ final class PulseCoordinator: ObservableObject {
         }
 
         if snapshots.allSatisfy({ $0.isCurrentSystemAccount != true }) {
-            let resetCredits: CodexResetCredits?
-
-            if let currentRateLimits {
-                resetCredits = currentRateLimits.resetCredits
-            } else {
-                resetCredits = try? await self.fetchRateLimitResetCredits(
-                    accessToken: identity.accessToken,
-                    cookieHeader: nil,
-                    usageEndpoint: nil,
-                    accountHeader: (currentUsage["account_id"] as? String) ?? identity.accountId
-                )
-            }
             snapshots.append(
                 try self.buildCurrentSystemSnapshot(
                     currentUsage,
                     identity: identity,
-                    resetCredits: resetCredits,
-                    preferredUsageWindows: currentRateLimits?.usageWindows
+                    resetCredits: currentRateLimits.resetCredits,
+                    preferredUsageWindows: currentRateLimits.usageWindows
                 )
             )
         }
 
         return SystemSnapshotRefresh(snapshots: snapshots)
+    }
+
+    private func readCurrentRateLimits(
+        apiUsageWindows: [UsageWindow],
+        accessToken: String,
+        accountHeader: String?
+    ) async -> CodexRateLimitsSnapshot {
+        let apiResetCredits = try? await self.fetchRateLimitResetCredits(
+            accessToken: accessToken,
+            cookieHeader: nil,
+            usageEndpoint: nil,
+            accountHeader: accountHeader
+        )
+        let appServer = CodexRateLimitsSourceResolver.needsAppServer(
+            apiUsageWindows: apiUsageWindows
+        )
+            ? await CodexAppServerRateLimitsReader.read()
+            : nil
+
+        return CodexRateLimitsSourceResolver.resolve(
+            apiUsageWindows: apiUsageWindows,
+            apiResetCredits: apiResetCredits,
+            appServer: appServer
+        )
     }
 
     private func buildCurrentSystemSnapshot(
