@@ -1,12 +1,12 @@
 import Foundation
 
-enum UsageWindowScope: String, Codable {
+enum UsageWindowScope: String, Codable, Sendable {
     case shortHorizon
     case longHorizon
     case unknown
 }
 
-struct UsageWindow: Codable, Equatable, Identifiable {
+struct UsageWindow: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let scope: UsageWindowScope
     let durationSeconds: Int?
@@ -111,7 +111,7 @@ struct UsageWindow: Codable, Equatable, Identifiable {
     }
 }
 
-struct CodexResetCredits: Codable, Equatable {
+struct CodexResetCredits: Codable, Equatable, Sendable {
     let availableCount: Int
     let nextExpiresAt: String?
     let updatedAt: String
