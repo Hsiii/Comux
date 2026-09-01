@@ -1,6 +1,22 @@
 import Foundation
 import SwiftUI
 
+enum RefreshFreshnessPolicy {
+    static let menuMaximumAge: TimeInterval = 30
+
+    static func shouldRefresh(
+        lastCompletedAt: Date?,
+        now: Date,
+        maximumAge: TimeInterval
+    ) -> Bool {
+        guard let lastCompletedAt else {
+            return true
+        }
+
+        return now.timeIntervalSince(lastCompletedAt) >= maximumAge
+    }
+}
+
 @MainActor
 final class PulseCoordinator: ObservableObject {
     @Published var cache = CachePayload(
@@ -22,6 +38,7 @@ final class PulseCoordinator: ObservableObject {
     nonisolated(unsafe) private var authMonitorSource: DispatchSourceFileSystemObject?
     nonisolated(unsafe) private var authMonitorFileDescriptor: CInt = -1
     private var lastObservedAuthSignature: AuthFileSignature?
+    private var lastSyncCompletedAt: Date?
     private var hasPendingAuthRetry = false
     private var needsSyncAfterCurrent = false
     private var removalSuppressions = AccountRemovalSuppressions()
@@ -75,8 +92,21 @@ final class PulseCoordinator: ObservableObject {
             self.needsSyncAfterCurrent = false
             self.isSyncing = true
             await self.performSyncNow()
+            self.lastSyncCompletedAt = Date()
             self.isSyncing = false
         } while self.needsSyncAfterCurrent
+    }
+
+    func syncIfMenuCacheIsStale(now: Date = Date()) async {
+        guard RefreshFreshnessPolicy.shouldRefresh(
+            lastCompletedAt: self.lastSyncCompletedAt,
+            now: now,
+            maximumAge: RefreshFreshnessPolicy.menuMaximumAge
+        ) else {
+            return
+        }
+
+        await self.syncNow()
     }
 
     private func performSyncNow() async {

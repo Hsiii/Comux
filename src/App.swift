@@ -34,9 +34,6 @@ struct ComuxApp: App {
                 coordinator: self.coordinator,
                 autoUpdateStore: self.autoUpdateStore
             )
-                .task {
-                    await self.coordinator.syncNow()
-                }
         } label: {
             HStack(spacing: 4) {
                 Image(nsImage: Self.codexMenuBarIcon)
