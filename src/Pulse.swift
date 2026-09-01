@@ -31,6 +31,15 @@ enum RefreshCoalescingPolicy {
     }
 }
 
+enum RefreshPublicationPolicy {
+    static func shouldPublish(
+        snapshotCount: Int,
+        systemStateWasRefreshed: Bool
+    ) -> Bool {
+        systemStateWasRefreshed || snapshotCount > 0
+    }
+}
+
 @MainActor
 final class PulseCoordinator: ObservableObject {
     @Published var cache = CachePayload(
@@ -147,26 +156,24 @@ final class PulseCoordinator: ObservableObject {
             }
         }
 
-        if didRefreshSystemState || !incomingSnapshots.isEmpty {
+        for account in config.accounts {
+            do {
+                let snapshot = try await self.buildCookieSnapshot(for: account)
+                incomingSnapshots.append(snapshot)
+            } catch {
+                continue
+            }
+        }
+
+        if RefreshPublicationPolicy.shouldPublish(
+            snapshotCount: incomingSnapshots.count,
+            systemStateWasRefreshed: didRefreshSystemState
+        ) {
             self.publishMergedSnapshots(
                 incomingSnapshots,
                 config: config,
                 systemStateWasRefreshed: didRefreshSystemState
             )
-        }
-
-        for account in config.accounts {
-            do {
-                let snapshot = try await self.buildCookieSnapshot(for: account)
-                incomingSnapshots.append(snapshot)
-                self.publishMergedSnapshots(
-                    incomingSnapshots,
-                    config: config,
-                    systemStateWasRefreshed: didRefreshSystemState
-                )
-            } catch {
-                continue
-            }
         }
 
         self.lastObservedAuthSignature = self.currentAuthFileSignature()
