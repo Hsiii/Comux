@@ -1,13 +1,28 @@
 import SwiftUI
 
-func parseISO8601Date(_ value: String) -> Date? {
-    let fractionalFormatter = ISO8601DateFormatter()
-    fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    if let date = fractionalFormatter.date(from: value) {
-        return date
+private final class ISO8601DateParser: @unchecked Sendable {
+    static let shared = ISO8601DateParser()
+
+    // ISO8601DateFormatter is mutable and not Sendable. Keep both instances
+    // private and serialize their use, including calls from background tasks.
+    private let lock = NSLock()
+    private let fractionalFormatter: ISO8601DateFormatter
+    private let standardFormatter = ISO8601DateFormatter()
+
+    private init() {
+        fractionalFormatter = ISO8601DateFormatter()
+        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     }
 
-    return ISO8601DateFormatter().date(from: value)
+    func parse(_ value: String) -> Date? {
+        lock.lock()
+        defer { lock.unlock() }
+        return fractionalFormatter.date(from: value) ?? standardFormatter.date(from: value)
+    }
+}
+
+func parseISO8601Date(_ value: String) -> Date? {
+    ISO8601DateParser.shared.parse(value)
 }
 
 func formatCountdown(_ value: String, now: Date = Date()) -> String {
