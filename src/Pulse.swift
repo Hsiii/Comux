@@ -142,7 +142,7 @@ final class PulseCoordinator: ObservableObject {
     }
 
     private func performSyncNow() async {
-        let config = self.loadConfig()
+        let config = self.accountConfigStore.load()
         var incomingSnapshots: [AccountSnapshot] = []
         var didRefreshSystemState = false
 
@@ -187,7 +187,7 @@ final class PulseCoordinator: ObservableObject {
     }
 
     func removeAccount(_ account: AccountSnapshot) throws {
-        let existingConfig = self.loadConfig()
+        let existingConfig = self.accountConfigStore.load()
         let removal = AccountRemovalResolver.remove(
             account,
             from: self.cache,
@@ -211,10 +211,6 @@ final class PulseCoordinator: ObservableObject {
         self.removableAccountIDs = AccountRemovalResolver.removableAccountIDs(
             for: removal.cache.accounts
         )
-    }
-
-    private func loadConfig() -> PulseConfig {
-        self.accountConfigStore.load()
     }
 
     private func buildSystemSnapshotRefresh() async throws -> SystemSnapshotRefresh {
@@ -253,7 +249,7 @@ final class PulseCoordinator: ObservableObject {
         var remoteWorkspaceItems: [(Int, WorkspaceItem)] = []
 
         for (index, workspaceItem) in workspaceItems.enumerated() {
-            let workspaceAccountID = self.trimmedWorkspaceAccountID(workspaceItem.id)
+            let workspaceAccountID = AccountIdentity.trimmedWorkspaceID(workspaceItem.id)
             guard self.normalizeWorkspaceAccountID(workspaceAccountID) == currentWorkspaceAccountID else {
                 remoteWorkspaceItems.append((index, workspaceItem))
                 continue
@@ -329,7 +325,7 @@ final class PulseCoordinator: ObservableObject {
         _ workspaceItem: WorkspaceItem,
         identity: SystemAuthIdentity
     ) async throws -> AccountSnapshot? {
-        let workspaceAccountID = self.trimmedWorkspaceAccountID(workspaceItem.id)
+        let workspaceAccountID = AccountIdentity.trimmedWorkspaceID(workspaceItem.id)
         let rawUsage = try await self.fetchUsagePayload(
             accessToken: identity.accessToken,
             cookieHeader: nil,
@@ -826,10 +822,6 @@ final class PulseCoordinator: ObservableObject {
         }
 
         return trimmed.lowercased()
-    }
-
-    private func trimmedWorkspaceAccountID(_ value: String?) -> String? {
-        AccountIdentity.trimmedWorkspaceID(value)
     }
 
     private func buildRemovableAccountIDs(for accounts: [AccountSnapshot]) -> Set<String> {

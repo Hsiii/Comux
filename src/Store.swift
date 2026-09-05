@@ -181,10 +181,6 @@ final class DisplayNameStore: ObservableObject {
         self.displayNames = displayNames ?? self.durableStore.loadDisplayNames()
     }
 
-    private func loadDisplayNames() -> [String: String] {
-        self.durableStore.loadDisplayNames()
-    }
-
     private func persistDisplayNames(_ displayNames: [String: String]) {
         self.displayNames = displayNames
         try? self.durableStore.saveDisplayNames(
@@ -216,7 +212,7 @@ final class DisplayNameStore: ObservableObject {
     }
 
     func saveDisplayNames(_ values: [String: String], for accounts: [AccountSnapshot]) {
-        var nextDisplayNames = self.loadDisplayNames()
+        var nextDisplayNames = self.durableStore.loadDisplayNames()
 
         for account in accounts {
             let email = self.normalizedEmail(for: account)
@@ -237,7 +233,7 @@ final class DisplayNameStore: ObservableObject {
     }
 
     func removeDisplayName(for account: AccountSnapshot) {
-        var nextDisplayNames = self.loadDisplayNames()
+        var nextDisplayNames = self.durableStore.loadDisplayNames()
         let email = self.normalizedEmail(for: account)
 
         if !email.isEmpty {
