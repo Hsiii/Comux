@@ -44,6 +44,20 @@ enum RefreshConcurrencyPolicy {
     static let maximumConcurrentFetches = 3
 }
 
+struct RefreshRetryBackoff {
+    private(set) var nextDelay: TimeInterval = 1
+
+    mutating func takeDelay() -> TimeInterval {
+        let delay = nextDelay
+        nextDelay = min(nextDelay * 2, 120)
+        return delay
+    }
+
+    mutating func reset() {
+        nextDelay = 1
+    }
+}
+
 @MainActor
 final class PulseCoordinator: ObservableObject {
     @Published var cache = CachePayload(
@@ -66,7 +80,8 @@ final class PulseCoordinator: ObservableObject {
     nonisolated(unsafe) private var authMonitorFileDescriptor: CInt = -1
     private var lastObservedAuthSignature: AuthFileSignature?
     private var lastSyncCompletedAt: Date?
-    private var hasPendingAuthRetry = false
+    private var authRetryTask: Task<Void, Never>?
+    private var authRetryBackoff = RefreshRetryBackoff()
     private var needsSyncAfterCurrent = false
     private var removalSuppressions = AccountRemovalSuppressions()
 
@@ -102,6 +117,7 @@ final class PulseCoordinator: ObservableObject {
 
     deinit {
         self.syncTimer?.invalidate()
+        self.authRetryTask?.cancel()
         self.authMonitorSource?.cancel()
         if self.authMonitorFileDescriptor >= 0 {
             close(self.authMonitorFileDescriptor)
@@ -148,10 +164,12 @@ final class PulseCoordinator: ObservableObject {
 
         do {
             let systemRefresh = try await self.buildSystemSnapshotRefresh()
+            self.resetAuthRefreshRetry()
             incomingSnapshots.append(contentsOf: systemRefresh.snapshots)
             didRefreshSystemState = true
         } catch {
             if SystemRefreshErrorPolicy.shouldTreatAsRefreshedSystemState(error) {
+                self.resetAuthRefreshRetry()
                 didRefreshSystemState = true
                 self.removalSuppressions.clearSystemAuthSuppressions()
             } else {
@@ -859,16 +877,28 @@ final class PulseCoordinator: ObservableObject {
         )
     }
 
+    private func resetAuthRefreshRetry() {
+        self.authRetryTask?.cancel()
+        self.authRetryTask = nil
+        self.authRetryBackoff.reset()
+    }
+
     private func scheduleAuthRefreshRetryIfNeeded() {
-        guard !self.hasPendingAuthRetry else {
+        guard self.authRetryTask == nil else {
             return
         }
 
-        self.hasPendingAuthRetry = true
-
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(1))
-            self.hasPendingAuthRetry = false
+        // Keep the first retry fast for session transitions, then back off
+        // during outages instead of refreshing every account once a second.
+        let delay = self.authRetryBackoff.takeDelay()
+        self.authRetryTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, let self else { return }
+            self.authRetryTask = nil
             await self.syncNow(requestKind: .stateChange)
         }
     }
@@ -900,6 +930,7 @@ final class PulseCoordinator: ObservableObject {
             }
 
             self.lastObservedAuthSignature = currentSignature
+            self.resetAuthRefreshRetry()
             Task { @MainActor in
                 await self.syncNow(requestKind: .stateChange)
             }
